@@ -32,6 +32,9 @@ class JsonUtils:
                 data = json.load(f)
                 print(f"JSON loaded from {file_path}")
                 return data
+        except FileNotFoundError as e:
+            print(f"Error loading JSON from {file_path}: {e}")
+            sys.exit(1)
         except json.JSONDecodeError as e:
             print(f"Error decoding JSON from {file_path}: {e}")
             sys.exit(1)
