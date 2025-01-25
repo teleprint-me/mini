@@ -4,19 +4,22 @@ Module: mini.data.filter
 Description: This module provides functions for filtering and processing datasets.
 
 Example Usage:
-python strip.py --input data/gpt4-instruct-dedupe-only-dataset.json \
-    --output data/gpt4-instruct-mini-dataset.json \
-    --pairs 10 --shuffle --seed 42
+python -m mini.data.filter -i data/gpt4-instruct-dedupe-only-dataset.json \
+    -o data/gpt4-instruct-mini-dataset.json \
+    -s data/gpt4-instruct-mini-schema.json \
+    --seed 42 --shuffle --pairs 10
 """
 
 import argparse
 import json
+import logging
 import random
 
 import jsonschema
 from tqdm import tqdm
 
 from mini.common.json import JsonUtils
+from mini.common.logger import get_logger
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process a dataset.")
@@ -59,29 +62,40 @@ if __name__ == "__main__":
         action="store_true",
         help="Shuffle the dataset before processing.",
     )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Enable verbose logging.",
+    )
     args = parser.parse_args()
 
-    json_utils = JsonUtils()
+    log_level = logging.DEBUG if args.verbose else logging.INFO
+    logger = get_logger(name=__name__, level=log_level)
+    logger.info("Starting data filtering process.")
 
-    # Load the dataset and process it as needed.
-    input_data = json_utils.load_json(args.input)
-    if args.pairs is not None:
-        input_data = input_data[: args.pairs]
-        if args.pairs > len(input_data):
-            print(
-                f"Warning: Requested {args.pairs} pairs, but only {len(input_data)} available."
-            )
-        print(f"Loaded {len(input_data)} items from {args.input}")
+    json_utils = JsonUtils()
 
     # Set the seed
     if args.seed is not None:
         random.seed(args.seed)
-        print(f"Set random seed to {args.seed}")
+        logger.debug(f"Set random seed to {args.seed}")
 
+    # Load the dataset and process it as needed.
+    input_data = json_utils.load_json(args.input)
+    logger.debug(f"Loaded {len(input_data)} items from {args.input}")
     # Shuffle the data to ensure randomness.
     if args.shuffle:
         random.shuffle(input_data)
-        print(f"Shuffled {len(input_data)} items")
+        logger.debug(f"Shuffled {len(input_data)} items")
+
+    if args.pairs is not None:
+        input_data = input_data[: args.pairs]
+        if args.pairs > len(input_data):
+            logger.warning(
+                f"Warning: Requested {args.pairs} pairs, but only {len(input_data)} available."
+            )
+        logger.debug(f"Using {len(input_data)} items from {args.input}")
 
     # Process each item in the dataset and save the output.
     output_data = []
@@ -94,7 +108,9 @@ if __name__ == "__main__":
         # Get the response from the item.
         response = item.get("response", "")
         if not response:
-            print(f"Warning: No response found for item {json.dumps(item, indent=4)}")
+            logger.warning(
+                f"Warning: No response found for item {json.dumps(item, indent=4)}"
+            )
             continue
         # Append the instruction and response to the output data.
         output_data.append({"instruction": instruction, "response": response})
@@ -113,12 +129,12 @@ if __name__ == "__main__":
     }
     # Validate the output data against the schema.
     jsonschema.validate(instance=output_data, schema=schema)
-    print("Output data validated against the schema")
+    logger.debug("Output data validated against the schema")
 
     # Save the schema data to a file.
     json_utils.save_json(args.schema_output, schema)
-    print(f"Schema processed and saved to {args.schema_output}")
+    logger.info(f"Schema processed and saved to {args.schema_output}")
 
     # Save the output data to a file.
     json_utils.save_json(args.output, output_data)
-    print(f"Dataset processed and saved to {args.output}")
+    logger.info(f"Dataset processed and saved to {args.output}")
