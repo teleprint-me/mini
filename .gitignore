@@ -2,12 +2,10 @@
 *.db
 
 # Paths
-/vendor
-/llama.cpp
-/local
+/papers
+/data
 /models
 /prompt
-/data
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
