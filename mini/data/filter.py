@@ -35,7 +35,8 @@ if __name__ == "__main__":
         help="Path to the output dataset file.",
     )
     parser.add_argument(
-        "--schema",
+        "-s",
+        "--schema-output",
         required=True,
         type=str,
         help="Path to the JSON schema for the dataset.",
@@ -47,7 +48,7 @@ if __name__ == "__main__":
         help="Number of pairs to keep in the output dataset.",
     )
     parser.add_argument(
-        "-s",
+        "-z",
         "--seed",
         type=int,
         help="Random seed for reproducibility.",
@@ -115,8 +116,8 @@ if __name__ == "__main__":
     print("Output data validated against the schema")
 
     # Save the schema data to a file.
-    json_utils.save_json(args.schema, schema)
-    print(f"Schema processed and saved to {args.schema}")
+    json_utils.save_json(args.schema_output, schema)
+    print(f"Schema processed and saved to {args.schema_output}")
 
     # Save the output data to a file.
     json_utils.save_json(args.output, output_data)
