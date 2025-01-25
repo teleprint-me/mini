@@ -1,2 +1,3 @@
-sentencepiece
 bpython
+jsonschema
+sentencepiece
