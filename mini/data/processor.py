@@ -16,10 +16,8 @@ from mini.data.chunker import MiniDataChunker
 
 # NOTE: Not sure if this is a good idea. This is pretty complicated.
 Label = int
-Class = str
-Prompt = str
 Tokens = List[int]
-Dataset = List[Dict[str, Union[Prompt, str]]]
+Dataset = List[Dict[str, Union[int, str]]]
 TokenizedDataset = List[Dict[str, Union[Tokens, Label]]]
 
 
