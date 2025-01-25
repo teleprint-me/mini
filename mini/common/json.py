@@ -65,7 +65,7 @@ class JsonUtils:
             with open(file_path, "w") as f:
                 json.dump(data, f, indent=2, default=default_serializer)
             print(f"JSON saved to {file_path}")
-        except json.JSONDecodeError as e:
+        except TypeError as e:
             print(f"Error decoding JSON from {file_path}: {e}")
             sys.exit(1)
 
