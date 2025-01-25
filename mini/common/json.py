@@ -7,7 +7,8 @@ Description: This module provides utility functions for working with JSON data.
 """
 
 import json
-from typing import Any, Dict, List, Union
+import sys
+from typing import Any
 
 import torch
 
@@ -26,13 +27,17 @@ class JsonUtils:
         Returns:
             Any: The loaded data.
         """
-        with open(file_path, "r") as f:
-            data = json.load(f)
-        print(f"JSON loaded from {file_path}")
-        return data
+        try:
+            with open(file_path, "r") as f:
+                data = json.load(f)
+                print(f"JSON loaded from {file_path}")
+                return data
+        except json.JSONDecodeError as e:
+            print(f"Error decoding JSON from {file_path}: {e}")
+            sys.exit(1)
 
     @staticmethod
-    def save_json(data: Union[List, Dict], file_path: str) -> None:
+    def save_json(file_path: str, data: Any) -> None:
         """
         Dump data to a JSON file with support for Torch types.
         Args:
@@ -53,12 +58,16 @@ class JsonUtils:
                 f"Object of type {type(obj).__name__} is not JSON serializable"
             )
 
-        with open(file_path, "w") as f:
-            json.dump(data, f, indent=2, default=default_serializer)
-        print(f"JSON saved to {file_path}")
+        try:
+            with open(file_path, "w") as f:
+                json.dump(data, f, indent=2, default=default_serializer)
+            print(f"JSON saved to {file_path}")
+        except json.JSONDecodeError as e:
+            print(f"Error decoding JSON from {file_path}: {e}")
+            sys.exit(1)
 
     @staticmethod
-    def parse_json(json_string: str) -> Dict[str, Any]:
+    def parse_json(json_string: str) -> Any:
         """
         Parse a JSON string into a dictionary.
         Args:
@@ -66,4 +75,8 @@ class JsonUtils:
         Returns:
             Dict[str, Any]: The JSON data as a dictionary.
         """
-        return json.loads(json_string)
+        try:
+            return json.loads(json_string)
+        except json.JSONDecodeError as e:
+            print(f"Error decoding JSON: {e}")
+            sys.exit(1)
