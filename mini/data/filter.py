@@ -48,12 +48,14 @@ if __name__ == "__main__":
         "-n",
         "--pairs",
         type=int,
-        help="Number of pairs to keep in the output dataset.",
+        default=None,
+        help="Number of pairs to process. If None, all pairs are processed.",
     )
     parser.add_argument(
         "-z",
         "--seed",
         type=int,
+        default=42,
         help="Random seed for reproducibility.",
     )
     parser.add_argument(
@@ -70,16 +72,17 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
+    # Set the logger
     log_level = logging.DEBUG if args.verbose else logging.INFO
     logger = get_logger(name=__name__, level=log_level)
     logger.info("Starting data filtering process.")
 
-    json_utils = JsonUtils()
-
     # Set the seed
-    if args.seed is not None:
-        random.seed(args.seed)
-        logger.debug(f"Set random seed to {args.seed}")
+    random.seed(args.seed)
+    logger.debug(f"Set random seed to {args.seed}")
+
+    # Initialize the JsonUtils object
+    json_utils = JsonUtils()
 
     # Load the dataset and process it as needed.
     input_data = json_utils.load_json(args.input)
