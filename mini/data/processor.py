@@ -3,77 +3,58 @@ Module: mini.data.processor
 Description: This module provides functions to load and process datasets for NLP models.
 """
 
-import json
 import logging
-from typing import Any, Dict, List, Union
+from typing import Dict, List, Union
 
 import torch
-from jsonschema import validate
 from sentencepiece import SentencePieceProcessor
 
+from mini.common.json import JsonUtils
 from mini.common.logger import get_logger
-from mini.data.chunker import MiniDataChunker
 
-# NOTE: Not sure if this is a good idea. This is pretty complicated.
-Label = int
-Tokens = List[int]
-Dataset = List[Dict[str, Union[int, str]]]
-TokenizedDataset = List[Dict[str, Union[Tokens, Label]]]
+# Dataset type annotations
+JsonInstruction = str
+JsonResponse = str
+JsonInstructionResponsePair = Dict[JsonInstruction, JsonResponse]
+JsonDataset = List[JsonInstructionResponsePair]
+# Encoding type annotations
+Encoding = int
+EncodedInstruction = List[int]
+EncodedResponse = List[int]
+EncodedInstructionResponsePair = Dict[EncodedInstruction, EncodedResponse]
+EncodedDataset = List[EncodedInstructionResponsePair]
+# Tensor type annotations
+TensorKey = str
+TensorValue = torch.Tensor
+TensorPair = Dict[TensorKey, TensorValue]
+TensorDataset = List[TensorPair]
 
 
+# Define the MiniDataProcessor class
 class MiniDataProcessor:
     def __init__(self, processor: SentencePieceProcessor, verbose: bool = False):
         self.processor = processor
-        self.chunker = MiniDataChunker(self.processor, verbose=verbose)
         log_level = logging.DEBUG if verbose else logging.INFO
         self.logger = get_logger(self.__class__.__name__, log_level)
 
-    def load(self, file_path: str, schema: Dict[str, Any]) -> Any:
-        with open(file_path, "r") as f:
-            try:
-                dataset = json.load(f)
-                validate(instance=dataset, schema=schema)
-                self.logger.info(f"Dataset loaded successfully: {file_path}")
-                return dataset
-            except (json.JSONDecodeError, ValueError) as e:
-                self.logger.error(f"Error loading dataset: {e}")
-                return []
-
-    def save(
-        self,
-        file_path: str,
-        dataset: List[Dict[str, Union[torch.Tensor, List]]],
-    ) -> None:
-        with open(file_path, "w") as f:
-
-            def default(obj):
-                if isinstance(obj, torch.Tensor):
-                    return obj.tolist()
-                return obj
-
-            json.dump(dataset, f, indent=2, default=default)
-        self.logger.info(f"Dataset saved to {file_path}")
-
     def tokenize(
         self,
-        dataset: Dataset,
+        dataset: JsonDataset,
         max_length: int = 256,
         add_bos: bool = True,
         add_eos: bool = True,
-    ) -> TokenizedDataset:
+    ) -> EncodedDataset:
         """
         Tokenize the dataset into instruction-response pairs, retaining separate fields for input and target tokens.
-
         Args:
-            dataset (Dataset): The dataset to tokenize. Assumes each entry has "instruction" and "response" fields.
+            dataset (JsonDataset): Dataset of instruction-response pairs. Each entry should have 'instruction' and 'response' keys.
             max_length (int): Maximum length for tokenized sequences.
             add_bos (bool): Add a beginning-of-sequence token.
             add_eos (bool): Add an end-of-sequence token.
-
         Returns:
-            TokenizedDataset: Tokenized dataset with input and target token fields.
+            EncodedDataset: Tokenized dataset with input and target token fields.
         """
-        tokenized_data = []
+        encoded_dataset = []
         pad_id = self.processor.pad_id()
 
         for entry in dataset:
@@ -100,35 +81,37 @@ class MiniDataProcessor:
                 0, max_length - len(target_tokens)
             )
 
-            tokenized_data.append(
+            encoded_dataset.append(
                 {
                     "input": input_tokens,
                     "target": target_tokens,
                 }
             )
 
-        return tokenized_data
+        return encoded_dataset
 
     def batch(
         self,
-        tokenized_data: List[Dict[str, Union[int, List[int]]]],
+        encoded_dataset: EncodedDataset,
         batch_size: int = 32,
-    ) -> List[Dict[str, torch.Tensor]]:
+        batch_dtype: torch.dtype = torch.long,
+    ) -> TensorDataset:
         """
         Create batches of tokenized data for model input.
-
         Args:
-            tokenized_data (List[Dict[str, Union[int, List[int]]]]): Tokenized dataset with "input" and "target" fields.
+            encoded_dataset (EncodedDataset): Encoded dataset with "input" and "target" fields.
             batch_size (int): Number of samples per batch.
-
+            batch_dtype (torch.dtype): Data type for the batch tensors. Default is torch.long.
+        Raises:
+            ValueError: If batch_size is less than or equal to 0.
         Returns:
-            List[Dict[str, torch.Tensor]]: Batches of tokenized data with tensors.
+            TensorDataset: Batches of tokenized data with torch tensors.
         """
         batches = []
-        for i in range(0, len(tokenized_data), batch_size):
-            batch = tokenized_data[i : i + batch_size]
+        for i in range(0, len(encoded_dataset), batch_size):
+            batch = encoded_dataset[i : i + batch_size]
             batch_dict = {
-                key: torch.tensor([item[key] for item in batch], dtype=torch.long)
+                key: torch.tensor([item[key] for item in batch], dtype=batch_dtype)
                 for key in batch[0].keys()
             }
             batches.append(batch_dict)
@@ -147,7 +130,7 @@ if __name__ == "__main__":
         help="Path to the tokenizer model file.",
     )
     parser.add_argument(
-        "--schema",
+        "--schema-path",
         type=str,
         required=True,
         help="Path to the schema file for the dataset.",
@@ -193,14 +176,28 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
+    # Load JSON schema if provided
+    json_utils = JsonUtils(verbose=args.verbose)
+    dataset = json_utils.load_json(args.input)
+
+    # Load schema from file if provided
+    schema = None
+    if args.schema_path:
+        schema = json_utils.load_json(args.schema_path)
+
+    # Validate JSON data if provided schema
+    json_utils.validate_json(dataset, schema=schema)
+
+    # Initialize SentencePieceProcessor and MiniDataProcessor
     processor = SentencePieceProcessor(args.model_path)
     mini_data_processor = MiniDataProcessor(processor=processor, verbose=args.verbose)
-    dataset = mini_data_processor.load(args.input, args.schema)
 
+    # Tokenize and batch the dataset
     tokenized_dataset = mini_data_processor.tokenize(
         dataset, args.max_length, add_bos=args.add_bos, add_eos=args.add_eos
     )
     batched_dataset = mini_data_processor.batch(tokenized_dataset, args.batch_size)
-    mini_data_processor.save(args.output, batched_dataset)
 
+    # Save the processed dataset to a file
+    json_utils.save_json(args.output, batched_dataset)
     print("Dataset processing completed successfully.")
