@@ -97,7 +97,7 @@ class JsonUtils:
         try:
             with open(file_path, "w") as f:
                 json.dump(data, f, indent=2, default=default_serializer)
-            self.logger.debug(f"JSON saved to {file_path}")
+            self.logger.debug(f"JSON saved to {file_path} with {len(data)} items.")
         except TypeError as e:
             self.logger.error(f"Error decoding JSON from {file_path}: {e}")
             sys.exit(1)
