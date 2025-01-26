@@ -97,24 +97,35 @@ class MiniDataProcessor:
         self,
         encoded_dataset: EncodedDataset,
         batch_size: int = 32,
-        batch_dtype: torch.dtype = torch.long,
+        dtype: torch.dtype = torch.long,
+        device: torch.device = None,
     ) -> TensorDataset:
         """
         Create batches of tokenized data for model input.
         Args:
             encoded_dataset (EncodedDataset): Encoded dataset with "input" and "target" fields.
             batch_size (int): Number of samples per batch.
-            batch_dtype (torch.dtype): Data type for the batch tensors. Default is torch.long.
+            device (torch.device): Device to place the tensors on. Default is None (CPU).
+            dtype (torch.dtype): Data type for the batch tensors. Default is torch.long.
         Raises:
             ValueError: If batch_size is less than or equal to 0.
         Returns:
             TensorDataset: Batches of tokenized data with torch tensors.
         """
+        if device is None:
+            device = (
+                torch.device("cuda")
+                if torch.cuda.is_available()
+                else torch.device("cpu")
+            )
+
         batches = []
         for i in range(0, len(encoded_dataset), batch_size):
             batch = encoded_dataset[i : i + batch_size]
             batch_dict = {
-                key: torch.tensor([item[key] for item in batch], dtype=batch_dtype)
+                key: torch.tensor(
+                    [item[key] for item in batch], dtype=dtype, device=device
+                )
                 for key in batch[0].keys()
             }
             batches.append(batch_dict)

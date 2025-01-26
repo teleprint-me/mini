@@ -27,6 +27,8 @@ class Embedding(nn.Module):
         hidden_dim: int = 128,
         dropout_rate: float = 0.1,
         n_layers: int = 1,
+        dtype: torch.dtype = torch.float32,
+        device: torch.device = None,
     ):
         """
         Initializes the embedding model.
@@ -43,8 +45,16 @@ class Embedding(nn.Module):
         self.hidden_dim = hidden_dim
         self.dropout_rate = dropout_rate
 
+        if device is None:
+            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
         # Learnable embedding layer over the Llama embeddings
-        self.embeddings = nn.Embedding(self.vocab_size, self.embedding_dim)
+        self.embeddings = nn.Embedding(
+            self.vocab_size,
+            self.embedding_dim,
+            device=device,
+            dtype=dtype,
+        )
 
         # Dynamically create hidden layers
         self.hidden_layers = nn.ModuleList(
@@ -53,8 +63,10 @@ class Embedding(nn.Module):
                     nn.Linear(
                         self.embedding_dim if i == 0 else self.hidden_dim,
                         self.hidden_dim,
+                        device=device,
+                        dtype=dtype,
                     ),
-                    nn.LayerNorm(self.hidden_dim),
+                    nn.LayerNorm(self.hidden_dim, device=device, dtype=dtype),
                     nn.ReLU(),
                     nn.Dropout(dropout_rate),
                 )
@@ -63,7 +75,9 @@ class Embedding(nn.Module):
         )
 
         # Final projection layer to map to the desired output embedding size
-        self.projection = nn.Linear(hidden_dim, self.embedding_dim)
+        self.projection = nn.Linear(
+            hidden_dim, self.embedding_dim, device=device, dtype=dtype
+        )
 
         # Initialize weights
         self._initialize_weights()
@@ -321,6 +335,16 @@ def parse_args():
     )
     parser.add_argument("--eval-output", help="Path to save evaluation results.")
     parser.add_argument(
+        "--dtype",
+        default="float32",
+        help="Data type for the model (e.g., float32, float16).",
+    )
+    parser.add_argument(
+        "--device",
+        default="cpu",
+        help="Device to use for training (e.g., cpu, cuda).",
+    )
+    parser.add_argument(
         "--max-length", type=int, default=256, help="Maximum sequence length."
     )
     parser.add_argument(
@@ -392,23 +416,43 @@ if __name__ == "__main__":
     # Validate JSON data if provided schema
     json_utils.validate_json(dataset, schema=schema)
 
-    # Initialize SentencePieceProcessor and MiniDataProcessor
+    # Set data type
+    dtype = {
+        "float32": torch.float32,
+        "float16": torch.float16,
+    }.get(args.dtype, torch.float32)
+
+    # Set device type
+    device = {
+        "cpu": torch.device("cpu"),
+        "cuda": (
+            torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+        ),
+    }.get(args.device, torch.device("cpu"))
+
+    # Initialize SentencePieceProcessor
     processor = SentencePieceProcessor(args.model_path)
+
+    # Initialize MiniDataProcessor
     mini_data_processor = MiniDataProcessor(
         processor=processor,
         verbose=args.verbose,
     )
 
-    # Tokenize and batch the dataset
+    # Tokenize the dataset
     encoded_dataset = mini_data_processor.tokenize(
         dataset=dataset,
         max_length=args.max_length,
         add_bos=args.add_bos,
         add_eos=args.add_eos,
     )
+
+    # Batch the dataset
     batched_dataset = mini_data_processor.batch(
         encoded_dataset=encoded_dataset,
         batch_size=args.batch_size,
+        dtype=dtype,
+        device=device,
     )
 
     # Initialize MiniEmbedding model
@@ -418,6 +462,8 @@ if __name__ == "__main__":
         hidden_dim=args.hidden_dim,
         dropout=args.dropout,
         n_layers=args.n_layers,
+        dtype=dtype,
+        device=device,
     )
 
     try:
