@@ -59,7 +59,7 @@ class MiniDataProcessor:
         """
         encoded_dataset = []
         pad_id = self.processor.pad_id()
-
+        pad_id = pad_id if pad_id > -1 else 0
         for entry in json_dataset:
             instruction = entry.get("instruction", "")
             response = entry.get("response", "")
