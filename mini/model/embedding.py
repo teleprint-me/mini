@@ -27,7 +27,6 @@ class Embedding(nn.Module):
         hidden_dim: int = 128,
         dropout_rate: float = 0.1,
         n_layers: int = 1,
-        dtype: torch.dtype = torch.float32,
         device: torch.device = None,
     ):
         """
@@ -53,7 +52,6 @@ class Embedding(nn.Module):
             num_embeddings=self.vocab_size,
             embedding_dim=self.embedding_dim,
             device=device,
-            dtype=dtype,
         )
 
         # Dynamically create hidden layers
@@ -64,9 +62,8 @@ class Embedding(nn.Module):
                         self.embedding_dim if i == 0 else self.hidden_dim,
                         self.hidden_dim,
                         device=device,
-                        dtype=dtype,
                     ),
-                    nn.LayerNorm(self.hidden_dim, device=device, dtype=dtype),
+                    nn.LayerNorm(self.hidden_dim, device=device),
                     nn.ReLU(),
                     nn.Dropout(dropout_rate),
                 )
@@ -75,9 +72,7 @@ class Embedding(nn.Module):
         )
 
         # Final projection layer to map to the desired output embedding size
-        self.projection = nn.Linear(
-            hidden_dim, self.embedding_dim, device=device, dtype=dtype
-        )
+        self.projection = nn.Linear(hidden_dim, self.embedding_dim, device=device)
 
         # Initialize weights
         self._initialize_weights()
@@ -115,7 +110,7 @@ class Embedding(nn.Module):
 
         # Pass through hidden layers
         hidden = embeddings
-        for layer in self.hidden_layers:
+        for i, layer in enumerate(self.hidden_layers[1:]):
             hidden = layer(hidden)
 
         # Project to output embedding space
@@ -203,12 +198,12 @@ def train_embedding_model(
             optimizer.zero_grad()
 
             # Extract instruction and response tokens
-            instruction_tokens = batch["instruction"]  # Shape: (batch_size, seq_len)
-            response_tokens = batch["response"]  # Shape: (batch_size, seq_len)
+            input_tensors = batch["input"]  # Shape: (batch_size, seq_len)
+            target_tensors = batch["target"]  # Shape: (batch_size, seq_len)
 
             # Generate embeddings
-            instruction_embeddings = embedding_model(instruction_tokens)
-            response_embeddings = embedding_model(response_tokens)
+            instruction_embeddings = embedding_model(input_tensors)
+            response_embeddings = embedding_model(target_tensors)
 
             # Normalize embeddings
             instruction_embeddings = F.normalize(instruction_embeddings, p=2, dim=1)
@@ -262,17 +257,17 @@ def eval_embedding_model(
     all_results = []
 
     with torch.no_grad():
-        for batch_idx, batch in enumerate(batched_dataset):
+        for i, batch in enumerate(batched_dataset):
             # Extract instruction and response tensors
-            instruction_tokens = batch["instruction"]  # Shape: (batch_size, seq_len)
-            response_tokens = batch["response"]  # Shape: (batch_size, seq_len)
+            input_tensors = batch["input"]  # Shape: (batch_size, seq_len)
+            target_tensors = batch["target"]  # Shape: (batch_size, seq_len)
 
             # Generate embeddings
             instruction_embeddings = embedding_model(
-                instruction_tokens
+                input_tensors
             )  # Shape: (batch_size, embedding_dim)
             response_embeddings = embedding_model(
-                response_tokens
+                target_tensors
             )  # Shape: (batch_size, embedding_dim)
 
             # Compute similarity scores
@@ -281,7 +276,7 @@ def eval_embedding_model(
             )
 
             # Process results for each query in the batch
-            for i in range(instruction_embeddings.size(0)):
+            for j in range(instruction_embeddings.size(0)):
                 # Get the current query and response similarities
                 query_similarities = similarities[i]  # Shape: (batch_size,)
 
@@ -290,17 +285,17 @@ def eval_embedding_model(
 
                 # Collect top-k matches
                 query_results = {
-                    "instruction": json_dataset[
-                        batch_idx * len(batch["instruction"]) + i
-                    ]["instruction"],
+                    "instruction": json_dataset[i * len(batch["input"]) + j][
+                        "instruction"
+                    ],
                     "top_matches": [
                         {
-                            "response": json_dataset[
-                                batch_idx * len(batch["response"]) + idx
-                            ]["response"],
-                            "similarity": query_similarities[idx].item(),
+                            "response": json_dataset[i * len(batch["target"]) + k][
+                                "response"
+                            ],
+                            "similarity": query_similarities[k].item(),
                         }
-                        for rank, idx in enumerate(sorted_indices[:top_k])
+                        for rank, k in enumerate(sorted_indices[:top_k])
                     ],
                 }
                 all_results.append(query_results)
@@ -348,23 +343,18 @@ def parse_args():
         help="Add EOS token to input (default: True).",
     )
     parser.add_argument(
-        "--dtype",
-        default="float32",
-        help="Data type for the model (e.g., float32, float16).",
-    )
-    parser.add_argument(
         "--device",
         default="cpu",
         help="Device to use for training (e.g., cpu, cuda).",
     )
     parser.add_argument(
-        "--max-length", type=int, default=256, help="Maximum sequence length."
+        "--max-length", type=int, default=255, help="Maximum sequence length."
     )
     parser.add_argument(
         "--batch-size", type=int, default=8, help="Batch size for training."
     )
     parser.add_argument(
-        "--embedding-dim", type=int, default=128, help="Embedding dimension."
+        "--embedding-dim", type=int, default=256, help="Embedding dimension."
     )
     parser.add_argument(
         "--hidden-dim", type=int, default=128, help="Hidden layer dimension."
@@ -383,7 +373,7 @@ def parse_args():
         "--epochs", type=int, default=10, help="Number of training epochs."
     )
     parser.add_argument(
-        "--learning-rate", type=float, default=1e-4, help="Learning rate for optimizer."
+        "--learning-rate", type=float, default=1e-6, help="Learning rate for optimizer."
     )
     parser.add_argument(
         "--betas",
@@ -393,7 +383,7 @@ def parse_args():
         help="Betas for Adam optimizer.",
     )
     parser.add_argument(
-        "--eps", type=float, default=1e-8, help="Epsilon for Adam optimizer."
+        "--eps", type=float, default=1e-6, help="Epsilon for Adam optimizer."
     )
     parser.add_argument(
         "--weight-decay", type=float, default=0, help="Weight decay for optimizer."
@@ -419,7 +409,7 @@ if __name__ == "__main__":
 
     # Load JSON schema if provided
     json_utils = JsonUtils(verbose=args.verbose)
-    dataset = json_utils.load_json(args.input)
+    json_dataset = json_utils.load_json(args.input)
 
     # Load schema from file if provided
     schema = None
@@ -427,13 +417,7 @@ if __name__ == "__main__":
         schema = json_utils.load_json(args.schema_path)
 
     # Validate JSON data if provided schema
-    json_utils.validate_json(dataset, schema=schema)
-
-    # Set data type
-    dtype = {
-        "float32": torch.float32,
-        "float16": torch.float16,
-    }.get(args.dtype, torch.float32)
+    json_utils.validate_json(json_dataset, schema=schema)
 
     # Set device type
     device = {
@@ -454,7 +438,7 @@ if __name__ == "__main__":
 
     # Tokenize the dataset
     encoded_dataset = mini_data_processor.tokenize(
-        dataset=dataset,
+        json_dataset=json_dataset,
         max_length=args.max_length,
         add_bos=args.add_bos,
         add_eos=args.add_eos,
@@ -464,7 +448,6 @@ if __name__ == "__main__":
     batched_dataset = mini_data_processor.batch(
         encoded_dataset=encoded_dataset,
         batch_size=args.batch_size,
-        dtype=dtype,
         device=device,
     )
 
@@ -475,7 +458,6 @@ if __name__ == "__main__":
         hidden_dim=args.hidden_dim,
         dropout_rate=args.dropout,
         n_layers=args.n_layers,
-        dtype=dtype,
         device=device,
     )
 
@@ -500,7 +482,7 @@ if __name__ == "__main__":
         eval_embedding_model(
             embedding_model=embedding_model,
             batched_dataset=batched_dataset,
-            json_dataset=dataset,
+            json_dataset=json_dataset,
             top_k=args.top_k,
             eval_path=args.eval_output,
             verbose=args.verbose,
