@@ -109,7 +109,7 @@ class Embedding(nn.Module):
             embeddings = embeddings * padding_mask.unsqueeze(-1)
 
         # Pass through hidden layers
-        hidden = embeddings
+        hidden = self.hidden_layers[0](embeddings)
         for i, layer in enumerate(self.hidden_layers[1:]):
             hidden = layer(hidden)
 
@@ -177,7 +177,7 @@ def train_embedding_model(
     # Load the model if a checkpoint exists
     if os.path.exists(model_path):
         print(f"Loading model from {model_path}")
-        embedding_model.load_state_dict(torch.load(model_path))
+        embedding_model.load_state_dict(torch.load(model_path, weights_only=True))
 
     optimizer = torch.optim.Adam(
         embedding_model.parameters(),
@@ -348,7 +348,7 @@ def parse_args():
         help="Device to use for training (e.g., cpu, cuda).",
     )
     parser.add_argument(
-        "--max-length", type=int, default=255, help="Maximum sequence length."
+        "--max-length", type=int, default=256, help="Maximum sequence length."
     )
     parser.add_argument(
         "--batch-size", type=int, default=8, help="Batch size for training."
@@ -450,6 +450,15 @@ if __name__ == "__main__":
         batch_size=args.batch_size,
         device=device,
     )
+    for batch in batched_dataset:
+        if (batch["input"] < 0).any() or (
+            batch["input"] >= processor.vocab_size()
+        ).any():
+            print(f"Invalid indices in input: {batch['input']}")
+        if (batch["target"] < 0).any() or (
+            batch["target"] >= processor.vocab_size()
+        ).any():
+            print(f"Invalid indices in target: {batch['target']}")
 
     # Initialize MiniEmbedding model
     embedding_model = Embedding(
