@@ -50,8 +50,8 @@ class Embedding(nn.Module):
 
         # Learnable embedding layer over the Llama embeddings
         self.embeddings = nn.Embedding(
-            self.vocab_size,
-            self.embedding_dim,
+            num_embeddings=self.vocab_size,
+            embedding_dim=self.embedding_dim,
             device=device,
             dtype=dtype,
         )
@@ -70,7 +70,7 @@ class Embedding(nn.Module):
                     nn.ReLU(),
                     nn.Dropout(dropout_rate),
                 )
-                for i in range(self.num_hidden_layers)
+                for i in range(n_layers)
             ]
         )
 
@@ -328,12 +328,25 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description="Train and evaluate the embedding model."
     )
-    parser.add_argument("--input", required=True, help="Path to input JSON dataset.")
-    parser.add_argument("--schema-path", help="Path to JSON schema file.")
     parser.add_argument(
         "--model-path", required=True, help="Path to save or load the model."
     )
+    parser.add_argument(
+        "--processor-path", required=True, help="Path to SentencePiece processor."
+    )
+    parser.add_argument("--input", required=True, help="Path to input JSON dataset.")
+    parser.add_argument("--schema-path", help="Path to JSON schema file.")
     parser.add_argument("--eval-output", help="Path to save evaluation results.")
+    parser.add_argument(
+        "--add-bos",
+        action="store_false",
+        help="Add BOS token to input (default: True).",
+    )
+    parser.add_argument(
+        "--add-eos",
+        action="store_false",
+        help="Add EOS token to input (default: True).",
+    )
     parser.add_argument(
         "--dtype",
         default="float32",
@@ -360,7 +373,7 @@ def parse_args():
     parser.add_argument(
         "--n-layers",
         type=int,
-        default=2,
+        default=1,
         help="Number of layers in the embedding model.",
     )
     parser.add_argument(
@@ -431,7 +444,7 @@ if __name__ == "__main__":
     }.get(args.device, torch.device("cpu"))
 
     # Initialize SentencePieceProcessor
-    processor = SentencePieceProcessor(args.model_path)
+    processor = SentencePieceProcessor(args.processor_path)
 
     # Initialize MiniDataProcessor
     mini_data_processor = MiniDataProcessor(
@@ -457,10 +470,10 @@ if __name__ == "__main__":
 
     # Initialize MiniEmbedding model
     embedding_model = Embedding(
-        vocab_size=processor.vocab_size,
+        vocab_size=processor.vocab_size(),
         embedding_dim=args.embedding_dim,
         hidden_dim=args.hidden_dim,
-        dropout=args.dropout,
+        dropout_rate=args.dropout,
         n_layers=args.n_layers,
         dtype=dtype,
         device=device,
