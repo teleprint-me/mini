@@ -1,10 +1,13 @@
 """
+Copyright © 2023 Austin Berrio
+
 Module: mini.data.processor
+
 Description: This module provides functions to load and process datasets for NLP models.
 """
 
 import logging
-from typing import Dict, List, Union
+from typing import Dict, List
 
 import torch
 from sentencepiece import SentencePieceProcessor

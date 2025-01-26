@@ -1,4 +1,6 @@
 """
+Copyright © 2023 Austin Berrio
+
 Module: mini.data.filter
 
 Description: This module provides functions for filtering and processing datasets.
