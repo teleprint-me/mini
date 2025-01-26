@@ -42,7 +42,7 @@ class MiniDataProcessor:
 
     def tokenize(
         self,
-        dataset: JsonDataset,
+        json_dataset: JsonDataset,
         max_length: int = 256,
         add_bos: bool = True,
         add_eos: bool = True,
@@ -50,7 +50,7 @@ class MiniDataProcessor:
         """
         Tokenize the dataset into instruction-response pairs, retaining separate fields for input and target tokens.
         Args:
-            dataset (JsonDataset): Dataset of instruction-response pairs. Each entry should have 'instruction' and 'response' keys.
+            json_dataset (JsonDataset): Dataset of instruction-response pairs. Each entry should have 'instruction' and 'response' keys.
             max_length (int): Maximum length for tokenized sequences.
             add_bos (bool): Add a beginning-of-sequence token.
             add_eos (bool): Add an end-of-sequence token.
@@ -60,7 +60,7 @@ class MiniDataProcessor:
         encoded_dataset = []
         pad_id = self.processor.pad_id()
 
-        for entry in dataset:
+        for entry in json_dataset:
             instruction = entry.get("instruction", "")
             response = entry.get("response", "")
 
@@ -96,8 +96,8 @@ class MiniDataProcessor:
     def batch(
         self,
         encoded_dataset: EncodedDataset,
-        batch_size: int = 32,
-        dtype: torch.dtype = torch.long,
+        batch_size: int = 8,
+        dtype: torch.dtype = torch.int,
         device: torch.device = None,
     ) -> TensorDataset:
         """
@@ -106,7 +106,7 @@ class MiniDataProcessor:
             encoded_dataset (EncodedDataset): Encoded dataset with "input" and "target" fields.
             batch_size (int): Number of samples per batch.
             device (torch.device): Device to place the tensors on. Default is None (CPU).
-            dtype (torch.dtype): Data type for the batch tensors. Default is torch.long.
+            dtype (torch.dtype): Data type for the batch tensors. Default is torch.int.
         Raises:
             ValueError: If batch_size is less than or equal to 0.
         Returns:
@@ -164,7 +164,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--batch-size",
         type=int,
-        default=32,
+        default=8,
         help="Batch size for tokenization.",
     )
     parser.add_argument(
@@ -192,7 +192,7 @@ if __name__ == "__main__":
 
     # Load JSON schema if provided
     json_utils = JsonUtils(verbose=args.verbose)
-    dataset = json_utils.load_json(args.input)
+    json_dataset = json_utils.load_json(args.input)
 
     # Load schema from file if provided
     schema = None
@@ -200,18 +200,18 @@ if __name__ == "__main__":
         schema = json_utils.load_json(args.schema_path)
 
     # Validate JSON data if provided schema
-    json_utils.validate_json(dataset, schema=schema)
+    json_utils.validate_json(json_dataset, schema=schema)
 
     # Initialize SentencePieceProcessor and MiniDataProcessor
     processor = SentencePieceProcessor(args.model_path)
     mini_data_processor = MiniDataProcessor(processor=processor, verbose=args.verbose)
 
-    # Tokenize and batch the dataset
+    # Tokenize and batch the json_dataset
     tokenized_dataset = mini_data_processor.tokenize(
-        dataset, args.max_length, add_bos=args.add_bos, add_eos=args.add_eos
+        json_dataset, args.max_length, add_bos=args.add_bos, add_eos=args.add_eos
     )
     batched_dataset = mini_data_processor.batch(tokenized_dataset, args.batch_size)
 
-    # Save the processed dataset to a file
+    # Save the batched dataset to a file
     json_utils.save_json(args.output, batched_dataset)
     print("Dataset processing completed successfully.")
