@@ -26,15 +26,19 @@ class JsonUtils:
         log_level = logging.DEBUG if verbose else logging.INFO
         self.logger = get_logger(name=self.__class__.__name__, level=log_level)
 
-    def validate_json(self, data: Any, schema: dict) -> bool:
+    def validate_json(self, data: Any, schema: dict = None) -> bool:
         """
         Validate JSON data against a schema.
         Args:
             data (Any): The JSON data to validate.
-            schema (dict): The JSON schema to validate against.
+            schema (dict, optional): The JSON schema to validate against. If None, validation is skipped.
         Returns:
-            bool: True if the data is valid, False otherwise.
+            bool: True if the data is valid or if no schema is provided, False otherwise.
         """
+        if not schema:
+            self.logger.warning("No schema provided. Skipping validation.")
+            return True
+
         try:
             jsonschema.validate(instance=data, schema=schema)
             self.logger.debug("JSON data is valid.")
@@ -43,7 +47,7 @@ class JsonUtils:
             self.logger.error(f"JSON data is invalid: {e}")
             sys.exit(1)
         except jsonschema.exceptions.SchemaError as e:
-            self.logger.error(f"Schema error: {e}")
+            self.logger.critical(f"Schema error: {e}")
             sys.exit(1)
 
     def load_json(self, file_path: str) -> Any:
@@ -76,13 +80,16 @@ class JsonUtils:
             None:
         """
 
-        def default_serializer(obj):
-            if isinstance(obj, (torch.float32, torch.float64)):
-                return float(obj)  # Convert Torch floats to Python floats
-            if isinstance(obj, (torch.int32, torch.int64)):
-                return int(obj)  # Convert Torch integers to Python integers
+        def default_serializer(obj: object) -> Any:
+            # Handle Python float and integer types directly
+            if isinstance(obj, (float, int)):
+                return obj
+            # Handle PyTorch dtypes explicitly if needed
             if isinstance(obj, torch.Tensor):
-                return obj.tolist()  # Convert Torch arrays to lists
+                return obj.tolist()
+            # Handle PyTorch dtypes explicitly if needed
+            if isinstance(obj, torch.dtype):
+                return str(obj)
             raise TypeError(
                 f"Object of type {type(obj).__name__} is not JSON serializable"
             )
