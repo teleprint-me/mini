@@ -5,7 +5,7 @@ Description: Simple training loop for text-to-text generation.
 """
 
 import argparse
-import random
+import os
 
 import torch
 import torch.nn as nn
@@ -14,29 +14,42 @@ from sentencepiece import SentencePieceProcessor
 from torch.utils.data import DataLoader, Dataset
 
 from mini.common.json import JsonUtils
+from mini.data.processor import EncodedDataset, MiniDataProcessor
 from mini.model.transformer import MiniTransformer
 
 
-class DummyDataset(Dataset):
-    """Generates random tokenized sequences for training."""
+class JsonDataset(Dataset):
+    """Custom dataset class for loading tokenized instruction-response pairs."""
 
-    def __init__(self, vocab_size, seq_len, num_samples):
-        self.vocab_size = vocab_size
-        self.seq_len = seq_len
-        self.num_samples = num_samples
+    def __init__(self, encoded_dataset: EncodedDataset):
+        self.encoded_dataset = encoded_dataset
 
     def __len__(self):
-        return self.num_samples
+        return len(self.encoded_dataset)
 
-    def __getitem__(self, idx):
-        x = torch.randint(0, self.vocab_size, (self.seq_len,), dtype=torch.long)
-        y = torch.cat(
-            [x[1:], torch.tensor([0])]
-        )  # Shifted left by 1 (next token prediction)
-        return x, y
+    def __getitem__(self, idx: int):
+        item = self.encoded_dataset[idx]
+        return torch.tensor(item["input"], dtype=torch.long), torch.tensor(
+            item["target"], dtype=torch.long
+        )
 
 
-def train(model, dataloader, optimizer, criterion, device, num_epochs=3):
+# NOTE: The optimizers base class is _Loss, but this is easier since it inherits from Module anyways.
+def train(
+    model_path: str,
+    model: nn.Module,
+    dataloader: DataLoader,
+    optimizer: optim.Optimizer,
+    criterion: nn.Module,
+    device: torch.device,
+    num_epochs: int = 10,
+    save_every: int = 10,
+):
+    # Load the model if a checkpoint exists
+    if os.path.exists(model_path):
+        print(f"Loading model from {model_path}")
+        model.load_state_dict(torch.load(model_path, weights_only=True))
+
     model.train()
 
     for epoch in range(num_epochs):
@@ -63,12 +76,25 @@ def train(model, dataloader, optimizer, criterion, device, num_epochs=3):
         print(
             f"Epoch {epoch+1} Completed | Avg Loss: {total_loss / len(dataloader):.4f}"
         )
+        # Save the model periodically
+        if (epoch + 1) % save_every == 0:
+            torch.save(model.state_dict(), model_path)
+            print(f"Model saved to {model_path}")
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Train MiniTransformer")
     parser.add_argument(
         "--processor", required=True, help="Path to SentencePiece tokenizer model."
+    )
+    parser.add_argument(
+        "--schema", required=True, help="Path to the schema file for the dataset."
+    )
+    parser.add_argument(
+        "--dataset", required=True, help="Path to the filtered dataset JSON."
+    )
+    parser.add_argument(
+        "--model", required=True, help="Path to save or load the model."
     )
     parser.add_argument(
         "--embed-dim", type=int, default=256, help="Embedding dimension size."
@@ -89,19 +115,37 @@ def parse_args():
         "--batch-size", type=int, default=32, help="Batch size for training."
     )
     parser.add_argument(
-        "--num-epochs", type=int, default=3, help="Number of training epochs."
+        "--num-epochs", type=int, default=10, help="Number of training epochs."
+    )
+    parser.add_argument(
+        "--save-every", type=int, default=10, help="Save model every N epochs."
     )
     parser.add_argument("--lr", type=float, default=3e-4, help="Learning rate.")
-    parser.add_argument(
-        "--num-samples", type=int, default=10000, help="Number of training samples."
-    )
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     args = parse_args()
 
+    # Load tokenizer
     processor = SentencePieceProcessor(model_file=args.processor)
+
+    # Load dataset
+    json_utils = JsonUtils()  # Handles errors, validation, etc. internally
+    raw_dataset = json_utils.load_json(args.dataset)
+    # Validate dataset
+    raw_schema = json_utils.load_json(args.schema)
+    json_utils.validate_json(raw_dataset, raw_schema)
+
+    # Process dataset
+    data_processor = MiniDataProcessor(processor)
+    encoded_dataset = data_processor.tokenize(raw_dataset, max_length=args.n_seq_len)
+
+    # Wrap into a PyTorch Dataset & DataLoader
+    dataset = JsonDataset(encoded_dataset)
+    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
+
+    # Model & Training Setup
     vocab_size = processor.vocab_size()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -114,12 +158,18 @@ if __name__ == "__main__":
         max_seq_len=args.n_seq_len,
     ).to(device)
 
-    dataset = DummyDataset(vocab_size, args.n_seq_len, args.num_samples)
-    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
-
     optimizer = optim.AdamW(model.parameters(), lr=args.lr)
     criterion = nn.CrossEntropyLoss()
 
     print("Starting training...")
-    train(model, dataloader, optimizer, criterion, device, num_epochs=args.num_epochs)
+    train(
+        model_path=args.model,
+        model=model,
+        dataloader=dataloader,
+        optimizer=optimizer,
+        criterion=criterion,
+        device=device,
+        num_epochs=args.num_epochs,
+        save_every=args.save_every,
+    )
     print("Training complete!")
