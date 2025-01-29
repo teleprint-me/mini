@@ -73,21 +73,27 @@ class MiniTransformer(nn.Module):
         return self.head(x)  # Output logits
 
 
-def parse_args() -> ArgumentParser:
-    parser = ArgumentParser()
+def parse_args() -> Namespace:
+    parser = ArgumentParser(description="Train MiniTransformer")
     parser.add_argument(
-        "--processor", required=True, help="Path to sentencepiece tokenizer model."
+        "--processor", required=True, help="Path to SentencePiece tokenizer model."
     )
-    parser.add_argument("--model", required=True, help="Path to trained model.")
+    parser.add_argument("--model", required=False, help="Path to trained model.")
     parser.add_argument(
-        "--embed-dim", default=256, help="Size of embeddings dimensions."
+        "--embed-dim", type=int, default=256, help="Embedding dimension size."
     )
-    parser.add_argument("--n-heads", default=8, help="Number of heads.")
     parser.add_argument(
-        "--ff-dim", default=512, help="Size of feed-forward dimensions."
+        "--n-heads", type=int, default=8, help="Number of attention heads."
     )
-    parser.add_argument("--n-layers", default=4, help="Number of layers.")
-    parser.add_argument("--n-seq-len", default=128, help="Max sequence length.")
+    parser.add_argument(
+        "--ff-dim", type=int, default=512, help="Feed-forward network dimension."
+    )
+    parser.add_argument(
+        "--n-layers", type=int, default=4, help="Number of transformer layers."
+    )
+    parser.add_argument(
+        "--n-seq-len", type=int, default=128, help="Maximum sequence length."
+    )
     return parser.parse_args()
 
 
@@ -95,9 +101,10 @@ def parse_args() -> ArgumentParser:
 if __name__ == "__main__":
     args = parse_args()
 
-    processor = SentencePieceProcessor(args.processor)
-    vocab_size = processor.vocab_size()  # The vocab size for this model is 32000
+    processor = SentencePieceProcessor(model_file=args.processor)
+    vocab_size = processor.vocab_size()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
     model = MiniTransformer(
         vocab_size=vocab_size,
         embed_dim=args.embed_dim,
@@ -107,8 +114,6 @@ if __name__ == "__main__":
         max_seq_len=args.n_seq_len,
     ).to(device)
 
-    x = torch.randint(0, vocab_size, (2, args.n_seq_len)).to(
-        device
-    )  # Simulated batch of tokenized input
-    logits = model(x)  # (Batch, Seq Len, Vocab Size)
-    print(logits.shape)  # Expected output: (2, 128, 32000)
+    x = torch.randint(0, vocab_size, (2, args.n_seq_len), device=device)
+    logits = model(x)
+    print(logits.shape)  # Expected output: (2, 128, vocab_size)
