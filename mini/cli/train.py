@@ -40,6 +40,7 @@ def train(
     model: nn.Module,
     dataloader: DataLoader,
     optimizer: optim.Optimizer,
+    scheduler: optim.LRScheduler,
     criterion: nn.Module,
     device: torch.device,
     num_epochs: int = 10,
@@ -64,15 +65,17 @@ def train(
                 logits.view(-1, logits.size(-1)), y.view(-1)
             )  # Flatten for loss calc
             loss.backward()
+            nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
 
             total_loss += loss.item()
 
             if batch_idx % 10 == 0:
                 print(
-                    f"Epoch {epoch+1} | Batch {batch_idx}/{len(dataloader)} | Loss: {loss.item():.4f}"
+                    f"[Epoch {epoch+1}/{num_epochs}] Batch {batch_idx}/{len(dataloader)} - Loss: {loss.item():.4f}"
                 )
 
+        scheduler.step()
         print(
             f"Epoch {epoch+1} Completed | Avg Loss: {total_loss / len(dataloader):.4f}"
         )
@@ -159,6 +162,7 @@ if __name__ == "__main__":
     ).to(device)
 
     optimizer = optim.AdamW(model.parameters(), lr=args.lr)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.9)
     criterion = nn.CrossEntropyLoss()
 
     print("Starting training...")
