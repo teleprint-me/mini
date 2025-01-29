@@ -1,4 +1,5 @@
 """
+Copyright © 2023 Austin Berrio
 Module: mini.model.transformer
 Description: A simple transformer model for quick and easy training.
 """

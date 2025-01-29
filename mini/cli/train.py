@@ -1,4 +1,5 @@
 """
+Copyright © 2023 Austin Berrio
 Script: mini.cli.train
 Description: Simple training loop for text-to-text generation.
 """
