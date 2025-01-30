@@ -60,7 +60,11 @@ python -m mini.data.filter -i data/gpt4-instruct-dedupe-only-dataset.json \
 4. Train the model:
 
 ```sh
-# TODO: Add instructions for running the model
+python -m mini.cli.train --processor models/tokenizer.model \
+    --schema data/gpt4-instruct-mini-schema.json \
+    --dataset data/gpt4-instruct-mini-dataset.json \
+    --model models/mini-transformer.pth \
+    --num-epochs 10
 ```
 
 5. Evaluate the model:
