@@ -118,6 +118,12 @@ def parse_args():
     parser.add_argument(
         "--save-every", type=int, default=10, help="Save model every N epochs."
     )
+    parser.add_argument(
+        "--step-size", type=int, default=10, help="Learning rate scheduler step size."
+    )
+    parser.add_argument(
+        "--gamma", type=float, default=0.5, help="Learning rate scheduler gamma."
+    )
     parser.add_argument("--lr", type=float, default=3e-4, help="Learning rate.")
     return parser.parse_args()
 
@@ -159,7 +165,9 @@ if __name__ == "__main__":
     ).to(device)
 
     optimizer = optim.AdamW(model.parameters(), lr=args.lr)
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.9)
+    scheduler = torch.optim.lr_scheduler.StepLR(
+        optimizer, step_size=args.step_size, gamma=args.gamma
+    )
     criterion = nn.CrossEntropyLoss(ignore_index=0)  # Ignore pad token
 
     print("Starting training...")
