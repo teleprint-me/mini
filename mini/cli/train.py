@@ -43,8 +43,11 @@ def train(
         for batch_idx, (x, y) in enumerate(dataset):
             x, y = x.to(device), y.to(device)
 
+            # Create mask where PAD (0) tokens are ignored
+            mask = (x != 0).unsqueeze(1).unsqueeze(2)  # (B, 1, 1, T)
+
             optimizer.zero_grad()
-            logits = model(x)  # (Batch, Seq Len, Vocab Size)
+            logits = model(x, mask)  # (Batch, Seq Len, Vocab Size)
 
             loss = criterion(logits.view(-1, logits.size(-1)), y.view(-1))
             loss.backward()
@@ -157,7 +160,7 @@ if __name__ == "__main__":
 
     optimizer = optim.AdamW(model.parameters(), lr=args.lr)
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.9)
-    criterion = nn.CrossEntropyLoss()
+    criterion = nn.CrossEntropyLoss(ignore_index=0)  # Ignore pad token
 
     print("Starting training...")
     train(

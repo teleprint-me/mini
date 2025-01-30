@@ -24,13 +24,18 @@ class Attention(nn.Module):
         self.v_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
         self.out_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
 
-    def forward(self, x):
+    def forward(self, x, mask=None):
         B, T, C = x.shape  # Batch, Sequence Length, Embedding Dimension
         q = self.q_proj(x).view(B, T, self.num_heads, self.head_dim).transpose(1, 2)
         k = self.k_proj(x).view(B, T, self.num_heads, self.head_dim).transpose(1, 2)
         v = self.v_proj(x).view(B, T, self.num_heads, self.head_dim).transpose(1, 2)
 
         attn_weights = (q @ k.transpose(-2, -1)) * self.scale
+
+        # Apply mask (if provided)
+        if mask is not None:
+            attn_weights = attn_weights.masked_fill(mask == 0, float("-inf"))
+
         attn_weights = F.softmax(attn_weights, dim=-1)
 
         attn_output = (attn_weights @ v).transpose(1, 2).contiguous().view(B, T, C)
@@ -47,8 +52,8 @@ class TransformerBlock(nn.Module):
             nn.Linear(embed_dim, ff_dim), nn.ReLU(), nn.Linear(ff_dim, embed_dim)
         )
 
-    def forward(self, x):
-        x = self.norm1(x + self.attn(x))  # Residual connection
+    def forward(self, x, mask=None):
+        x = self.norm1(x + self.attn(x, mask))  # Residual connection
         x = self.norm2(x + self.ff(x))  # Residual connection
         return x
 
@@ -60,16 +65,23 @@ class MiniTransformer(nn.Module):
         super().__init__()
         self.embed = nn.Embedding(vocab_size, embed_dim)
         self.pos_embed = nn.Parameter(torch.zeros(1, max_seq_len, embed_dim))
-        self.blocks = nn.Sequential(
-            *[TransformerBlock(embed_dim, num_heads, ff_dim) for _ in range(num_layers)]
+        self.blocks = nn.ModuleList(
+            [TransformerBlock(embed_dim, num_heads, ff_dim) for _ in range(num_layers)]
         )
         self.norm = nn.LayerNorm(embed_dim)
         self.head = nn.Linear(embed_dim, vocab_size)  # Final projection
+        self.max_seq_len = max_seq_len
 
-    def forward(self, x):
+    def forward(self, x, mask=None):
         B, T = x.shape  # Batch, Sequence Length
+
+        # Ignore PAD (0), but keep BOS (1) and EOS (2)
+        if mask is None:
+            mask = (x != 0).unsqueeze(1).unsqueeze(2)
+
         x = self.embed(x) + self.pos_embed[:, :T, :]
-        x = self.blocks(x)
+        for block in self.blocks:
+            x = block(x, mask)  # Pass mask to each block
         x = self.norm(x)
         return self.head(x)  # Output logits
 
