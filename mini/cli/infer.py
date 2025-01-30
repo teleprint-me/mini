@@ -5,6 +5,7 @@ Description: Simple completion for text-to-text generation.
 
 import argparse
 import os
+import sys
 
 import torch
 from sentencepiece import SentencePieceProcessor
@@ -23,18 +24,23 @@ def generate(
 
     # Encode prompt
     input_ids = tokenizer.encode(prompt, add_bos=True, add_eos=False)
+    print("Encoded input IDs:", input_ids)  # Debug
     input_tensor = torch.tensor([input_ids], dtype=torch.long, device=device)
+    print("Initial input tensor shape:", input_tensor.shape)  # Debug
 
     generated_tokens = input_ids[:]  # Copy input tokens
 
     with torch.no_grad():
         for _ in range(max_tokens):
             logits = model(input_tensor)  # Forward pass
-            next_token = (
-                logits[:, -1, :].argmax(dim=-1).item()
-            )  # Greedy decoding (highest probability)
+
+            next_token = logits[:, -1, :].argmax(dim=-1).item()
+            output_text = tokenizer.decode(next_token)
+            print(output_text, end=" ")  # Debug
+            sys.stdout.flush()
 
             if next_token == tokenizer.eos_id():
+                print("EOS token encountered, stopping generation.")
                 break  # Stop if EOS token is generated
 
             generated_tokens.append(next_token)
@@ -44,7 +50,9 @@ def generate(
                 [generated_tokens], dtype=torch.long, device=device
             )
 
-    return tokenizer.decode(generated_tokens)
+    output_text = tokenizer.decode(generated_tokens)
+    print("Decoded output:", output_text)  # Debug
+    return output_text
 
 
 def parse_args():
