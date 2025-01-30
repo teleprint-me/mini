@@ -6,6 +6,7 @@ Description: Simple training loop for text-to-text generation.
 
 import argparse
 import os
+import random
 
 import torch
 import torch.nn as nn
@@ -80,6 +81,9 @@ def parse_args():
         "--model", required=True, help="Path to save or load the model."
     )
     parser.add_argument(
+        "--seed", type=int, default=42, help="Random seed for reproducibility."
+    )
+    parser.add_argument(
         "--embed-dim", type=int, default=256, help="Embedding dimension size."
     )
     parser.add_argument(
@@ -109,6 +113,9 @@ def parse_args():
 
 if __name__ == "__main__":
     args = parse_args()
+
+    # Set seed
+    random.seed(args.seed)
 
     # Load tokenizer
     processor = SentencePieceProcessor(model_file=args.processor)
