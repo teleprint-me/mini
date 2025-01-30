@@ -11,36 +11,19 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from sentencepiece import SentencePieceProcessor
-from torch.utils.data import DataLoader, Dataset
+from torch.optim.lr_scheduler import LRScheduler
 
-from mini.common.json import JsonUtils
-from mini.data.processor import EncodedDataset, MiniDataProcessor
+from mini.data.processor import MiniJsonDataset
 from mini.model.transformer import MiniTransformer
-
-
-class JsonDataset(Dataset):
-    """Custom dataset class for loading tokenized instruction-response pairs."""
-
-    def __init__(self, encoded_dataset: EncodedDataset):
-        self.encoded_dataset = encoded_dataset
-
-    def __len__(self):
-        return len(self.encoded_dataset)
-
-    def __getitem__(self, idx: int):
-        item = self.encoded_dataset[idx]
-        return torch.tensor(item["input"], dtype=torch.long), torch.tensor(
-            item["target"], dtype=torch.long
-        )
 
 
 # NOTE: The optimizers base class is _Loss, but this is easier since it inherits from Module anyways.
 def train(
     model_path: str,
     model: nn.Module,
-    dataloader: DataLoader,
+    dataset: MiniJsonDataset,
     optimizer: optim.Optimizer,
-    scheduler: optim.LRScheduler,
+    scheduler: LRScheduler,
     criterion: nn.Module,
     device: torch.device,
     num_epochs: int = 10,
@@ -55,7 +38,7 @@ def train(
 
     for epoch in range(num_epochs):
         total_loss = 0
-        for batch_idx, (x, y) in enumerate(dataloader):
+        for batch_idx, (x, y) in enumerate(dataset):
             x, y = x.to(device), y.to(device)
 
             optimizer.zero_grad()
@@ -70,15 +53,12 @@ def train(
 
             total_loss += loss.item()
 
-            if batch_idx % 10 == 0:
-                print(
-                    f"[Epoch {epoch+1}/{num_epochs}] Batch {batch_idx}/{len(dataloader)} - Loss: {loss.item():.4f}"
-                )
+            print(
+                f"[Epoch {epoch+1}/{num_epochs}] Batch {batch_idx}/{len(dataset)} - Loss: {loss.item():.4f}"
+            )
 
         scheduler.step()
-        print(
-            f"Epoch {epoch+1} Completed | Avg Loss: {total_loss / len(dataloader):.4f}"
-        )
+        print(f"Epoch {epoch+1} Completed | Avg Loss: {total_loss / len(dataset):.4f}")
         # Save the model periodically
         if (epoch + 1) % save_every == 0:
             torch.save(model.state_dict(), model_path)
@@ -133,24 +113,20 @@ if __name__ == "__main__":
     # Load tokenizer
     processor = SentencePieceProcessor(model_file=args.processor)
 
-    # Load dataset
-    json_utils = JsonUtils()  # Handles errors, validation, etc. internally
-    raw_dataset = json_utils.load_json(args.dataset)
-    # Validate dataset
-    raw_schema = json_utils.load_json(args.schema)
-    json_utils.validate_json(raw_dataset, raw_schema)
-
-    # Process dataset
-    data_processor = MiniDataProcessor(processor)
-    encoded_dataset = data_processor.tokenize(raw_dataset, max_length=args.n_seq_len)
+    # Automatically detect the physical device
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Wrap into a PyTorch Dataset & DataLoader
-    dataset = JsonDataset(encoded_dataset)
-    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
+    dataset = MiniJsonDataset(
+        schema_path=args.schema,
+        dataset_path=args.dataset,
+        processor=processor,
+        n_seq_len=args.n_seq_len,
+        batch_size=args.batch_size,
+    )
 
     # Model & Training Setup
     vocab_size = processor.vocab_size()
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     model = MiniTransformer(
         vocab_size=vocab_size,
@@ -169,8 +145,9 @@ if __name__ == "__main__":
     train(
         model_path=args.model,
         model=model,
-        dataloader=dataloader,
+        dataset=dataset,
         optimizer=optimizer,
+        scheduler=scheduler,
         criterion=criterion,
         device=device,
         num_epochs=args.num_epochs,
