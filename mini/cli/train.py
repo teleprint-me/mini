@@ -18,7 +18,6 @@ from mini.data.processor import MiniJsonDataset
 from mini.model.transformer import MiniTransformer
 
 
-# NOTE: The optimizers base class is _Loss, but this is easier since it inherits from Module anyways.
 def train(
     model_path: str,
     model: nn.Module,
@@ -30,10 +29,12 @@ def train(
     num_epochs: int = 10,
     save_every: int = 10,
 ):
-    # Load the model if a checkpoint exists
+    # Load the model and optimizer if a checkpoint exists
     if os.path.exists(model_path):
         print(f"Loading model from {model_path}")
-        model.load_state_dict(torch.load(model_path, weights_only=True))
+        checkpoint = torch.load(model_path, weights_only=True)
+        model.load_state_dict(checkpoint["model_state"])
+        optimizer.load_state_dict(checkpoint["optimizer_state"])
 
     model.train()
 
@@ -45,9 +46,7 @@ def train(
             optimizer.zero_grad()
             logits = model(x)  # (Batch, Seq Len, Vocab Size)
 
-            loss = criterion(
-                logits.view(-1, logits.size(-1)), y.view(-1)
-            )  # Flatten for loss calc
+            loss = criterion(logits.view(-1, logits.size(-1)), y.view(-1))
             loss.backward()
             nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
@@ -55,14 +54,23 @@ def train(
             total_loss += loss.item()
 
             print(
-                f"[Epoch {epoch+1}/{num_epochs}] Batch {batch_idx}/{len(dataset)} - Loss: {loss.item():.4f}"
+                f"[Epoch {epoch+1}/{num_epochs}] [{batch_idx}/{len(dataset)}] Loss: {loss.item():.4f}"
             )
 
-        scheduler.step()
-        print(f"Epoch {epoch+1} Completed | Avg Loss: {total_loss / len(dataset):.4f}")
-        # Save the model periodically
+        if (epoch + 1) % scheduler.step_size == 0:
+            scheduler.step()
+        print(
+            f"Epoch {epoch+1} Completed | Avg Loss: {total_loss / len(dataset):.4f} | LR: {scheduler.get_last_lr()[0]:.6f}"
+        )
+
+        # Save the model and optimizer periodically
         if (epoch + 1) % save_every == 0:
-            torch.save(model.state_dict(), model_path)
+            checkpoint = {
+                "model_state": model.state_dict(),
+                "optimizer_state": optimizer.state_dict(),
+                "epoch": epoch + 1,
+            }
+            torch.save(checkpoint, model_path)
             print(f"Model saved to {model_path}")
 
 
@@ -116,6 +124,9 @@ if __name__ == "__main__":
 
     # Set seed
     random.seed(args.seed)
+    torch.manual_seed(args.seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(args.seed)
 
     # Load tokenizer
     processor = SentencePieceProcessor(model_file=args.processor)
