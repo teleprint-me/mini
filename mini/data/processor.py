@@ -7,6 +7,7 @@ Description: This module provides functions to load and process datasets for NLP
 """
 
 import logging
+import random
 from typing import Dict, List
 
 import torch
@@ -98,38 +99,67 @@ class MiniDataProcessor:
         encoded_dataset: EncodedDataset,
         batch_size: int = 8,
         dtype: torch.dtype = torch.int,
-        device: torch.device = None,
     ) -> TensorDataset:
         """
         Create batches of tokenized data for model input.
         Args:
             encoded_dataset (EncodedDataset): Encoded dataset with "input" and "target" fields.
             batch_size (int): Number of samples per batch.
-            device (torch.device): Device to place the tensors on. Default is None (CPU).
             dtype (torch.dtype): Data type for the batch tensors. Default is torch.int.
         Raises:
             ValueError: If batch_size is less than or equal to 0.
         Returns:
             TensorDataset: Batches of tokenized data with torch tensors.
         """
-        if device is None:
-            device = (
-                torch.device("cuda")
-                if torch.cuda.is_available()
-                else torch.device("cpu")
-            )
-
         batches = []
         for i in range(0, len(encoded_dataset), batch_size):
             batch = encoded_dataset[i : i + batch_size]
             batch_dict = {
-                key: torch.tensor(
-                    [item[key] for item in batch], dtype=dtype, device=device
-                )
+                key: torch.tensor([item[key] for item in batch], dtype=dtype)
                 for key in batch[0].keys()
             }
             batches.append(batch_dict)
         return batches
+
+
+class MiniJsonDataset:
+    """Custom dataset class for loading tokenized instruction-response pairs."""
+
+    def __init__(
+        self,
+        schema_path: str,
+        dataset_path: str,
+        processor: SentencePieceProcessor,
+        n_seq_len: int = 128,
+        batch_size: int = 32,
+    ):
+        # Load dataset
+        json_utils = JsonUtils()
+        raw_dataset = json_utils.load_json(dataset_path)
+
+        # Validate dataset
+        raw_schema = json_utils.load_json(schema_path)
+        json_utils.validate_json(raw_dataset, raw_schema)
+
+        # Shuffle dataset
+        random.shuffle(raw_dataset)
+
+        # Process dataset
+        data_processor = MiniDataProcessor(processor)
+        encoded_dataset = data_processor.tokenize(raw_dataset, max_length=n_seq_len)
+
+        # Handle batching
+        self.batched_dataset = data_processor.batch(
+            encoded_dataset, batch_size, dtype=torch.long
+        )
+
+    def __len__(self) -> int:
+        return len(self.batched_dataset)
+
+    def __iter__(self) -> tuple[torch.Tensor, torch.Tensor]:
+        """Make Dataset an iterator by returning an iterable."""
+        for batch in self.batched_dataset:
+            yield batch["input"], batch["target"]
 
 
 # Usage example:
