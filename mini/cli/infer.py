@@ -1,6 +1,7 @@
 """
+Copyright © 2023 Austin Berrio
 Script: mini.cli.infer
-Description: Simple completion for text-to-text generation.
+Description: Simple completion for text-to-text generation with streaming output.
 """
 
 import argparse
@@ -18,6 +19,8 @@ def generate(
     tokenizer: SentencePieceProcessor,
     prompt: str,
     max_tokens: int = 128,
+    temperature: float = 0.8,
+    top_k: int = 10,
     device: torch.device = "cpu",
 ) -> str:
     model.eval()  # Set model to evaluation mode
@@ -33,14 +36,21 @@ def generate(
     with torch.no_grad():
         for _ in range(max_tokens):
             logits = model(input_tensor)  # Forward pass
+            logits = logits[:, -1, :] / temperature  # Apply temperature scaling
+            probs = torch.softmax(logits, dim=-1)
 
-            next_token = logits[:, -1, :].argmax(dim=-1).item()
+            # Top-k sampling
+            top_k_probs, top_k_indices = torch.topk(probs, top_k, dim=-1)
+            next_token = top_k_indices[
+                0, torch.multinomial(top_k_probs, 1).item()
+            ].item()
+
             output_text = tokenizer.decode(next_token)
-            print(output_text, end=" ")  # Debug
+            print(output_text, end="")  # Stream output
             sys.stdout.flush()
 
             if next_token == tokenizer.eos_id():
-                print("EOS token encountered, stopping generation.")
+                print("\nEOS token encountered, stopping generation.")
                 break  # Stop if EOS token is generated
 
             generated_tokens.append(next_token)
@@ -50,9 +60,8 @@ def generate(
                 [generated_tokens], dtype=torch.long, device=device
             )
 
-    output_text = tokenizer.decode(generated_tokens)
-    print("Decoded output:", output_text)  # Debug
-    return output_text
+    print("\nEncoded output IDs:", generated_tokens)  # Debug
+    return tokenizer.decode(generated_tokens)
 
 
 def parse_args():
@@ -70,6 +79,10 @@ def parse_args():
         default=128,
         help="Maximum number of tokens to generate.",
     )
+    parser.add_argument(
+        "--temperature", type=float, default=0.8, help="Sampling temperature."
+    )
+    parser.add_argument("--top-k", type=int, default=10, help="Top-k sampling size.")
     parser.add_argument(
         "--embed-dim", type=int, default=256, help="Embedding dimension size."
     )
@@ -114,6 +127,12 @@ if __name__ == "__main__":
 
     # Run inference
     output = generate(
-        model, tokenizer, args.prompt, max_tokens=args.max_tokens, device=device
+        model,
+        tokenizer,
+        args.prompt,
+        max_tokens=args.max_tokens,
+        temperature=args.temperature,
+        top_k=args.top_k,
+        device=device,
     )
-    print("Generated Output:", output)
+    print("\nGenerated Output:", output)
