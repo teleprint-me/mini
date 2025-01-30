@@ -41,6 +41,12 @@ class MiniDataProcessor:
         log_level = logging.DEBUG if verbose else logging.INFO
         self.logger = get_logger(self.__class__.__name__, log_level)
 
+    def pad_or_truncate(
+        self, tokens: List[int], max_length: int, pad_id: int
+    ) -> List[int]:
+        """Helper function to pad or truncate token sequences."""
+        return tokens[:max_length] + [pad_id] * max(0, max_length - len(tokens))
+
     def tokenize(
         self,
         json_dataset: JsonDataset,
@@ -61,34 +67,22 @@ class MiniDataProcessor:
         encoded_dataset = []
         pad_id = self.processor.pad_id()
         pad_id = pad_id if pad_id > -1 else 0
+
         for entry in json_dataset:
             instruction = entry.get("instruction", "")
             response = entry.get("response", "")
 
-            # Tokenize instruction
             input_tokens = self.processor.encode(
                 instruction, add_bos=add_bos, add_eos=False
             )
-
-            # Tokenize response
             target_tokens = self.processor.encode(
                 response, add_bos=False, add_eos=add_eos
             )
 
-            # Truncate and pad input tokens
-            input_tokens = input_tokens[:max_length] + [pad_id] * max(
-                0, max_length - len(input_tokens)
-            )
-
-            # Truncate and pad target tokens
-            target_tokens = target_tokens[:max_length] + [pad_id] * max(
-                0, max_length - len(target_tokens)
-            )
-
             encoded_dataset.append(
                 {
-                    "input": input_tokens,
-                    "target": target_tokens,
+                    "input": self.pad_or_truncate(input_tokens, max_length, pad_id),
+                    "target": self.pad_or_truncate(target_tokens, max_length, pad_id),
                 }
             )
 
@@ -114,6 +108,8 @@ class MiniDataProcessor:
         batches = []
         for i in range(0, len(encoded_dataset), batch_size):
             batch = encoded_dataset[i : i + batch_size]
+            if not batch:  # Skip empty batches
+                continue
             batch_dict = {
                 key: torch.tensor([item[key] for item in batch], dtype=dtype)
                 for key in batch[0].keys()
@@ -133,24 +129,30 @@ class MiniJsonDataset:
         n_seq_len: int = 128,
         batch_size: int = 32,
     ):
+        self.processor = processor
+        self.batch_size = batch_size
+        self.n_seq_len = n_seq_len
+        self.json_utils = JsonUtils()
+
         # Load dataset
-        json_utils = JsonUtils()
-        raw_dataset = json_utils.load_json(dataset_path)
+        raw_dataset = self.json_utils.load_json(dataset_path)
 
         # Validate dataset
-        raw_schema = json_utils.load_json(schema_path)
-        json_utils.validate_json(raw_dataset, raw_schema)
+        raw_schema = self.json_utils.load_json(schema_path)
+        self.json_utils.validate_json(raw_dataset, raw_schema)
 
         # Shuffle dataset
         random.shuffle(raw_dataset)
 
-        # Process dataset
-        data_processor = MiniDataProcessor(processor)
-        encoded_dataset = data_processor.tokenize(raw_dataset, max_length=n_seq_len)
+        # Use MiniDataProcessor as a class attribute
+        self.data_processor = MiniDataProcessor(self.processor)
+        encoded_dataset = self.data_processor.tokenize(
+            raw_dataset, max_length=self.n_seq_len
+        )
 
         # Handle batching
-        self.batched_dataset = data_processor.batch(
-            encoded_dataset, batch_size, dtype=torch.long
+        self.batched_dataset = self.data_processor.batch(
+            encoded_dataset, self.batch_size, dtype=torch.long
         )
 
     def __len__(self) -> int:
