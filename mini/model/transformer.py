@@ -4,11 +4,26 @@ Module: mini.model.transformer
 Description: A simple transformer model for quick and easy training.
 """
 
+from dataclasses import dataclass
 from typing import Optional, Tuple
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+
+@dataclass
+class TransformerConfig:
+    vocab_size: int
+    embed_dim: int
+    num_heads: int
+    head_dim: int
+    num_layers: int
+    ff_dim: int
+    max_seq_len: int
+    pad_id: int
+    theta: float = 10000.0
+    bias: bool = False
 
 
 class RMSNorm(nn.Module):
@@ -33,31 +48,30 @@ class FeedForward(nn.Module):
 
 
 class Attention(nn.Module):
-    def __init__(
-        self,
-        dim: int,
-        n_heads: int,
-        head_dim: int,
-        n_kv_heads: int,
-        max_seq_len: int,
-        theta: float = 10000.0,
-        bias: bool = False,
-    ):
+    def __init__(self, config: TransformerConfig):
         super().__init__()
-        self.n_heads = n_heads
-        self.head_dim = head_dim
-        self.n_kv_heads = n_kv_heads
+        self.n_heads = config.num_heads
+        self.head_dim = config.head_dim
+        self.n_kv_heads = self.n_heads // 2
         self.repeats = self.n_heads // self.n_kv_heads
         self.scale = self.head_dim**-0.5
 
-        self.wq = nn.Linear(dim, n_heads * head_dim, bias=bias)
-        self.wk = nn.Linear(dim, n_kv_heads * head_dim, bias=bias)
-        self.wv = nn.Linear(dim, n_kv_heads * head_dim, bias=bias)
-        self.wo = nn.Linear(n_heads * head_dim, dim, bias=bias)
+        self.wq = nn.Linear(
+            config.embed_dim, self.n_heads * self.head_dim, bias=config.bias
+        )
+        self.wk = nn.Linear(
+            config.embed_dim, self.n_kv_heads * self.head_dim, bias=config.bias
+        )
+        self.wv = nn.Linear(
+            config.embed_dim, self.n_kv_heads * self.head_dim, bias=config.bias
+        )
+        self.wo = nn.Linear(
+            self.n_heads * self.head_dim, config.embed_dim, bias=config.bias
+        )
 
-        # Precompute RoPE frequencies
         self.register_buffer(
-            "rope", self._precompute_rotary(head_dim, max_seq_len, theta)
+            "rope",
+            self._precompute_rotary(config.head_dim, config.max_seq_len, config.theta),
         )
 
     def _precompute_rotary(self, dim: int, seq_len: int, theta: float) -> torch.Tensor:
@@ -73,7 +87,7 @@ class Attention(nn.Module):
             query.float().reshape(*query.shape[:-1], -1, 2)
         )
         key_complex = torch.view_as_complex(key.float().reshape(*key.shape[:-1], -1, 2))
-        rope = self.rope[: query.shape[1]]  # Slice RoPE based on sequence length
+        rope = self.rope[: query.shape[1]]
         query_real = torch.view_as_real(query_complex * rope).flatten(-2)
         key_real = torch.view_as_real(key_complex * rope).flatten(-2)
         return query_real.type_as(query), key_real.type_as(key)
@@ -99,24 +113,12 @@ class Attention(nn.Module):
 
 
 class TransformerBlock(nn.Module):
-    def __init__(
-        self,
-        dim,
-        n_heads,
-        head_dim,
-        n_kv_heads,
-        ff_dim,
-        max_seq_len,
-        theta=10000.0,
-        bias=False,
-    ):
+    def __init__(self, config: TransformerConfig):
         super().__init__()
-        self.attn = Attention(
-            dim, n_heads, head_dim, n_kv_heads, max_seq_len, theta, bias
-        )
-        self.norm1 = RMSNorm(dim)
-        self.norm2 = RMSNorm(dim)
-        self.ff = FeedForward(dim, ff_dim)
+        self.attn = Attention(config)
+        self.norm1 = RMSNorm(config.embed_dim)
+        self.norm2 = RMSNorm(config.embed_dim)
+        self.ff = FeedForward(config.embed_dim, config.ff_dim)
 
     def forward(self, x, mask=None):
         x = self.norm1(x + self.attn(x, mask))
@@ -125,30 +127,17 @@ class TransformerBlock(nn.Module):
 
 
 class MiniTransformer(nn.Module):
-    def __init__(
-        self,
-        vocab_size,
-        embed_dim,
-        num_heads,
-        head_dim,
-        num_layers,
-        ff_dim,
-        max_seq_len,
-        pad_id,
-    ):
+    def __init__(self, config: TransformerConfig):
         super().__init__()
-        self.embed = nn.Embedding(vocab_size, embed_dim, padding_idx=pad_id)
-        self.blocks = nn.ModuleList(
-            [
-                TransformerBlock(
-                    embed_dim, num_heads, head_dim, num_heads // 2, ff_dim, max_seq_len
-                )
-                for _ in range(num_layers)
-            ]
+        self.embed = nn.Embedding(
+            config.vocab_size, config.embed_dim, padding_idx=config.pad_id
         )
-        self.norm = RMSNorm(embed_dim)
-        self.head = nn.Linear(embed_dim, vocab_size)
-        self.max_seq_len = max_seq_len
+        self.blocks = nn.ModuleList(
+            [TransformerBlock(config) for _ in range(config.num_layers)]
+        )
+        self.norm = RMSNorm(config.embed_dim)
+        self.head = nn.Linear(config.embed_dim, config.vocab_size)
+        self.max_seq_len = config.max_seq_len
 
     def forward(self, x, mask=None):
         B, T = x.shape
