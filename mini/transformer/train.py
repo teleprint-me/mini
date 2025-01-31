@@ -48,42 +48,70 @@ def train(
     device: torch.device,
     num_epochs: int = 10,
     save_every: int = 10,
+    grad_accum_steps: int = 1,
+    mixed_precision: str = "none",
 ):
     # Load the model and optimizer if a checkpoint exists
     model, optimizer = load_checkpoint(model_path, model, optimizer)
     model.train()
 
+    # Mixed precision setup
+    scaler = torch.cuda.amp.GradScaler() if mixed_precision == "fp16" else None
+
     for epoch in range(num_epochs):
         total_loss = 0
+        optimizer.zero_grad()
+
         for batch_idx, (x, y) in enumerate(dataset):
             x, y = x.to(device), y.to(device)
 
             # Create mask where PAD (0) tokens are ignored
             mask = (x != 0).unsqueeze(1).unsqueeze(2)  # (B, 1, 1, T)
 
-            optimizer.zero_grad()
-            logits = model(x, mask)  # (Batch, Seq Len, Vocab Size)
+            # Forward pass (mixed precision if enabled)
+            with (
+                torch.cuda.amp.autocast(
+                    dtype=torch.bfloat16 if mixed_precision == "bf16" else torch.float16
+                )
+                if mixed_precision in ["fp16", "bf16"]
+                else torch.no_grad()
+            ):
+                logits = model(x, mask)  # (Batch, Seq Len, Vocab Size)
+                loss = criterion(logits.view(-1, logits.size(-1)), y.view(-1))
+                loss = loss / grad_accum_steps  # Normalize loss for accumulation
 
-            loss = criterion(logits.view(-1, logits.size(-1)), y.view(-1))
-            loss.backward()
-            nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-            optimizer.step()
+            # Backward pass
+            if mixed_precision == "fp16":
+                scaler.scale(loss).backward()
+            else:
+                loss.backward()
 
-            total_loss += loss.item()
+            # Accumulate gradients
+            if (batch_idx + 1) % grad_accum_steps == 0 or batch_idx == len(dataset) - 1:
+                if mixed_precision == "fp16":
+                    scaler.step(optimizer)
+                    scaler.update()
+                else:
+                    optimizer.step()
+
+                optimizer.zero_grad()
+                scheduler.step()  # Adjust learning rate
+
+            total_loss += loss.item() * grad_accum_steps  # Re-scale
 
             print(
                 f"[Epoch {epoch+1}/{num_epochs}] [{batch_idx}/{len(dataset)}] Loss: {loss.item():.4f}"
             )
 
-        if (epoch + 1) % scheduler.step_size == 0:
-            scheduler.step()
         print(
             f"Epoch {epoch+1} Completed | Avg Loss: {total_loss / len(dataset):.4f} | LR: {scheduler.get_last_lr()[0]:.6f}"
         )
 
-        # Save the model and optimizer periodically
+        # Save the model periodically
         if (epoch + 1) % save_every == 0:
             save_checkpoint(model_path, model, optimizer)
+
+    print("Training complete!")
 
 
 if __name__ == "__main__":
@@ -110,7 +138,7 @@ if __name__ == "__main__":
     dataset = MiniTextDataset(
         file_path=args.dataset,
         processor=processor,
-        max_seq_len=args.n_seq_len,
+        max_seq_len=args.max_seq_len,
         batch_size=args.batch_size,
         stride=args.batch_stride,
     )
@@ -131,7 +159,7 @@ if __name__ == "__main__":
         ff_dim=args.ff_dim,
         max_seq_len=args.max_seq_len,
         pad_id=pad_id,
-        theta=args.theta,
+        theta=args.rope_theta,
         bias=args.bias,
     )
 
@@ -160,5 +188,7 @@ if __name__ == "__main__":
         device=device,
         num_epochs=args.num_epochs,
         save_every=args.save_every,
+        grad_accum_steps=args.grad_accum_steps,
+        mixed_precision=args.mixed_precision,
     )
     print("Training complete!")
