@@ -1,6 +1,6 @@
 """
 Copyright © 2023 Austin Berrio
-Script: mini.cli.infer
+Script: mini.transformer.infer
 Description: Simple completion for text-to-text generation with streaming output.
 """
 
@@ -11,7 +11,7 @@ import sys
 import torch
 from sentencepiece import SentencePieceProcessor
 
-from mini.model.transformer import MiniTransformer
+from mini.transformer.model import MiniTransformer, TransformerConfig
 
 
 def generate(

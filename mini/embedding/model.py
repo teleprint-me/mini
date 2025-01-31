@@ -1,7 +1,7 @@
 """
 Copyright © 2023 Austin Berrio
-Module: mini.model.embedding
-Description: A simple embedding model to handle semantic similarities and word representations.
+Module: mini.embedding.model
+Description: Simple semantic similarity model for word representations.
 """
 
 import argparse

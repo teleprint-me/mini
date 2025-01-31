@@ -1,6 +1,6 @@
 """
 Copyright © 2023 Austin Berrio
-Script: mini.cli.train
+Script: mini.transformer.train
 Description: Simple pre-training loop for text-to-text generation.
 """
 
@@ -15,7 +15,7 @@ from sentencepiece import SentencePieceProcessor
 from torch.optim.lr_scheduler import LRScheduler
 
 from mini.data.set import MiniDataset, MiniTextDataset
-from mini.model.transformer import MiniTransformer, TransformerConfig
+from mini.transformer.model import MiniTransformer, TransformerConfig
 
 
 def load_checkpoint(
