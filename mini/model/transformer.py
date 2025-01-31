@@ -4,129 +4,149 @@ Module: mini.model.transformer
 Description: A simple transformer model for quick and easy training.
 """
 
-from argparse import ArgumentParser, Namespace
+from typing import Optional, Tuple
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from sentencepiece import SentencePieceProcessor
+
+
+class RMSNorm(nn.Module):
+    def __init__(self, dim: int, eps: float = 1e-6):
+        super().__init__()
+        self.eps = eps
+        self.weight = nn.Parameter(torch.ones(dim))
+
+    def _norm(self, x: torch.Tensor) -> torch.Tensor:
+        return x * torch.rsqrt(x.pow(2).mean(-1, keepdim=True) + self.eps)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self._norm(x.float()).type_as(x) * self.weight
+
+
+class FeedForward(nn.Module):
+    def __init__(self, dim: int, hidden_dim: int, bias: bool = False):
+        super().__init__()
+        self.w1 = nn.Linear(dim, hidden_dim, bias=bias)
+        self.w2 = nn.Linear(hidden_dim, dim, bias=bias)
+        self.w3 = nn.Linear(dim, hidden_dim, bias=bias)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.w2(F.silu(self.w1(x)) * self.w3(x))
 
 
 class Attention(nn.Module):
-    def __init__(self, embed_dim, num_heads, bias=False):
+    def __init__(
+        self,
+        dim: int,
+        n_heads: int,
+        head_dim: int,
+        n_kv_heads: int,
+        max_seq_len: int,
+        theta: float = 10000.0,
+        bias: bool = False,
+    ):
         super().__init__()
-        self.num_heads = num_heads
-        self.head_dim = embed_dim // num_heads
-        self.scale = self.head_dim**-0.5  # Scaled dot-product attention
+        self.n_heads = n_heads
+        self.head_dim = head_dim
+        self.n_kv_heads = n_kv_heads
+        self.repeats = self.n_heads // self.n_kv_heads
+        self.scale = self.head_dim**-0.5
 
-        self.q_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
-        self.k_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
-        self.v_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
-        self.out_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
+        self.wq = nn.Linear(dim, n_heads * head_dim, bias=bias)
+        self.wk = nn.Linear(dim, n_kv_heads * head_dim, bias=bias)
+        self.wv = nn.Linear(dim, n_kv_heads * head_dim, bias=bias)
+        self.wo = nn.Linear(n_heads * head_dim, dim, bias=bias)
 
-    def forward(self, x, mask=None):
-        B, T, C = x.shape  # Batch, Sequence Length, Embedding Dimension
-        q = self.q_proj(x).view(B, T, self.num_heads, self.head_dim).transpose(1, 2)
-        k = self.k_proj(x).view(B, T, self.num_heads, self.head_dim).transpose(1, 2)
-        v = self.v_proj(x).view(B, T, self.num_heads, self.head_dim).transpose(1, 2)
+        # Precompute rotary embeddings
+        self.register_buffer("rope", self._compute_rotary(head_dim, max_seq_len, theta))
 
-        attn_weights = (q @ k.transpose(-2, -1)) * self.scale
+    def _compute_rotary(self, dim: int, seq_len: int, theta: float) -> torch.Tensor:
+        """Precomputes RoPE values for efficient reuse."""
+        inv_freqs = 1.0 / (theta ** (torch.arange(0, dim, 2).float() / dim))
+        positions = torch.arange(seq_len, dtype=torch.float32)
+        freqs = torch.einsum("i,j->ij", positions, inv_freqs)
+        return torch.polar(torch.ones_like(freqs), freqs)  # Complex representation
 
-        # Apply mask (if provided)
+    def _rotary(
+        self,
+        query: torch.Tensor,
+        key: torch.Tensor,
+        rope: torch.Tensor,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        query_complex = torch.view_as_complex(
+            query.float().reshape(*query.shape[:-1], -1, 2)
+        )
+        key_complex = torch.view_as_complex(key.float().reshape(*key.shape[:-1], -1, 2))
+        rope = rope[:, None, :]
+        query_real = torch.view_as_real(query_complex * rope).flatten(-2)
+        key_real = torch.view_as_real(key_complex * rope).flatten(-2)
+        return query_real.type_as(query), key_real.type_as(key)
+
+    def forward(
+        self, x: torch.Tensor, mask: Optional[torch.Tensor] = None
+    ) -> torch.Tensor:
+        B, T, _ = x.shape
+
+        query, key, value = self.wq(x), self.wk(x), self.wv(x)
+        query = query.view(B, T, self.n_heads, self.head_dim).transpose(1, 2)
+        key = key.view(B, T, self.n_kv_heads, self.head_dim).transpose(1, 2)
+        value = value.view(B, T, self.n_kv_heads, self.head_dim).transpose(1, 2)
+
+        # Apply rotary embedding
+        query, key = self._rotary(query, key, self.rope[:T])
+
+        attn_weights = (query @ key.transpose(-2, -1)) * self.scale
         if mask is not None:
             attn_weights = attn_weights.masked_fill(mask == 0, float("-inf"))
-
         attn_weights = F.softmax(attn_weights, dim=-1)
 
-        attn_output = (attn_weights @ v).transpose(1, 2).contiguous().view(B, T, C)
-        return self.out_proj(attn_output)
+        attn_output = (attn_weights @ value).transpose(1, 2).contiguous().view(B, T, -1)
+        return self.wo(attn_output)
 
 
 class TransformerBlock(nn.Module):
-    def __init__(self, embed_dim, num_heads, ff_dim):
+    def __init__(self, dim, n_heads, head_dim, n_kv_heads, ff_dim, bias=False):
         super().__init__()
-        self.attn = Attention(embed_dim, num_heads)
-        self.norm1 = nn.LayerNorm(embed_dim)
-        self.norm2 = nn.LayerNorm(embed_dim)
-        self.ff = nn.Sequential(
-            nn.Linear(embed_dim, ff_dim), nn.ReLU(), nn.Linear(ff_dim, embed_dim)
-        )
+        self.attn = Attention(dim, n_heads, head_dim, n_kv_heads, bias)
+        self.norm1 = RMSNorm(dim)
+        self.norm2 = RMSNorm(dim)
+        self.ff = FeedForward(dim, ff_dim)
 
-    def forward(self, x, mask=None):
-        x = self.norm1(x + self.attn(x, mask))  # Residual connection
-        x = self.norm2(x + self.ff(x))  # Residual connection
+    def forward(self, x, rope, mask=None):
+        x = self.norm1(x + self.attn(x, rope, mask))
+        x = self.norm2(x + self.ff(x))
         return x
 
 
 class MiniTransformer(nn.Module):
     def __init__(
-        self, vocab_size, embed_dim, num_heads, ff_dim, num_layers, max_seq_len
+        self,
+        vocab_size,
+        embed_dim,
+        num_heads,
+        head_dim,
+        num_layers,
+        ff_dim,
+        max_seq_len,
+        pad_id,
     ):
         super().__init__()
-        self.embed = nn.Embedding(vocab_size, embed_dim)
-        self.pos_embed = nn.Parameter(torch.zeros(1, max_seq_len, embed_dim))
+        self.embed = nn.Embedding(vocab_size, embed_dim, padding_idx=pad_id)
         self.blocks = nn.ModuleList(
-            [TransformerBlock(embed_dim, num_heads, ff_dim) for _ in range(num_layers)]
+            [
+                TransformerBlock(embed_dim, num_heads, head_dim, num_heads, ff_dim)
+                for _ in range(num_layers)
+            ]
         )
-        self.norm = nn.LayerNorm(embed_dim)
-        self.head = nn.Linear(embed_dim, vocab_size)  # Final projection
+        self.norm = RMSNorm(embed_dim)
+        self.head = nn.Linear(embed_dim, vocab_size)
         self.max_seq_len = max_seq_len
 
-    def forward(self, x, mask=None):
-        B, T = x.shape  # Batch, Sequence Length
-
-        # Ignore PAD (0), but keep BOS (1) and EOS (2)
-        if mask is None:
-            mask = (x != 0).unsqueeze(1).unsqueeze(2)
-
-        x = self.embed(x) + self.pos_embed[:, :T, :]
+    def forward(self, x, rope, mask=None):
+        B, T = x.shape
+        x = self.embed(x)  # No need for `self.pos_embed`
         for block in self.blocks:
-            x = block(x, mask)  # Pass mask to each block
+            x = block(x, rope, mask)
         x = self.norm(x)
-        return self.head(x)  # Output logits
-
-
-def parse_args() -> Namespace:
-    parser = ArgumentParser(description="Train MiniTransformer")
-    parser.add_argument(
-        "--processor", required=True, help="Path to SentencePiece tokenizer model."
-    )
-    parser.add_argument("--model", required=False, help="Path to trained model.")
-    parser.add_argument(
-        "--embed-dim", type=int, default=256, help="Embedding dimension size."
-    )
-    parser.add_argument(
-        "--n-heads", type=int, default=8, help="Number of attention heads."
-    )
-    parser.add_argument(
-        "--ff-dim", type=int, default=512, help="Feed-forward network dimension."
-    )
-    parser.add_argument(
-        "--n-layers", type=int, default=4, help="Number of transformer layers."
-    )
-    parser.add_argument(
-        "--n-seq-len", type=int, default=128, help="Maximum sequence length."
-    )
-    return parser.parse_args()
-
-
-# Example Usage
-if __name__ == "__main__":
-    args = parse_args()
-
-    processor = SentencePieceProcessor(model_file=args.processor)
-    vocab_size = processor.vocab_size()
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    model = MiniTransformer(
-        vocab_size=vocab_size,
-        embed_dim=args.embed_dim,
-        num_heads=args.n_heads,
-        ff_dim=args.ff_dim,
-        num_layers=args.n_layers,
-        max_seq_len=args.n_seq_len,
-    ).to(device)
-
-    x = torch.randint(0, vocab_size, (2, args.n_seq_len), device=device)
-    logits = model(x)
-    print(logits.shape)  # Expected output: (2, 128, vocab_size)
+        return self.head(x)
