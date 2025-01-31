@@ -4,7 +4,6 @@ Script: mini.transformer.train
 Description: Simple pre-training loop for text-to-text generation.
 """
 
-import argparse
 import os
 import random
 
@@ -14,6 +13,7 @@ import torch.optim as optim
 from sentencepiece import SentencePieceProcessor
 from torch.optim.lr_scheduler import LRScheduler
 
+from mini.common.args import TransformerArgs
 from mini.data.set import MiniDataset, MiniTextDataset
 from mini.transformer.model import MiniTransformer, TransformerConfig
 
@@ -86,135 +86,8 @@ def train(
             save_checkpoint(model_path, model, optimizer)
 
 
-def parse_args():
-    parser = argparse.ArgumentParser(description="Train MiniTransformer")
-    parser.add_argument(
-        "--processor", required=True, help="Path to SentencePiece tokenizer model."
-    )
-    parser.add_argument(
-        "--schema", required=True, help="Path to the schema file for the dataset."
-    )
-    parser.add_argument(
-        "--dataset", required=True, help="Path to a raw plaintext file."
-    )
-    parser.add_argument(
-        "--model", required=True, help="Path to save or load the model."
-    )
-    parser.add_argument(
-        "--seed",
-        type=int,
-        default=42,
-        help="Random seed for reproducibility (Default: 42).",
-    )
-    parser.add_argument(
-        "--embed-dim",
-        type=int,
-        default=512,
-        help="Embedding dimension size (Default: 512).",
-    )
-    parser.add_argument(
-        "--num-heads",
-        type=int,
-        default=8,
-        help="Number of attention heads (Default: 8).",
-    )
-    parser.add_argument(
-        "--head-dim",
-        type=int,
-        default=64,
-        help="Head dimension size (Default: 64).",
-    )
-    parser.add_argument(
-        "--num-layers",
-        type=int,
-        default=8,
-        help="Number of transformer layers (Default: 8).",
-    )
-    parser.add_argument(
-        "--ff-dim",
-        type=int,
-        default=512,
-        help="Feed-forward network dimension (Default: 512).",
-    )
-    parser.add_argument(
-        "--max-seq-len",
-        type=int,
-        default=512,
-        help="Maximum sequence length (Default: 512).",
-    )
-    parser.add_argument(
-        "--rope-theta",
-        type=float,
-        default=10000.0,
-        help="Theta value for RoPE positional encoding (Default: 10000.0).",
-    )
-    parser.add_argument(
-        "--bias",
-        type=bool,
-        default=False,
-        help="Use bias in the feed-forward network (Default: False).",
-    )
-    parser.add_argument(
-        "--batch-size",
-        type=int,
-        default=8,
-        help="Batch size for training (Default: 8).",
-    )
-    parser.add_argument(
-        "--batch-stride",
-        type=int,
-        default=64,
-        help="Stride for batching the dataset (Default: 64).",
-    )
-    parser.add_argument(
-        "--num-epochs",
-        type=int,
-        default=10,
-        help="Number of training epochs (Default: 10).",
-    )
-    parser.add_argument(
-        "--save-every",
-        type=int,
-        default=10,
-        help="Save model every N epochs (Default: 10).",
-    )
-    parser.add_argument(
-        "--eps",
-        type=float,
-        default=1e-8,
-        help="Epsilon value for numerical stability (Default: 1e-8).",
-    )
-    parser.add_argument(
-        "--weight-decay",
-        type=float,
-        default=0.0001,
-        help="Weight decay for regularization (Default: 0.0001).",
-    )
-    parser.add_argument(
-        "--amsgrad",
-        action="store_true",
-        help="Use AMSGrad for optimizer (Default: False).",
-    )
-    parser.add_argument(
-        "--step-size",
-        type=int,
-        default=10,
-        help="Learning rate scheduler step size (Default: 10).",
-    )
-    parser.add_argument(
-        "--gamma",
-        type=float,
-        default=0.8,
-        help="Learning rate scheduler gamma (Default: 0.8).",
-    )
-    parser.add_argument(
-        "--lr", type=float, default=5e-4, help="Learning rate (Default: 5e-4)."
-    )
-    return parser.parse_args()
-
-
 if __name__ == "__main__":
-    args = parse_args()
+    args = TransformerArgs("Mini Training Tool").parse_args()
 
     # Set seed
     random.seed(args.seed)
