@@ -88,8 +88,7 @@ class TransformerArgs:
         )
         self.parser.add_argument(
             "--bias",
-            type=bool,
-            default=False,
+            action="store_true",
             help="Use bias in the feed-forward network (Default: False).",
         )
 
