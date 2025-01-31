@@ -1,7 +1,7 @@
 """
 Copyright © 2023 Austin Berrio
 Script: mini.cli.train
-Description: Simple training loop for text-to-text generation.
+Description: Simple pre-training loop for text-to-text generation.
 """
 
 import argparse
@@ -14,14 +14,34 @@ import torch.optim as optim
 from sentencepiece import SentencePieceProcessor
 from torch.optim.lr_scheduler import LRScheduler
 
-from mini.data.processor import MiniJsonDataset
-from mini.model.transformer import MiniTransformer
+from mini.data.set import MiniDataset, MiniTextDataset
+from mini.model.transformer import MiniTransformer, TransformerConfig
+
+
+def load_checkpoint(
+    model_path: str, model: nn.Module, optimizer: optim.Optimizer
+) -> tuple[nn.Module, optim.Optimizer]:
+    if os.path.exists(model_path):
+        print(f"Loading model from {model_path}")
+        checkpoint = torch.load(model_path, weights_only=True)
+        model.load_state_dict(checkpoint["model_state"])
+        optimizer.load_state_dict(checkpoint["optimizer_state"])
+    return model, optimizer
+
+
+def save_checkpoint(model_path: str, model: nn.Module, optimizer: optim.Optimizer):
+    checkpoint = {
+        "model_state": model.state_dict(),
+        "optimizer_state": optimizer.state_dict(),
+    }
+    torch.save(checkpoint, model_path)
+    print(f"Saved model to {model_path}")
 
 
 def train(
     model_path: str,
     model: nn.Module,
-    dataset: MiniJsonDataset,
+    dataset: MiniDataset,
     optimizer: optim.Optimizer,
     scheduler: LRScheduler,
     criterion: nn.Module,
@@ -30,12 +50,7 @@ def train(
     save_every: int = 10,
 ):
     # Load the model and optimizer if a checkpoint exists
-    if os.path.exists(model_path):
-        print(f"Loading model from {model_path}")
-        checkpoint = torch.load(model_path, weights_only=True)
-        model.load_state_dict(checkpoint["model_state"])
-        optimizer.load_state_dict(checkpoint["optimizer_state"])
-
+    model, optimizer = load_checkpoint(model_path, model, optimizer)
     model.train()
 
     for epoch in range(num_epochs):
@@ -68,13 +83,7 @@ def train(
 
         # Save the model and optimizer periodically
         if (epoch + 1) % save_every == 0:
-            checkpoint = {
-                "model_state": model.state_dict(),
-                "optimizer_state": optimizer.state_dict(),
-                "epoch": epoch + 1,
-            }
-            torch.save(checkpoint, model_path)
-            print(f"Model saved to {model_path}")
+            save_checkpoint(model_path, model, optimizer)
 
 
 def parse_args():
@@ -86,7 +95,7 @@ def parse_args():
         "--schema", required=True, help="Path to the schema file for the dataset."
     )
     parser.add_argument(
-        "--dataset", required=True, help="Path to the filtered dataset JSON."
+        "--dataset", required=True, help="Path to a raw plaintext file."
     )
     parser.add_argument(
         "--model", required=True, help="Path to save or load the model."
@@ -104,7 +113,22 @@ def parse_args():
         help="Embedding dimension size (Default: 512).",
     )
     parser.add_argument(
-        "--n-heads", type=int, default=8, help="Number of attention heads (Default: 8)."
+        "--num-heads",
+        type=int,
+        default=8,
+        help="Number of attention heads (Default: 8).",
+    )
+    parser.add_argument(
+        "--head-dim",
+        type=int,
+        default=64,
+        help="Head dimension size (Default: 64).",
+    )
+    parser.add_argument(
+        "--num-layers",
+        type=int,
+        default=8,
+        help="Number of transformer layers (Default: 8).",
     )
     parser.add_argument(
         "--ff-dim",
@@ -113,22 +137,34 @@ def parse_args():
         help="Feed-forward network dimension (Default: 512).",
     )
     parser.add_argument(
-        "--n-layers",
-        type=int,
-        default=8,
-        help="Number of transformer layers (Default: 8).",
-    )
-    parser.add_argument(
-        "--n-seq-len",
+        "--max-seq-len",
         type=int,
         default=512,
         help="Maximum sequence length (Default: 512).",
+    )
+    parser.add_argument(
+        "--rope-theta",
+        type=float,
+        default=10000.0,
+        help="Theta value for RoPE positional encoding (Default: 10000.0).",
+    )
+    parser.add_argument(
+        "--bias",
+        type=bool,
+        default=False,
+        help="Use bias in the feed-forward network (Default: False).",
     )
     parser.add_argument(
         "--batch-size",
         type=int,
         default=8,
         help="Batch size for training (Default: 8).",
+    )
+    parser.add_argument(
+        "--batch-stride",
+        type=int,
+        default=64,
+        help="Stride for batching the dataset (Default: 64).",
     )
     parser.add_argument(
         "--num-epochs",
@@ -143,6 +179,23 @@ def parse_args():
         help="Save model every N epochs (Default: 10).",
     )
     parser.add_argument(
+        "--eps",
+        type=float,
+        default=1e-8,
+        help="Epsilon value for numerical stability (Default: 1e-8).",
+    )
+    parser.add_argument(
+        "--weight-decay",
+        type=float,
+        default=0.0001,
+        help="Weight decay for regularization (Default: 0.0001).",
+    )
+    parser.add_argument(
+        "--amsgrad",
+        action="store_true",
+        help="Use AMSGrad for optimizer (Default: False).",
+    )
+    parser.add_argument(
         "--step-size",
         type=int,
         default=10,
@@ -155,7 +208,7 @@ def parse_args():
         help="Learning rate scheduler gamma (Default: 0.8).",
     )
     parser.add_argument(
-        "--lr", type=float, default=1e-3, help="Learning rate (Default: 1e-3)."
+        "--lr", type=float, default=5e-4, help="Learning rate (Default: 5e-4)."
     )
     return parser.parse_args()
 
@@ -180,32 +233,48 @@ if __name__ == "__main__":
     else:
         device = torch.device("cpu")
 
-    # Wrap into a PyTorch Dataset & DataLoader
-    dataset = MiniJsonDataset(
-        schema_path=args.schema,
-        dataset_path=args.dataset,
+    # Setup PyTorch Dataset & DataLoader
+    dataset = MiniTextDataset(
+        file_path=args.dataset,
         processor=processor,
-        n_seq_len=args.n_seq_len,
+        max_seq_len=args.n_seq_len,
         batch_size=args.batch_size,
+        stride=args.batch_stride,
     )
 
     # Model & Training Setup
     vocab_size = processor.vocab_size()
+    pad_id = processor.pad_id()
+    if pad_id < 0:
+        pad_id = 0
 
-    model = MiniTransformer(
+    # Load Transformer Config
+    config = TransformerConfig(
         vocab_size=vocab_size,
         embed_dim=args.embed_dim,
-        num_heads=args.n_heads,
+        num_heads=args.num_heads,
+        head_dim=args.head_dim,
+        num_layers=args.num_layers,
         ff_dim=args.ff_dim,
-        num_layers=args.n_layers,
-        max_seq_len=args.n_seq_len,
-    ).to(device)
+        max_seq_len=args.max_seq_len,
+        pad_id=pad_id,
+        theta=args.theta,
+        bias=args.bias,
+    )
 
-    optimizer = optim.AdamW(model.parameters(), lr=args.lr)
+    # Initialize Model & Optimizer
+    model = MiniTransformer(config).to(device)
+    optimizer = optim.AdamW(
+        model.parameters(),
+        lr=args.lr,
+        eps=args.eps,
+        weight_decay=args.weight_decay,
+        amsgrad=args.amsgrad,
+    )
     scheduler = torch.optim.lr_scheduler.StepLR(
         optimizer, step_size=args.step_size, gamma=args.gamma
     )
-    criterion = nn.CrossEntropyLoss(ignore_index=0)  # Ignore pad token
+    criterion = nn.CrossEntropyLoss(ignore_index=pad_id)  # Ignore pad token
 
     print("Starting training...")
     train(
