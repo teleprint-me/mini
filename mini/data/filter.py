@@ -109,7 +109,7 @@ if __name__ == "__main__":
         # Combine the instruction and input into a single instruction.
         instruction = item.get("instruction", "")
         input_field = item.get("input", "")
-        instruction += f" {input_field}" if input_field else ""
+        instruction += f' "{input_field}"' if input_field else ""
         # Get the response from the item.
         response = item.get("response", "")
         if not response:
