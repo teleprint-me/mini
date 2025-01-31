@@ -58,17 +58,18 @@ class Attention(nn.Module):
         self.wv = nn.Linear(dim, n_kv_heads * head_dim, bias=bias)
         self.wo = nn.Linear(n_heads * head_dim, dim, bias=bias)
 
-        # Precompute rotary embeddings
-        self.register_buffer("rope", self._compute_rotary(head_dim, max_seq_len, theta))
+        # Precompute RoPE frequencies
+        self.register_buffer(
+            "rope", self._precompute_rotary(head_dim, max_seq_len, theta)
+        )
 
-    def _compute_rotary(self, dim: int, seq_len: int, theta: float) -> torch.Tensor:
-        """Precomputes RoPE values for efficient reuse."""
+    def _precompute_rotary(self, dim: int, seq_len: int, theta: float) -> torch.Tensor:
         inv_freqs = 1.0 / (theta ** (torch.arange(0, dim, 2).float() / dim))
         positions = torch.arange(seq_len, dtype=torch.float32)
         freqs = torch.einsum("i,j->ij", positions, inv_freqs)
-        return torch.polar(torch.ones_like(freqs), freqs)  # Complex representation
+        return torch.polar(torch.ones_like(freqs), freqs)
 
-    def _rotary(
+    def _apply_rotary(
         self,
         query: torch.Tensor,
         key: torch.Tensor,
@@ -93,27 +94,41 @@ class Attention(nn.Module):
         key = key.view(B, T, self.n_kv_heads, self.head_dim).transpose(1, 2)
         value = value.view(B, T, self.n_kv_heads, self.head_dim).transpose(1, 2)
 
-        # Apply rotary embedding
-        query, key = self._rotary(query, key, self.rope[:T])
+        # Apply RoPE
+        query, key = self._apply_rotary(query, key, self.rope[:T])
 
         attn_weights = (query @ key.transpose(-2, -1)) * self.scale
         if mask is not None:
             attn_weights = attn_weights.masked_fill(mask == 0, float("-inf"))
         attn_weights = F.softmax(attn_weights, dim=-1)
+        attn_weights = attn_weights.masked_fill(attn_weights.isnan(), 0)
 
         attn_output = (attn_weights @ value).transpose(1, 2).contiguous().view(B, T, -1)
         return self.wo(attn_output)
 
 
 class TransformerBlock(nn.Module):
-    def __init__(self, dim, n_heads, head_dim, n_kv_heads, ff_dim, bias=False):
+    def __init__(
+        self,
+        dim,
+        n_heads,
+        head_dim,
+        n_kv_heads,
+        ff_dim,
+        max_seq_len,
+        theta=10000.0,
+        bias=False,
+    ):
         super().__init__()
-        self.attn = Attention(dim, n_heads, head_dim, n_kv_heads, bias)
+        self.attn = Attention(
+            dim, n_heads, head_dim, n_kv_heads, max_seq_len, theta, bias
+        )
         self.norm1 = RMSNorm(dim)
         self.norm2 = RMSNorm(dim)
         self.ff = FeedForward(dim, ff_dim)
 
-    def forward(self, x, rope, mask=None):
+    def forward(self, x, mask=None):
+        rope = self.attn.rope[: x.shape[1]]  # Slice to sequence length
         x = self.norm1(x + self.attn(x, rope, mask))
         x = self.norm2(x + self.ff(x))
         return x
@@ -135,7 +150,9 @@ class MiniTransformer(nn.Module):
         self.embed = nn.Embedding(vocab_size, embed_dim, padding_idx=pad_id)
         self.blocks = nn.ModuleList(
             [
-                TransformerBlock(embed_dim, num_heads, head_dim, num_heads, ff_dim)
+                TransformerBlock(
+                    embed_dim, num_heads, head_dim, num_heads, ff_dim, max_seq_len
+                )
                 for _ in range(num_layers)
             ]
         )
@@ -143,10 +160,10 @@ class MiniTransformer(nn.Module):
         self.head = nn.Linear(embed_dim, vocab_size)
         self.max_seq_len = max_seq_len
 
-    def forward(self, x, rope, mask=None):
+    def forward(self, x, mask=None):
         B, T = x.shape
-        x = self.embed(x)  # No need for `self.pos_embed`
+        x = self.embed(x)
         for block in self.blocks:
-            x = block(x, rope, mask)
+            x = block(x, mask)
         x = self.norm(x)
         return self.head(x)
