@@ -19,9 +19,7 @@ class TransformerArgs:
         return self.parser.parse_args()
 
     def add_required(self) -> None:
-        """
-        Parse command-line arguments using argparse.
-        """
+        """Required arguments for model execution."""
         self.parser.add_argument(
             "--processor", required=True, help="Path to SentencePiece tokenizer model."
         )
@@ -33,6 +31,7 @@ class TransformerArgs:
         )
 
     def add_optional(self) -> None:
+        """Optional arguments with safe defaults."""
         self.parser.add_argument(
             "--schema", default=None, help="Path to a JSON schema file for the dataset."
         )
@@ -41,9 +40,7 @@ class TransformerArgs:
         )
 
     def add_config(self) -> None:
-        """
-        Add transformer configuration arguments to the parser.
-        """
+        """Model architecture and configuration."""
         self.parser.add_argument(
             "--embed-dim",
             type=int,
@@ -84,18 +81,21 @@ class TransformerArgs:
             "--rope-theta",
             type=float,
             default=10000.0,
-            help="Theta value for RoPE positional encoding (Default: 10000.0).",
-        )
-        self.parser.add_argument(
-            "--bias",
-            action="store_true",
-            help="Use bias in the feed-forward network (Default: False).",
+            help="Theta for RoPE positional encoding (Default: 10000.0).",
         )
 
+        # Mutually exclusive bias flags
+        group = self.parser.add_mutually_exclusive_group()
+        group.add_argument(
+            "--bias", action="store_true", help="Use bias in FFN (Default: False)."
+        )
+        group.add_argument(
+            "--no-bias", action="store_false", dest="bias", help="Disable bias in FFN."
+        )
+        self.parser.set_defaults(bias=False)
+
     def add_params(self) -> None:
-        """
-        Add training parameters to the transformer model.
-        """
+        """Training hyperparameters."""
         self.parser.add_argument(
             "--seed",
             type=int,
@@ -157,4 +157,17 @@ class TransformerArgs:
         )
         self.parser.add_argument(
             "--lr", type=float, default=5e-4, help="Learning rate (Default: 5e-4)."
+        )
+        self.parser.add_argument(
+            "--grad-accum-steps",
+            type=int,
+            default=1,
+            help="Gradient accumulation steps (Default: 1).",
+        )
+        self.parser.add_argument(
+            "--mixed-precision",
+            type=str,
+            choices=["none", "fp16", "bf16"],
+            default="none",
+            help="Enable mixed precision training: 'none', 'fp16' or 'bf16' (Default: none).",
         )
