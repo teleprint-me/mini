@@ -62,7 +62,9 @@ class MiniTextDataset(MiniDataset):
 
         # Use MiniTextProcessor for tokenization and batching
         self.text_processor = MiniTextProcessor(self.processor, verbose)
-        self.encoded = self.text_processor.tokenize(raw_text, stride=stride)
+        self.encoded = self.text_processor.tokenize(
+            raw_text, max_seq_len=max_seq_len, stride=stride
+        )
         self.batches = self.text_processor.batch(self.encoded, batch_size)
 
         self.logger.debug(f"Generated {len(self.batches)} training batches")
