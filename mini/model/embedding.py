@@ -1,8 +1,6 @@
 """
 Copyright © 2023 Austin Berrio
-
 Module: mini.model.embedding
-
 Description: A simple embedding model to handle semantic similarities and word representations.
 """
 
@@ -187,7 +185,7 @@ def train_embedding_model(
         weight_decay=weight_decay,
         amsgrad=amsgrad,
     )
-    loss_fn = nn.MSELoss()
+    loss_fn = nn.CosineEmbeddingLoss()
 
     embedding_model.train()
 
@@ -208,9 +206,11 @@ def train_embedding_model(
             # Normalize embeddings
             instruction_embeddings = F.normalize(instruction_embeddings, p=2, dim=1)
             response_embeddings = F.normalize(response_embeddings, p=2, dim=1)
+            # All pairs are positive matches
+            labels = torch.ones(len(instruction_embeddings), dtype=torch.float32)
 
             # Compute loss (minimize distance between instruction and response embeddings)
-            loss = loss_fn(instruction_embeddings, response_embeddings)
+            loss = loss_fn(instruction_embeddings, response_embeddings, labels)
 
             # Backpropagation
             loss.backward()
