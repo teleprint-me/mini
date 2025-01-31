@@ -17,11 +17,8 @@ class RMSNorm(nn.Module):
         self.eps = eps
         self.weight = nn.Parameter(torch.ones(dim))
 
-    def _norm(self, x: torch.Tensor) -> torch.Tensor:
-        return x * torch.rsqrt(x.pow(2).mean(-1, keepdim=True) + self.eps)
-
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self._norm(x.float()).type_as(x) * self.weight
+        return x * torch.rsqrt(x.pow(2).mean(-1, keepdim=True) + self.eps) * self.weight
 
 
 class FeedForward(nn.Module):
@@ -70,16 +67,13 @@ class Attention(nn.Module):
         return torch.polar(torch.ones_like(freqs), freqs)
 
     def _apply_rotary(
-        self,
-        query: torch.Tensor,
-        key: torch.Tensor,
-        rope: torch.Tensor,
+        self, query: torch.Tensor, key: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         query_complex = torch.view_as_complex(
             query.float().reshape(*query.shape[:-1], -1, 2)
         )
         key_complex = torch.view_as_complex(key.float().reshape(*key.shape[:-1], -1, 2))
-        rope = rope[:, None, :]
+        rope = self.rope[: query.shape[1]]  # Slice RoPE based on sequence length
         query_real = torch.view_as_real(query_complex * rope).flatten(-2)
         key_real = torch.view_as_real(key_complex * rope).flatten(-2)
         return query_real.type_as(query), key_real.type_as(key)
@@ -88,15 +82,12 @@ class Attention(nn.Module):
         self, x: torch.Tensor, mask: Optional[torch.Tensor] = None
     ) -> torch.Tensor:
         B, T, _ = x.shape
-
         query, key, value = self.wq(x), self.wk(x), self.wv(x)
         query = query.view(B, T, self.n_heads, self.head_dim).transpose(1, 2)
         key = key.view(B, T, self.n_kv_heads, self.head_dim).transpose(1, 2)
         value = value.view(B, T, self.n_kv_heads, self.head_dim).transpose(1, 2)
 
-        # Apply RoPE
-        query, key = self._apply_rotary(query, key, self.rope[:T])
-
+        query, key = self._apply_rotary(query, key)
         attn_weights = (query @ key.transpose(-2, -1)) * self.scale
         if mask is not None:
             attn_weights = attn_weights.masked_fill(mask == 0, float("-inf"))
@@ -128,8 +119,7 @@ class TransformerBlock(nn.Module):
         self.ff = FeedForward(dim, ff_dim)
 
     def forward(self, x, mask=None):
-        rope = self.attn.rope[: x.shape[1]]  # Slice to sequence length
-        x = self.norm1(x + self.attn(x, rope, mask))
+        x = self.norm1(x + self.attn(x, mask))
         x = self.norm2(x + self.ff(x))
         return x
 
@@ -151,7 +141,7 @@ class MiniTransformer(nn.Module):
         self.blocks = nn.ModuleList(
             [
                 TransformerBlock(
-                    embed_dim, num_heads, head_dim, num_heads, ff_dim, max_seq_len
+                    embed_dim, num_heads, head_dim, num_heads // 2, ff_dim, max_seq_len
                 )
                 for _ in range(num_layers)
             ]
