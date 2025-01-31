@@ -84,19 +84,31 @@ def parse_args():
     )
     parser.add_argument("--top-k", type=int, default=10, help="Top-k sampling size.")
     parser.add_argument(
-        "--embed-dim", type=int, default=256, help="Embedding dimension size."
+        "--embed-dim",
+        type=int,
+        default=512,
+        help="Embedding dimension size (Default: 512).",
     )
     parser.add_argument(
-        "--n-heads", type=int, default=8, help="Number of attention heads."
+        "--n-heads", type=int, default=8, help="Number of attention heads (Default: 8)."
     )
     parser.add_argument(
-        "--ff-dim", type=int, default=512, help="Feed-forward network dimension."
+        "--ff-dim",
+        type=int,
+        default=512,
+        help="Feed-forward network dimension (Default: 512).",
     )
     parser.add_argument(
-        "--n-layers", type=int, default=4, help="Number of transformer layers."
+        "--n-layers",
+        type=int,
+        default=8,
+        help="Number of transformer layers (Default: 8).",
     )
     parser.add_argument(
-        "--n-seq-len", type=int, default=128, help="Maximum sequence length."
+        "--n-seq-len",
+        type=int,
+        default=512,
+        help="Maximum sequence length (Default: 512).",
     )
     return parser.parse_args()
 

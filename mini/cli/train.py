@@ -92,39 +92,71 @@ def parse_args():
         "--model", required=True, help="Path to save or load the model."
     )
     parser.add_argument(
-        "--seed", type=int, default=42, help="Random seed for reproducibility."
+        "--seed",
+        type=int,
+        default=42,
+        help="Random seed for reproducibility (Default: 42).",
     )
     parser.add_argument(
-        "--embed-dim", type=int, default=256, help="Embedding dimension size."
+        "--embed-dim",
+        type=int,
+        default=512,
+        help="Embedding dimension size (Default: 512).",
     )
     parser.add_argument(
-        "--n-heads", type=int, default=8, help="Number of attention heads."
+        "--n-heads", type=int, default=8, help="Number of attention heads (Default: 8)."
     )
     parser.add_argument(
-        "--ff-dim", type=int, default=512, help="Feed-forward network dimension."
+        "--ff-dim",
+        type=int,
+        default=512,
+        help="Feed-forward network dimension (Default: 512).",
     )
     parser.add_argument(
-        "--n-layers", type=int, default=4, help="Number of transformer layers."
+        "--n-layers",
+        type=int,
+        default=8,
+        help="Number of transformer layers (Default: 8).",
     )
     parser.add_argument(
-        "--n-seq-len", type=int, default=128, help="Maximum sequence length."
+        "--n-seq-len",
+        type=int,
+        default=512,
+        help="Maximum sequence length (Default: 512).",
     )
     parser.add_argument(
-        "--batch-size", type=int, default=32, help="Batch size for training."
+        "--batch-size",
+        type=int,
+        default=8,
+        help="Batch size for training (Default: 8).",
     )
     parser.add_argument(
-        "--num-epochs", type=int, default=10, help="Number of training epochs."
+        "--num-epochs",
+        type=int,
+        default=10,
+        help="Number of training epochs (Default: 10).",
     )
     parser.add_argument(
-        "--save-every", type=int, default=10, help="Save model every N epochs."
+        "--save-every",
+        type=int,
+        default=10,
+        help="Save model every N epochs (Default: 10).",
     )
     parser.add_argument(
-        "--step-size", type=int, default=10, help="Learning rate scheduler step size."
+        "--step-size",
+        type=int,
+        default=10,
+        help="Learning rate scheduler step size (Default: 10).",
     )
     parser.add_argument(
-        "--gamma", type=float, default=0.5, help="Learning rate scheduler gamma."
+        "--gamma",
+        type=float,
+        default=0.8,
+        help="Learning rate scheduler gamma (Default: 0.8).",
     )
-    parser.add_argument("--lr", type=float, default=3e-4, help="Learning rate.")
+    parser.add_argument(
+        "--lr", type=float, default=1e-3, help="Learning rate (Default: 1e-3)."
+    )
     return parser.parse_args()
 
 
@@ -141,7 +173,12 @@ if __name__ == "__main__":
     processor = SentencePieceProcessor(model_file=args.processor)
 
     # Automatically detect the physical device
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = None
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+        device = torch.device("cuda")
+    else:
+        device = torch.device("cpu")
 
     # Wrap into a PyTorch Dataset & DataLoader
     dataset = MiniJsonDataset(
