@@ -1,7 +1,7 @@
 """
 Copyright © 2023 Austin Berrio
 Module: mini.data.set
-Description: Module for loading plaintext documents for text-to-text sequencing for language modeling.
+Description: Automate loading datasets for text-to-text sequencing.
 """
 
 import logging
