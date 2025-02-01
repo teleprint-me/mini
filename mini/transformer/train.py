@@ -74,7 +74,7 @@ def train(
                     dtype=torch.bfloat16 if mixed_precision == "bf16" else torch.float16
                 )
                 if mixed_precision in ["fp16", "bf16"]
-                else torch.no_grad()
+                else torch.enable_grad()
             ):
                 logits = model(x, mask)  # (Batch, Seq Len, Vocab Size)
                 loss = criterion(logits.view(-1, logits.size(-1)), y.view(-1))
