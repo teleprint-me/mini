@@ -53,7 +53,6 @@ class Attention(nn.Module):
         self.n_heads = config.num_heads
         self.head_dim = config.head_dim
         self.n_kv_heads = self.n_heads // 2
-        self.repeats = self.n_heads // self.n_kv_heads
         self.scale = self.head_dim**-0.5
 
         self.wq = nn.Linear(
@@ -69,28 +68,58 @@ class Attention(nn.Module):
             self.n_heads * self.head_dim, config.embed_dim, bias=config.bias
         )
 
-        self.register_buffer(
-            "rope",
-            self._precompute_rotary(config.head_dim, config.max_seq_len, config.theta),
+        cos_emb, sin_emb = self._precompute_rotary(
+            config.head_dim, config.max_seq_len, config.theta
+        )
+        self.register_buffer("cos_emb", cos_emb)
+        self.register_buffer("sin_emb", sin_emb)
+
+    def _precompute_rotary(
+        self, dim: int, seq_len: int, theta: float
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Precompute cosine and sine components for RoPE."""
+        dim_half = dim // 2  # RoPE applies to half of the head dimension
+
+        # Compute inverse frequency for rotation
+        inv_freqs = 1.0 / (
+            theta ** (torch.arange(0, dim_half, dtype=torch.float32) / dim_half)
         )
 
-    def _precompute_rotary(self, dim: int, seq_len: int, theta: float) -> torch.Tensor:
-        inv_freqs = 1.0 / (theta ** (torch.arange(0, dim, 2).float() / dim))
+        # Compute position indices as 1D (seq_len,)
         positions = torch.arange(seq_len, dtype=torch.float32)
-        freqs = torch.einsum("i,j->ij", positions, inv_freqs)
-        return torch.polar(torch.ones_like(freqs), freqs)
+
+        # Compute angles (m * theta), Shape: (seq_len, dim_half)
+        angle_rates = torch.einsum("m,d->md", positions, inv_freqs)
+
+        # Compute cos and sin values, Shape: (1, 1, seq_len, dim_half)
+        cos_emb = torch.cos(angle_rates).unsqueeze(0).unsqueeze(0)
+        sin_emb = torch.sin(angle_rates).unsqueeze(0).unsqueeze(0)
+
+        return cos_emb, sin_emb
 
     def _apply_rotary(
         self, query: torch.Tensor, key: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        query_complex = torch.view_as_complex(
-            query.float().reshape(*query.shape[:-1], -1, 2)
+        B, H, T, D = query.shape
+        D_half = D // 2  # Ensure we only rotate half of the dimensions
+
+        # Get precomputed RoPE embeddings
+        cos_theta = self.cos_emb[:, :, :T, :D_half].expand(B, H, T, D_half)
+        sin_theta = self.sin_emb[:, :, :T, :D_half].expand(B, H, T, D_half)
+
+        # Split query and key into even/odd indexed pairs
+        q1, q2 = query[..., ::2], query[..., 1::2]
+        k1, k2 = key[..., ::2], key[..., 1::2]
+
+        # Apply RoPE transformation
+        query_rot = torch.cat(
+            [q1 * cos_theta - q2 * sin_theta, q2 * cos_theta + q1 * sin_theta], dim=-1
         )
-        key_complex = torch.view_as_complex(key.float().reshape(*key.shape[:-1], -1, 2))
-        rope = self.rope[: query.shape[1]]
-        query_real = torch.view_as_real(query_complex * rope).flatten(-2)
-        key_real = torch.view_as_real(key_complex * rope).flatten(-2)
-        return query_real.type_as(query), key_real.type_as(key)
+        key_rot = torch.cat(
+            [k1 * cos_theta - k2 * sin_theta, k2 * cos_theta + k1 * sin_theta], dim=-1
+        )
+
+        return query_rot, key_rot
 
     def forward(
         self, x: torch.Tensor, mask: Optional[torch.Tensor] = None
@@ -98,8 +127,16 @@ class Attention(nn.Module):
         B, T, _ = x.shape
         query, key, value = self.wq(x), self.wk(x), self.wv(x)
         query = query.view(B, T, self.n_heads, self.head_dim).transpose(1, 2)
-        key = key.view(B, T, self.n_kv_heads, self.head_dim).transpose(1, 2)
-        value = value.view(B, T, self.n_kv_heads, self.head_dim).transpose(1, 2)
+        key = (
+            key.view(B, T, self.n_kv_heads, self.head_dim)
+            .transpose(1, 2)
+            .repeat(1, self.n_heads // self.n_kv_heads, 1, 1)
+        )
+        value = (
+            value.view(B, T, self.n_kv_heads, self.head_dim)
+            .transpose(1, 2)
+            .repeat(1, self.n_heads // self.n_kv_heads, 1, 1)
+        )
 
         query, key = self._apply_rotary(query, key)
         attn_weights = (query @ key.transpose(-2, -1)) * self.scale
