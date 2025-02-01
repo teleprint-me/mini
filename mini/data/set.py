@@ -48,7 +48,7 @@ class MiniTextDataset(MiniDataset):
         processor: SentencePieceProcessor,
         max_seq_len: int,
         batch_size: int = 8,
-        stride: int = 64,
+        stride: int = 32,
         verbose: bool = False,
     ):
         super().__init__(file_path, processor, max_seq_len, batch_size, verbose)

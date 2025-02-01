@@ -56,8 +56,8 @@ class TransformerArgs:
         self.parser.add_argument(
             "--head-dim",
             type=int,
-            default=64,
-            help="Head dimension size (Default: 64).",
+            default=32,
+            help="Head dimension size (Default: 32).",
         )
         self.parser.add_argument(
             "--num-layers",
@@ -111,8 +111,8 @@ class TransformerArgs:
         self.parser.add_argument(
             "--batch-stride",
             type=int,
-            default=64,
-            help="Stride for batching the dataset (Default: 64).",
+            default=32,
+            help="Stride for batching the dataset (Default: 32).",
         )
         self.parser.add_argument(
             "--num-epochs",
