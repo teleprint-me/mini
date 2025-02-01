@@ -146,17 +146,17 @@ class TransformerArgs:
         self.parser.add_argument(
             "--step-size",
             type=int,
-            default=10,
-            help="Learning rate scheduler step size (Default: 10).",
+            default=1,
+            help="Learning rate scheduler step size (Default: 1).",
         )
         self.parser.add_argument(
             "--gamma",
             type=float,
-            default=0.8,
-            help="Learning rate scheduler gamma (Default: 0.8).",
+            default=0.1,
+            help="Learning rate scheduler gamma (Default: 0.1).",
         )
         self.parser.add_argument(
-            "--lr", type=float, default=5e-4, help="Learning rate (Default: 5e-4)."
+            "--lr", type=float, default=1e-3, help="Learning rate (Default: 1e-3)."
         )
         self.parser.add_argument(
             "--grad-accum-steps",
