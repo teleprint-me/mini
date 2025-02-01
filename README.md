@@ -45,26 +45,17 @@ mkdir data
 2. Download the dataset:
 
 ```sh
-wget https://raw.githubusercontent.com/teknium1/GPTeacher/refs/heads/main/Instruct/gpt4-instruct-dedupe-only-dataset.json -O data/gpt4-instruct-dedupe-only-dataset.json
+wget https://raw.githubusercontent.com/karpathy/char-rnn/refs/heads/master/data/tinyshakespeare/input.txt -O data/tinyshakespeare.txt
 ```
 
-3. Pre-process the dataset:
+3. Train the model:
 
 ```sh
-python -m mini.data.filter -i data/gpt4-instruct-dedupe-only-dataset.json \
-    -o data/gpt4-instruct-mini-dataset.json \
-    -s data/gpt4-instruct-mini-schema.json \
-    --seed 42 --shuffle --pairs 10
-```
-
-4. Train the model:
-
-```sh
-python -m mini.cli.train --processor models/tokenizer.model \
-    --schema data/gpt4-instruct-mini-schema.json \
-    --dataset data/gpt4-instruct-mini-dataset.json \
+python -m mini.transformer.train --processor models/tokenizer.model \
+    --dataset data/tinyshakespeare.txt \
     --model models/mini-transformer.pth \
-    --num-epochs 10
+    --num-epochs 100 \
+    --max-seq-len 512
 ```
 
 5. Evaluate the model:
