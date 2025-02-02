@@ -10,36 +10,92 @@ import argparse
 class TransformerArgs:
     def __init__(self, description: str = "Mini CLI Tool"):
         self.parser = argparse.ArgumentParser(description=description)
+        self.parser.add_argument(
+            "-v", "--verbose", action="store_true", help="Enable verbose mode"
+        )
 
-    def parse_args(self) -> argparse.Namespace:
-        self.add_required()
-        self.add_optional()
-        self.add_config()
-        self.add_params()
+    def parse_args(self, mode: str) -> argparse.Namespace:
+        """
+        Parses command-line arguments for a given mode ('train' or 'infer').
+
+        Args:
+            mode (str): The mode of execution ('train' or 'infer').
+
+        Returns:
+            argparse.Namespace: Parsed arguments.
+        """
+        self.add_common_args()
+
+        if mode == "train":
+            self.add_required_for_train()
+            self.add_training_params()
+        elif mode == "infer":
+            self.add_required_for_infer()
+            self.add_sampling_args()
+        else:
+            raise ValueError("Invalid mode. Use 'train' or 'infer'.")
+
         return self.parser.parse_args()
 
-    def add_required(self) -> None:
-        """Required arguments for model execution."""
+    def add_common_args(self) -> None:
+        """Common arguments shared across training and inference."""
         self.parser.add_argument(
             "--processor", required=True, help="Path to SentencePiece tokenizer model."
         )
         self.parser.add_argument(
             "--model", required=True, help="Path to save or load the model."
         )
+
+    def add_required_for_train(self) -> None:
+        """Required arguments for training mode."""
         self.parser.add_argument(
-            "--dataset", required=True, help="Path to a plaintext or JSON file."
+            "--dataset", required=True, help="Path to a plaintext or JSON dataset."
+        )
+        self.parser.add_argument(
+            "--schema",
+            default=None,
+            help="Optional JSON schema for dataset validation.",
         )
 
-    def add_optional(self) -> None:
-        """Optional arguments with safe defaults."""
+    def add_required_for_infer(self) -> None:
+        """Required arguments for inference mode."""
         self.parser.add_argument(
-            "--schema", default=None, help="Path to a JSON schema file for the dataset."
-        )
-        self.parser.add_argument(
-            "-v", "--verbose", action="store_true", help="Enable verbose mode"
+            "--prompt", required=True, help="Input text prompt for generation."
         )
 
-    def add_config(self) -> None:
+    def add_sampling_args(self) -> None:
+        """Arguments related to sampling during inference."""
+        self.parser.add_argument(
+            "--max-tokens",
+            type=int,
+            default=128,
+            help="Maximum number of tokens to generate.",
+        )
+        self.parser.add_argument(
+            "--temperature", type=float, default=0.8, help="Sampling temperature."
+        )
+        self.parser.add_argument(
+            "--top-k", type=int, default=10, help="Top-k sampling size (Default: 10)."
+        )
+        self.parser.add_argument(
+            "--top-p",
+            type=float,
+            default=0.9,
+            help="Top-p sampling probability (Default: 0.9).",
+        )
+        self.parser.add_argument(
+            "--repetition-penalty",
+            type=float,
+            default=1.0,
+            help="Repetition penalty factor (Default: 1.0).",
+        )
+
+    def add_training_params(self) -> None:
+        """Adds model configuration and training hyperparameters."""
+        self.add_model_config()
+        self.add_optimizer_params()
+
+    def add_model_config(self) -> None:
         """Model architecture and configuration."""
         self.parser.add_argument(
             "--embed-dim",
@@ -81,7 +137,7 @@ class TransformerArgs:
             "--rope-theta",
             type=float,
             default=10000.0,
-            help="Theta for RoPE positional encoding (Default: 10000.0).",
+            help="Theta for RoPE encoding (Default: 10000.0).",
         )
 
         # Mutually exclusive bias flags
@@ -94,25 +150,17 @@ class TransformerArgs:
         )
         self.parser.set_defaults(bias=False)
 
-    def add_params(self) -> None:
+    def add_optimizer_params(self) -> None:
         """Training hyperparameters."""
+        self.parser.add_argument("--seed", type=int, default=42, help="Random seed.")
         self.parser.add_argument(
-            "--seed",
-            type=int,
-            default=42,
-            help="Random seed for reproducibility (Default: 42).",
-        )
-        self.parser.add_argument(
-            "--batch-size",
-            type=int,
-            default=8,
-            help="Batch size for training (Default: 8).",
+            "--batch-size", type=int, default=8, help="Batch size (Default: 8)."
         )
         self.parser.add_argument(
             "--batch-stride",
             type=int,
             default=32,
-            help="Stride for batching the dataset (Default: 32).",
+            help="Stride for dataset batching (Default: 32).",
         )
         self.parser.add_argument(
             "--num-epochs",
@@ -130,18 +178,18 @@ class TransformerArgs:
             "--eps",
             type=float,
             default=1e-8,
-            help="Epsilon value for numerical stability (Default: 1e-8).",
+            help="Epsilon for numerical stability (Default: 1e-8).",
         )
         self.parser.add_argument(
             "--weight-decay",
             type=float,
             default=1e-2,
-            help="Weight decay for regularization (Default: 1e-2).",
+            help="Weight decay (Default: 1e-2).",
         )
         self.parser.add_argument(
             "--amsgrad",
             action="store_true",
-            help="Use AMSGrad for optimizer (Default: False).",
+            help="Use AMSGrad optimizer (Default: False).",
         )
         self.parser.add_argument(
             "--step-size",
