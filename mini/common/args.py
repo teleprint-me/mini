@@ -88,8 +88,8 @@ class TransformerArgs:
         self.parser.add_argument(
             "--repetition-penalty",
             type=float,
-            default=1.0,
-            help="Repetition penalty factor (Default: 1.0).",
+            default=1.2,
+            help="Repetition penalty factor (Default: 1.2).",
         )
 
     def add_model_config(self) -> None:
