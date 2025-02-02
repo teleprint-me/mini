@@ -4,16 +4,37 @@ Script: mini.transformer.infer
 Description: Simple completion for text-to-text generation with streaming output.
 """
 
-import argparse
-import os
 import sys
 
 import torch
+import torch.nn.functional as F
 from sentencepiece import SentencePieceProcessor
 
 from mini.common.args import TransformerArgs
 from mini.transformer.model import MiniTransformer, TransformerConfig
 from mini.transformer.train import load_checkpoint
+
+
+def sample(logits, top_k=50, top_p=0.9, temperature=0.8):
+    logits = logits / temperature  # Adjust temperature
+    probs = F.softmax(logits, dim=-1)
+
+    # Apply top-k filtering
+    if top_k > 0:
+        values, _ = torch.topk(probs, top_k)
+        min_prob = values[:, -1].unsqueeze(-1)
+        probs = torch.where(probs < min_prob, torch.zeros_like(probs), probs)
+
+    # Apply top-p filtering (nucleus sampling)
+    if top_p > 0:
+        sorted_probs, indices = torch.sort(probs, descending=True)
+        cumulative_probs = torch.cumsum(sorted_probs, dim=-1)
+        mask = cumulative_probs > top_p
+        sorted_probs[mask] = 0
+        sorted_probs = sorted_probs / sorted_probs.sum()
+        probs.scatter_(-1, indices, sorted_probs)
+
+    return torch.multinomial(probs, 1)  # Sample next token
 
 
 def generate(
@@ -66,75 +87,8 @@ def generate(
     return processor.decode(generated_tokens)
 
 
-def parse_args():
-    parser = argparse.ArgumentParser(description="Run inference on MiniTransformer.")
-    parser.add_argument("--model", required=True, help="Path to trained model.")
-    parser.add_argument(
-        "--processor", required=True, help="Path to SentencePiece processor model."
-    )
-    parser.add_argument(
-        "--prompt", required=True, help="Input text prompt for generation."
-    )
-    parser.add_argument(
-        "--max-tokens",
-        type=int,
-        default=128,
-        help="Maximum number of tokens to generate.",
-    )
-    parser.add_argument(
-        "--temperature", type=float, default=0.8, help="Sampling temperature."
-    )
-    parser.add_argument("--top-k", type=int, default=10, help="Top-k sampling size.")
-    parser.add_argument(
-        "--embed-dim",
-        type=int,
-        default=512,
-        help="Embedding dimension size (Default: 512).",
-    )
-    parser.add_argument(
-        "--num-heads",
-        type=int,
-        default=8,
-        help="Number of attention heads (Default: 8).",
-    )
-    parser.add_argument(
-        "--head-dim",
-        type=int,
-        default=32,
-        help="Head dimension size (Default: 32).",
-    )
-    parser.add_argument(
-        "--num-layers",
-        type=int,
-        default=8,
-        help="Number of transformer layers (Default: 8).",
-    )
-    parser.add_argument(
-        "--ff-dim",
-        type=int,
-        default=512,
-        help="Feed-forward network dimension (Default: 512).",
-    )
-    parser.add_argument(
-        "--max-seq-len",
-        type=int,
-        default=512,
-        help="Maximum sequence length (Default: 512).",
-    )
-    parser.add_argument(
-        "--rope-theta",
-        type=float,
-        default=10000.0,
-        help="Theta for RoPE positional encoding (Default: 10000.0).",
-    )
-    parser.add_argument(
-        "--bias", action="store_true", help="Use bias in FFN (Default: False)."
-    )
-    return parser.parse_args()
-
-
 if __name__ == "__main__":
-    args = parse_args()
+    args = TransformerArgs("Mini Training Tool").parse_args("infer")
 
     # Load processor
     processor = SentencePieceProcessor(model_file=args.processor)
