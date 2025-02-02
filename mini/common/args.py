@@ -28,9 +28,11 @@ class TransformerArgs:
 
         if mode == "train":
             self.add_required_for_train()
-            self.add_training_params()
+            self.add_model_config()
+            self.add_optimizer_params()
         elif mode == "infer":
             self.add_required_for_infer()
+            self.add_model_config()
             self.add_sampling_args()
         else:
             raise ValueError("Invalid mode. Use 'train' or 'infer'.")
@@ -89,11 +91,6 @@ class TransformerArgs:
             default=1.0,
             help="Repetition penalty factor (Default: 1.0).",
         )
-
-    def add_training_params(self) -> None:
-        """Adds model configuration and training hyperparameters."""
-        self.add_model_config()
-        self.add_optimizer_params()
 
     def add_model_config(self) -> None:
         """Model architecture and configuration."""
