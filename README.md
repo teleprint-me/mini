@@ -9,7 +9,7 @@ Mini is a Decoder-only Language Model (LM) designed for instruction-based tasks.
 ## Features
 
 - [ ] **Pre-training**: Mini can be pre-trained using plaintext or structured data.
-- [ ] **Inference**: Mini can be used for inference to generate text given an instruction.
+- [ ] **Inference**: Mini can be used for inference to generate text given a prompt or instruction.
 - [ ] **Fine-tuning**: Mini can be fine-tuned for specific tasks using a small amount of data.
 - [ ] **Evaluation**: Mini can be evaluated on various metrics such as perplexity and BLEU score.
 
