@@ -4,8 +4,6 @@ Script: mini.transformer.infer
 Description: Simple completion for text-to-text generation with streaming output.
 """
 
-import sys
-
 import torch
 import torch.nn.functional as F
 from sentencepiece import SentencePieceProcessor
@@ -15,8 +13,23 @@ from mini.transformer.model import MiniTransformer, TransformerConfig
 from mini.transformer.train import load_checkpoint
 
 
-def sample(logits, top_k=50, top_p=0.9, temperature=0.8):
-    logits = logits / temperature  # Adjust temperature
+def sample(
+    logits,
+    past_tokens,
+    top_k=50,
+    top_p=0.9,
+    temperature=0.8,
+    repetition_penalty=1.2,
+):
+    """Applies sampling with temperature, top-k, top-p filtering, and repetition penalty."""
+
+    logits = logits / temperature  # Apply temperature scaling
+
+    # Apply repetition penalty
+    if past_tokens:
+        for token in set(past_tokens):
+            logits[:, token] /= repetition_penalty
+
     probs = F.softmax(logits, dim=-1)
 
     # Apply top-k filtering
@@ -25,7 +38,7 @@ def sample(logits, top_k=50, top_p=0.9, temperature=0.8):
         min_prob = values[:, -1].unsqueeze(-1)
         probs = torch.where(probs < min_prob, torch.zeros_like(probs), probs)
 
-    # Apply top-p filtering (nucleus sampling)
+    # Apply top-p (nucleus) sampling
     if top_p > 0:
         sorted_probs, indices = torch.sort(probs, descending=True)
         cumulative_probs = torch.cumsum(sorted_probs, dim=-1)
@@ -34,7 +47,7 @@ def sample(logits, top_k=50, top_p=0.9, temperature=0.8):
         sorted_probs = sorted_probs / sorted_probs.sum()
         probs.scatter_(-1, indices, sorted_probs)
 
-    return torch.multinomial(probs, 1)  # Sample next token
+    return torch.multinomial(probs, 1).item()  # Sample next token
 
 
 def generate(
@@ -44,9 +57,13 @@ def generate(
     max_tokens: int = 128,
     temperature: float = 0.8,
     top_k: int = 10,
+    top_p: float = 0.9,
+    repetition_penalty: float = 1.2,
     device: torch.device = "cpu",
 ) -> str:
-    model.eval()  # Set model to evaluation mode
+    """Generates text using the trained transformer model."""
+
+    model.eval()
 
     # Encode prompt
     input_ids = processor.encode(prompt, add_bos=True, add_eos=False)
@@ -58,19 +75,18 @@ def generate(
 
     with torch.no_grad():
         for _ in range(max_tokens):
-            logits = model(input_tensor)  # Forward pass
-            logits = logits[:, -1, :] / temperature  # Apply temperature scaling
-            probs = torch.softmax(logits, dim=-1)
+            logits = model(input_tensor)[:, -1, :]  # Forward pass
+            next_token = sample(
+                logits,
+                past_tokens=generated_tokens,
+                top_k=top_k,
+                top_p=top_p,
+                temperature=temperature,
+                repetition_penalty=repetition_penalty,
+            )
 
-            # Top-k sampling
-            top_k_probs, top_k_indices = torch.topk(probs, top_k, dim=-1)
-            next_token = top_k_indices[
-                0, torch.multinomial(top_k_probs, 1).item()
-            ].item()
-
-            output_text = processor.decode(next_token)
-            print(output_text, end="")  # Stream output
-            sys.stdout.flush()
+            output_text = processor.decode([next_token])
+            print(output_text, end="", flush=True)  # Stream output
 
             if next_token == processor.eos_id():
                 print("\nEOS token encountered, stopping generation.")
@@ -116,7 +132,7 @@ if __name__ == "__main__":
         bias=args.bias,
     )
     mini = MiniTransformer(config).to(device)
-    model, _ = load_checkpoint(args.model, mini, None)
+    model, _ = load_checkpoint(args.model, model=mini, optimizer=None)
 
     # Run inference
     output = generate(
@@ -126,6 +142,8 @@ if __name__ == "__main__":
         max_tokens=args.max_tokens,
         temperature=args.temperature,
         top_k=args.top_k,
+        top_p=args.top_p,
+        repetition_penalty=args.repetition_penalty,
         device=device,
     )
     print("\nGenerated Output:", output)
