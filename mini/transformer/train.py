@@ -25,7 +25,8 @@ def load_checkpoint(
         print(f"Loading model from {model_path}")
         checkpoint = torch.load(model_path, weights_only=True)
         model.load_state_dict(checkpoint["model_state"])
-        optimizer.load_state_dict(checkpoint["optimizer_state"])
+        if optimizer is not None:
+            optimizer.load_state_dict(checkpoint["optimizer_state"])
     return model, optimizer
 
 
@@ -49,14 +50,10 @@ def train(
     num_epochs: int = 10,
     save_every: int = 10,
     grad_accum_steps: int = 1,
-    mixed_precision: str = "none",
 ):
     # Load the model and optimizer if a checkpoint exists
     model, optimizer = load_checkpoint(model_path, model, optimizer)
     model.train()
-
-    # Mixed precision setup
-    scaler = torch.cuda.amp.GradScaler() if mixed_precision == "fp16" else None
 
     for epoch in range(num_epochs):
         total_loss = 0
@@ -64,47 +61,27 @@ def train(
 
         for batch_idx, (x, y) in enumerate(dataset):
             x, y = x.to(device), y.to(device)
-
-            # Create mask where PAD (0) tokens are ignored
             mask = (x != 0).unsqueeze(1).unsqueeze(2)  # (B, 1, 1, T)
 
-            # Forward pass (mixed precision if enabled)
-            with (
-                torch.cuda.amp.autocast(
-                    dtype=torch.bfloat16 if mixed_precision == "bf16" else torch.float16
-                )
-                if mixed_precision in ["fp16", "bf16"]
-                else torch.enable_grad()
-            ):
-                logits = model(x, mask)  # (Batch, Seq Len, Vocab Size)
+            with torch.cuda.amp.autocast():
+                logits = model(x, mask)
                 loss = criterion(logits.view(-1, logits.size(-1)), y.view(-1))
-                loss = loss / grad_accum_steps  # Normalize loss for accumulation
+                loss = loss / grad_accum_steps  # Normalize loss
 
-            # Backward pass
-            if mixed_precision == "fp16":
-                scaler.scale(loss).backward()
-            else:
-                loss.backward()
+            loss.backward()
 
-            # Accumulate gradients
             if (batch_idx + 1) % grad_accum_steps == 0 or batch_idx == len(dataset) - 1:
-                if mixed_precision == "fp16":
-                    scaler.step(optimizer)
-                    scaler.update()
-                else:
-                    optimizer.step()
-
+                optimizer.step()
                 optimizer.zero_grad()
-                scheduler.step()  # Adjust learning rate
-
-            total_loss += loss.item() * grad_accum_steps  # Re-scale
 
             print(
-                f"[Epoch {epoch+1}/{num_epochs}] [{batch_idx}/{len(dataset)}] Loss: {loss.item():.4f}"
+                f"[Epoch {epoch+1}/{num_epochs}] [{batch_idx}/{len(dataset)}] Loss: {loss.item():.8f}"
             )
 
+        scheduler.step()  # Now updates LR per epoch
+        total_loss += loss.item() * grad_accum_steps  # Re-scale
         print(
-            f"Epoch {epoch+1} Completed | Avg Loss: {total_loss / len(dataset):.4f} | LR: {scheduler.get_last_lr()[0]:.6f}"
+            f"Epoch {epoch+1} Completed | Avg Loss: {total_loss / len(dataset):.4f} | LR: {scheduler.get_last_lr()[0]:.8f}"
         )
 
         # Save the model periodically
@@ -189,6 +166,5 @@ if __name__ == "__main__":
         num_epochs=args.num_epochs,
         save_every=args.save_every,
         grad_accum_steps=args.grad_accum_steps,
-        mixed_precision=args.mixed_precision,
     )
     print("Training complete!")
