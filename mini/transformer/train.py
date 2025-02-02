@@ -92,7 +92,7 @@ def train(
 
 
 if __name__ == "__main__":
-    args = TransformerArgs("Mini Training Tool").parse_args()
+    args = TransformerArgs("Mini Training Tool").parse_args("train")
 
     # Set seed
     random.seed(args.seed)
