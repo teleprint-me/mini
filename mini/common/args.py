@@ -68,8 +68,8 @@ class TransformerArgs:
         self.parser.add_argument(
             "--ff-dim",
             type=int,
-            default=512,
-            help="Feed-forward network dimension (Default: 512).",
+            default=256,
+            help="Feed-forward network dimension (Default: 256).",
         )
         self.parser.add_argument(
             "--max-seq-len",
@@ -117,8 +117,8 @@ class TransformerArgs:
         self.parser.add_argument(
             "--num-epochs",
             type=int,
-            default=10,
-            help="Number of training epochs (Default: 10).",
+            default=50,
+            help="Number of training epochs (Default: 50).",
         )
         self.parser.add_argument(
             "--save-every",
@@ -135,8 +135,8 @@ class TransformerArgs:
         self.parser.add_argument(
             "--weight-decay",
             type=float,
-            default=0.0001,
-            help="Weight decay for regularization (Default: 0.0001).",
+            default=1e-2,
+            help="Weight decay for regularization (Default: 1e-2).",
         )
         self.parser.add_argument(
             "--amsgrad",
@@ -146,8 +146,8 @@ class TransformerArgs:
         self.parser.add_argument(
             "--step-size",
             type=int,
-            default=1,
-            help="Learning rate scheduler step size (Default: 1).",
+            default=10,
+            help="Learning rate scheduler step size (Default: 10).",
         )
         self.parser.add_argument(
             "--gamma",
@@ -156,18 +156,11 @@ class TransformerArgs:
             help="Learning rate scheduler gamma (Default: 0.1).",
         )
         self.parser.add_argument(
-            "--lr", type=float, default=1e-3, help="Learning rate (Default: 1e-3)."
+            "--lr", type=float, default=1e-4, help="Learning rate (Default: 1e-4)."
         )
         self.parser.add_argument(
             "--grad-accum-steps",
             type=int,
             default=1,
             help="Gradient accumulation steps (Default: 1).",
-        )
-        self.parser.add_argument(
-            "--mixed-precision",
-            type=str,
-            choices=["none", "fp16", "bf16"],
-            default="none",
-            help="Enable mixed precision training: 'none', 'fp16' or 'bf16' (Default: none).",
         )
