@@ -39,6 +39,31 @@ def save_checkpoint(model_path: str, model: nn.Module, optimizer: optim.Optimize
     print(f"Saved model to {model_path}")
 
 
+def log_batch(
+    epoch: int,
+    num_epochs: int,
+    batch_idx: int,
+    dataset: MiniDataset,
+    loss: torch.Tensor,
+):
+    """Logs the loss for each batch in an epoch."""
+    perplexity = (
+        torch.exp(loss).item() if isinstance(loss, torch.Tensor) else torch.exp(loss)
+    )
+    print(
+        f"[Epoch {epoch+1}/{num_epochs}] [{batch_idx}/{len(dataset)}] Loss: {loss.item():.6f}, Perplexity: {perplexity:.6f}"
+    )
+
+
+def log_epoch(
+    epoch: int, total_loss: int, dataset: MiniDataset, scheduler: LRScheduler
+):
+    """Logs the epoch loss and learning rate."""
+    print(
+        f"Epoch {epoch+1} Completed | Avg Loss: {total_loss / len(dataset):.4f} | LR: {scheduler.get_last_lr()[0]:.8f}"
+    )
+
+
 def train(
     model_path: str,
     model: nn.Module,
@@ -50,7 +75,11 @@ def train(
     num_epochs: int = 10,
     save_every: int = 10,
     grad_accum_steps: int = 1,
+    verbose: bool = False,
 ):
+    # Set the device type for autocast
+    device_type = "cuda" if torch.cuda.is_available() else "cpu"
+
     # Load the model and optimizer if a checkpoint exists
     model, optimizer = load_checkpoint(model_path, model, optimizer)
     model.train()
@@ -63,7 +92,7 @@ def train(
             x, y = x.to(device), y.to(device)
             mask = (x != 0).unsqueeze(1).unsqueeze(2)  # (B, 1, 1, T)
 
-            with torch.cuda.amp.autocast():
+            with torch.amp.autocast(device_type=device_type):
                 logits = model(x, mask)
                 loss = criterion(logits.view(-1, logits.size(-1)), y.view(-1))
                 loss = loss / grad_accum_steps  # Normalize loss
@@ -74,21 +103,16 @@ def train(
                 optimizer.step()
                 optimizer.zero_grad()
 
-            print(
-                f"[Epoch {epoch+1}/{num_epochs}] [{batch_idx}/{len(dataset)}] Loss: {loss.item():.8f}"
-            )
+            if verbose:
+                log_batch(epoch, num_epochs, batch_idx, dataset, loss)
 
         scheduler.step()  # Now updates LR per epoch
         total_loss += loss.item() * grad_accum_steps  # Re-scale
-        print(
-            f"Epoch {epoch+1} Completed | Avg Loss: {total_loss / len(dataset):.4f} | LR: {scheduler.get_last_lr()[0]:.8f}"
-        )
+        log_epoch(epoch, total_loss, dataset, scheduler)
 
         # Save the model periodically
         if (epoch + 1) % save_every == 0:
             save_checkpoint(model_path, model, optimizer)
-
-    print("Training complete!")
 
 
 if __name__ == "__main__":
@@ -118,6 +142,7 @@ if __name__ == "__main__":
         max_seq_len=args.max_seq_len,
         batch_size=args.batch_size,
         stride=args.batch_stride,
+        verbose=args.verbose,
     )
 
     # Model & Training Setup
@@ -166,5 +191,6 @@ if __name__ == "__main__":
         num_epochs=args.num_epochs,
         save_every=args.save_every,
         grad_accum_steps=args.grad_accum_steps,
+        verbose=args.verbose,
     )
     print("Training complete!")
