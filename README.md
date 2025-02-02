@@ -53,7 +53,7 @@ wget https://raw.githubusercontent.com/karpathy/char-rnn/refs/heads/master/data/
 ```sh
 python -m mini.transformer.train --processor models/tokenizer.model \
     --dataset data/tinyshakespeare.txt \
-    --model models/mini-transformer.pth \
+    --model models/mini_transformer.pt \
     --embed-dim 256 \
     --num-heads 4 \
     --head-dim 64 \
