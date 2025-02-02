@@ -88,7 +88,7 @@ def generate(
 
 
 if __name__ == "__main__":
-    args = TransformerArgs("Mini Training Tool").parse_args("infer")
+    args = TransformerArgs("Mini Inference Tool").parse_args("infer")
 
     # Load processor
     processor = SentencePieceProcessor(model_file=args.processor)
