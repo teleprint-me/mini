@@ -8,10 +8,10 @@ Mini is a Decoder-only Language Model (LM) designed for instruction-based tasks.
 
 ## Features
 
-- **Instruction-based tasks**: Mini is designed to handle instruction-based tasks, such as summarization, translation, and question answering.
-- **Fine-tuning**: Mini can be fine-tuned for specific tasks using a small amount of data.
-- **Efficiency**: Mini is optimized for efficiency, with a small number of parameters and fast training times.
-- **Scalability**: Mini can be scaled to handle large amounts of data and can be used in distributed settings.
+- [ ] **Pre-training**: Mini can be pre-trained using plaintext or structured data.
+- [ ] **Inference**: Mini can be used for inference to generate text given an instruction.
+- [ ] **Fine-tuning**: Mini can be fine-tuned for specific tasks using a small amount of data.
+- [ ] **Evaluation**: Mini can be evaluated on various metrics such as perplexity and BLEU score.
 
 ## Setup
 
@@ -54,20 +54,44 @@ wget https://raw.githubusercontent.com/karpathy/char-rnn/refs/heads/master/data/
 python -m mini.transformer.train --processor models/tokenizer.model \
     --dataset data/tinyshakespeare.txt \
     --model models/mini-transformer.pth \
-    --num-epochs 100 \
-    --max-seq-len 512
+    --embed-dim 256 \
+    --num-heads 4 \
+    --head-dim 64 \
+    --num-layers 6 \
+    --ff-dim 512 \
+    --max-seq-len 128 \
+    --batch-size 4 \
+    --batch-stride 16 \
+    --num-epochs 3 \
+    --save-every 1 \
+    --lr 5e-4 \
+    --eps 1e-8 \
+    --weight-decay 0.01 \
+    --step-size 1 \
+    --gamma 0.9 \
+    --grad-accum-steps 2 \
+    -v
+```
+
+4. Inference the model:
+
+```sh
+python -m mini.transformer.infer --processor models/tokenizer.model \
+    --model models/mini_transformer.pt \
+    --embed-dim 256 \
+    --num-heads 4 \
+    --head-dim 64 \
+    --num-layers 6 \
+    --ff-dim 512 \
+    --max-seq-len 128 \
+    --max-tokens 64 \
+    --prompt 'You common cry of curs! whose'
 ```
 
 5. Evaluate the model:
 
 ```sh
 # TODO: Add instructions for evaluating the model
-```
-
-6. Inference the model:
-
-```sh
-# TODO: Add instructions for running inference
 ```
 
 ## License
