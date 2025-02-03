@@ -215,6 +215,12 @@ class TransformerArgs:
             help="Use Nesterov momentum for SGD optimizer (Default: False).",
         )
         self.parser.add_argument(
+            "--scheduler",
+            choices=["step", "cosine", "linear"],
+            default="step",
+            help="Learning rate scheduler (Default: step).",
+        )
+        self.parser.add_argument(
             "--step-size",
             type=int,
             default=10,
@@ -224,7 +230,38 @@ class TransformerArgs:
             "--gamma",
             type=float,
             default=0.1,
-            help="Learning rate scheduler gamma (Default: 0.1).",
+            help="Step size decay rate (Default: 0.1).",
+        )
+        self.parser.add_argument(
+            "--t-max",
+            type=int,
+            default=50,
+            help="Max cosine iterations (Default: 50).",
+        )
+        self.parser.add_argument(
+            "--eta-min",
+            type=float,
+            default=1e-6,
+            help="Minimum cosine learning rate (Default: 1e-6).",
+            dest="eta_min",
+        )
+        self.parser.add_argument(
+            "--start-factor",
+            type=float,
+            default=0.1,
+            help="Linear learning rate (Default: 0.1).",
+        )
+        self.parser.add_argument(
+            "--total-iters",
+            type=float,
+            default=50,
+            help="Total linear iterations (Default: 50).",
+        )
+        self.parse_args.add_argument(
+            "--criterion",
+            choices=["cross_entropy", "mse", "mae"],
+            default="cross_entropy",
+            help="Criterion for loss calculation (Default: cross_entropy).",
         )
         self.parser.add_argument(
             "--grad-accum-steps",
