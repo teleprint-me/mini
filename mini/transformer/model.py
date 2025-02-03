@@ -29,6 +29,10 @@ class TransformerConfig:
         """Returns a dictionary representation of the config."""
         return {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
 
+    def from_dict(self, config: dict[str, any]) -> "TransformerConfig":
+        """Returns a new TransformerConfig object from a dictionary."""
+        return TransformerConfig(**config)
+
 
 class RMSNorm(nn.Module):
     def __init__(self, dim: int, eps: float = 1e-6):
