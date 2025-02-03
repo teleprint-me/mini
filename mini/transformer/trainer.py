@@ -51,17 +51,17 @@ class MiniTrainer:
             else torch.exp(loss)
         )
         print(
-            f"[Epoch {epoch+1}/{num_epochs}] "
-            f"[{batch_idx}/{len(self.dataset)}] "
-            f"[loss] {loss.item():.6f}, "
-            f"[perplexity] {perplexity:.6f}"
+            f"[Epoch: {epoch+1}/{num_epochs}] "
+            f"[Batch: {batch_idx}/{len(self.dataset)}] "
+            f"[Loss: {loss.item():.6f}] "
+            f"[Perplexity: {perplexity:.6f}]"
         )
 
     def log_epoch(self, epoch: int, total_loss: float):
         """Logs total epoch loss, learning rate, and perplexity."""
         avg_loss = total_loss / len(self.dataset)
         print(
-            f"[Epoch {epoch+1}] "
+            f"[Epoch: {epoch+1}] "
             f"[Total Loss: {total_loss:.4f}] "
             f"[Avg Loss: {avg_loss:.4f}] "
             f"[LR: {self.scheduler.get_last_lr()[0]:.8f}] "
