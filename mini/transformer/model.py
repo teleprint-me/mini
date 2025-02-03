@@ -25,6 +25,10 @@ class TransformerConfig:
     theta: float = 10000.0
     bias: bool = False
 
+    def as_dict(self) -> dict[str, any]:
+        """Returns a dictionary representation of the config."""
+        return {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
+
 
 class RMSNorm(nn.Module):
     def __init__(self, dim: int, eps: float = 1e-6):
