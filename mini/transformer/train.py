@@ -116,7 +116,11 @@ if __name__ == "__main__":
 
     # Initialize the checkpoint
     checkpoint = MiniCheckpoint(
-        path=args.model, optimizer=optimizer, verbose=args.verbose
+        path=args.model,
+        config=config,
+        optimizer=optimizer,
+        device=device,
+        verbose=args.verbose,
     )
 
     # Load trainer
