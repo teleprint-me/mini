@@ -4,7 +4,7 @@ Description: Utility class for saving and loading checkpoints.
 """
 
 import os
-from typing import Optional, Union
+from typing import Optional, Tuple
 
 import torch
 from torch import nn, optim
@@ -43,7 +43,7 @@ class MiniCheckpoint:
         self,
         config: Optional[TransformerConfig] = None,
         device: Optional[torch.device] = None,
-    ) -> Union[tuple[nn.Module, Optional[optim.Optimizer]]]:
+    ) -> Tuple[nn.Module, Optional[optim.Optimizer]]:
         """Loads a checkpoint and returns the model (and optimizer, if applicable)."""
         if self.verbose:
             print(f"Loading checkpoint from {self.path}")
