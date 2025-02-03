@@ -12,7 +12,7 @@ from sentencepiece import SentencePieceProcessor
 from mini.common.args import TransformerArgs
 from mini.data.set import MiniJsonDataset, MiniTextDataset
 from mini.transformer.checkpoint import MiniCheckpoint
-from mini.transformer.model import MiniTransformer, TransformerConfig
+from mini.transformer.model import MiniConfig, MiniTransformer
 from mini.transformer.optimizer import MiniOptimizer
 from mini.transformer.trainer import MiniTrainer
 
@@ -70,7 +70,7 @@ if __name__ == "__main__":
         )
 
     # Load Transformer Config
-    config = TransformerConfig(
+    config = MiniConfig(
         vocab_size=vocab_size,
         embed_dim=args.embed_dim,
         num_heads=args.num_heads,
@@ -79,6 +79,7 @@ if __name__ == "__main__":
         ff_dim=args.ff_dim,
         max_seq_len=args.max_seq_len,
         pad_id=pad_id,
+        eps=args.eps,
         theta=args.rope_theta,
         bias=args.bias,
     )

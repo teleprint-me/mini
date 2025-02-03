@@ -12,7 +12,7 @@ from torch.optim.lr_scheduler import LRScheduler
 
 from mini.data.set import MiniDataset
 from mini.transformer.checkpoint import MiniCheckpoint
-from mini.transformer.model import MiniTransformer, TransformerConfig
+from mini.transformer.model import MiniConfig, MiniTransformer
 
 
 class MiniTrainer:
@@ -21,7 +21,7 @@ class MiniTrainer:
         processor: SentencePieceProcessor,
         dataset: MiniDataset,
         model: MiniTransformer,
-        config: TransformerConfig,
+        config: MiniConfig,
         optimizer: Optimizer,
         scheduler: LRScheduler,
         criterion: nn.Module,
