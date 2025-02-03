@@ -42,7 +42,11 @@ class MiniTrainer:
         self.pad_id = max(self.processor.pad_id(), 0)  # Ensure pad_id is non-negative
 
     def log_batch(
-        self, epoch: int, num_epochs: int, batch_idx: int, loss: torch.Tensor
+        self,
+        epoch: int,
+        num_epochs: int,
+        batch_idx: int,
+        loss: torch.Tensor,
     ):
         """Logs loss & perplexity for each batch."""
         perplexity = (
