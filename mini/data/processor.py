@@ -67,7 +67,7 @@ class MiniTextProcessor(MiniProcessor):
         max_seq_len: int,
         add_bos: bool = True,
         add_eos: bool = True,
-        stride: int = 64,
+        batch_stride: int = 64,
     ) -> EncodedDataset:
         """Tokenizes and splits raw text into overlapping input-target pairs."""
         pad_id = self.processor.pad_id()
@@ -85,7 +85,7 @@ class MiniTextProcessor(MiniProcessor):
                 }
             )
         else:
-            for i in range(0, len(tokens) - max_seq_len, stride):
+            for i in range(0, len(tokens) - max_seq_len, batch_stride):
                 input_tokens = tokens[i : i + max_seq_len]
                 target_tokens = tokens[i + 1 : i + max_seq_len + 1]  # Shifted right
 

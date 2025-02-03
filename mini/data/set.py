@@ -48,12 +48,10 @@ class MiniTextDataset(MiniDataset):
         processor: SentencePieceProcessor,
         max_seq_len: int,
         batch_size: int = 8,
-        stride: int = 32,
+        batch_stride: int = 32,
         verbose: bool = False,
     ):
         super().__init__(file_path, processor, max_seq_len, batch_size, verbose)
-        self.stride = stride  # Text processing requires a sliding window
-
         # Load document as text
         with open(self.file_path, "r", encoding="utf-8") as f:
             raw_text = f.read()
@@ -63,7 +61,7 @@ class MiniTextDataset(MiniDataset):
         # Use MiniTextProcessor for tokenization and batching
         self.text_processor = MiniTextProcessor(self.processor, verbose)
         self.encoded = self.text_processor.tokenize(
-            raw_text, max_seq_len=max_seq_len, stride=stride
+            raw_text, max_seq_len=max_seq_len, stride=batch_stride
         )
         self.batches = self.text_processor.batch(self.encoded, batch_size)
 
