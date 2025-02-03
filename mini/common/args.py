@@ -172,6 +172,15 @@ class TransformerArgs:
             help="Save model every N epochs (Default: 10).",
         )
         self.parser.add_argument(
+            "--optimizer",
+            choices=["adam", "adamw", "sdg"],
+            default="adamw",
+            help="Optimizer to use (Default: adamw).",
+        )
+        self.parser.add_argument(
+            "--lr", type=float, default=1e-4, help="Learning rate (Default: 1e-4)."
+        )
+        self.parser.add_argument(
             "--eps",
             type=float,
             default=1e-8,
@@ -189,6 +198,23 @@ class TransformerArgs:
             help="Use AMSGrad optimizer (Default: False).",
         )
         self.parser.add_argument(
+            "--momentum",
+            type=float,
+            default=0.0,
+            help="Momentum for SGD optimizer (Default: 0.0).",
+        )
+        self.parser.add_argument(
+            "--dampening",
+            type=float,
+            default=0.0,
+            help="Dampening for SGD optimizer (Default: 0.0).",
+        )
+        self.parser.add_argument(
+            "--nesterov",
+            action="store_true",
+            help="Use Nesterov momentum for SGD optimizer (Default: False).",
+        )
+        self.parser.add_argument(
             "--step-size",
             type=int,
             default=10,
@@ -199,9 +225,6 @@ class TransformerArgs:
             type=float,
             default=0.1,
             help="Learning rate scheduler gamma (Default: 0.1).",
-        )
-        self.parser.add_argument(
-            "--lr", type=float, default=1e-4, help="Learning rate (Default: 1e-4)."
         )
         self.parser.add_argument(
             "--grad-accum-steps",
