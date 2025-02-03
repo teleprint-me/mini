@@ -11,6 +11,11 @@ from torch.optim.lr_scheduler import LRScheduler
 
 
 class MiniOptimizer:
+    """
+    Class: MiniOptimizer
+    Description: Manages the creation and management of optimizers for the transformer model.
+    """
+
     @staticmethod
     def create_optimizer(model: nn.Module, **kwargs) -> optim.Optimizer:
         """Creates an optimizer based on the given configuration."""
