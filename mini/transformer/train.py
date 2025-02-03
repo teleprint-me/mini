@@ -10,7 +10,7 @@ import torch
 from sentencepiece import SentencePieceProcessor
 
 from mini.common.args import TransformerArgs
-from mini.data.set import MiniDataset, MiniJsonDataset, MiniTextDataset
+from mini.data.set import MiniJsonDataset, MiniTextDataset
 from mini.transformer.checkpoint import MiniCheckpoint
 from mini.transformer.model import MiniTransformer, TransformerConfig
 from mini.transformer.optimizer import MiniOptimizer
