@@ -1,11 +1,18 @@
-# Files
-*.db
-
 # Paths
 /papers
-/data
-/models
 /prompt
+
+# Data
+/data/*
+!/data/mini-fairy.md
+!/data/mini-owl.md
+
+# Models
+/models/*
+!/models/tokenizer.model
+
+# SQLite
+*.db
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
