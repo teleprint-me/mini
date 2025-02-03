@@ -1,4 +1,5 @@
 """
+Copyright © 2023 Austin Berrio
 Module: mini.transformer.optimizer
 Description: Defines a class for creating and managing optimizers in the transformer model.
 """
@@ -39,10 +40,11 @@ class MiniOptimizer:
                 amsgrad=kwargs.get("amsgrad", False),
             )
         elif optimizer_type == "sgd":
-            optimizer_params.pop("eps")  # SDG doesn't accept eps arg
+            # Copy params to avoid modifying original dict
+            sgd_params = {k: v for k, v in optimizer_params.items() if k != "eps"}
             return optim.SGD(
                 model.parameters(),
-                **optimizer_params,
+                **sgd_params,
                 momentum=kwargs.get("momentum", 0.9),
                 dampening=kwargs.get("dampening", 0),
                 nesterov=kwargs.get("nesterov", False),
