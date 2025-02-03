@@ -93,7 +93,7 @@ if __name__ == "__main__":
         lr=args.lr,
         eps=args.eps,
         weight_decay=args.weight_decay,
-        ams_grad=args.ams_grad,
+        amsgrad=args.amsgrad,
         momentum=args.momentum,
         dampening=args.dampening,
         nesterov=args.nesterov,
