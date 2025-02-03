@@ -80,6 +80,14 @@ class MiniTrainer:
         if loaded[1] is not None:
             self.optimizer = loaded[1]
 
+    def mask(self, x: torch.Tensor) -> torch.Tensor:
+        """Creates a mask for the input tensor to ignore pad tokens."""
+        # Mask set to (B, 1, T, T) to mask pad id
+        return (
+            (x != self.pad_id).unsqueeze(1).unsqueeze(2).expand(-1, -1, x.size(1), -1)
+        )
+        # print(f"Mask Shape: {mask.shape}, Mask Sample: {mask[0, :, :, :10]}") # Debug
+
     def train(
         self,
         num_epochs: int = 10,
@@ -102,36 +110,26 @@ class MiniTrainer:
             for batch_idx, (x, y) in enumerate(self.dataset):
                 x, y = x.to(self.device), y.to(self.device)
 
-                # Fix mask shape to (B, 1, 1, T) for correct attention behavior
-                mask = (
-                    (x != self.pad_id)
-                    .unsqueeze(1)
-                    .unsqueeze(2)
-                    .expand(-1, -1, x.size(1), -1)
-                )  # Mask set to (B, 1, T, T) to mask pad id
-                # print(f"Mask Shape: {mask.shape}, Mask Sample: {mask[0, :, :, :10]}")
-
-                logits = self.model(x, mask)
+                logits = self.model(x, self.mask(x))
                 loss = self.criterion(logits.view(-1, logits.size(-1)), y.view(-1))
                 loss = loss / grad_accum_steps  # Normalize loss for accumulation
 
-                loss.backward()
+                loss.backward(retain_graph=True)
                 total_loss += loss.item() * grad_accum_steps
 
-                even_step = (batch_idx + 1) % grad_accum_steps == 0
-                last_batch = batch_idx == len(self.dataset) - 1
+                # self.optimizer.step() # temporarily block this for debugging
 
-                if even_step or last_batch:
-                    self.optimizer.step()
-                    self.optimizer.zero_grad()
-
-                    # Debug: Check if weights are updating
-                    # if self.verbose:
-                    #     for name, param in self.model.named_parameters():
-                    #         if param.requires_grad and param.grad is not None:
-                    #             print(
-                    #                 f"{name}: weight mean {param.data.mean().item()}, grad mean {param.grad.mean().item()}"
-                    #             )
+                # Debug: Check if weights are updating
+                for name, param in self.model.named_parameters():
+                    if param.requires_grad and param.grad is not None:
+                        before = param.clone().detach()
+                        self.optimizer.step()  # Apply optimizer updates
+                        after = param.clone().detach()
+                        diff = torch.norm(after - before).item()
+                        print(f"Weight update norm for {name}: {diff}")
+                        print(f"Before: {before}, After: {after}")
+                        assert diff > 0, f"Weight {name} is not updating!"
+                        break
 
                 if self.verbose:
                     self.log_batch(epoch, num_epochs, batch_idx, loss)
