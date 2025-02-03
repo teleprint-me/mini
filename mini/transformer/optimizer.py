@@ -21,7 +21,7 @@ class MiniOptimizer:
         """Creates an optimizer based on the given configuration."""
         optimizer_type = kwargs.get("optimizer", "adam").lower()
         optimizer_params = {
-            "lr": kwargs.get("lr", 1e-3),
+            "lr": kwargs.get("lr", 3e-4),
             "eps": kwargs.get("eps", 1e-8),
             "weight_decay": kwargs.get("weight_decay", 0),
         }
@@ -39,6 +39,7 @@ class MiniOptimizer:
                 amsgrad=kwargs.get("amsgrad", False),
             )
         elif optimizer_type == "sgd":
+            optimizer_params.pop("eps")  # SDG doesn't accept eps arg
             return optim.SGD(
                 model.parameters(),
                 **optimizer_params,
@@ -70,7 +71,7 @@ class MiniOptimizer:
             return torch.optim.lr_scheduler.LinearLR(
                 optimizer,
                 start_factor=kwargs.get("start_factor", 0.1),
-                total_iters=kwargs.get("total_iters", 100),
+                total_iters=kwargs.get("total_iters", 50),
             )
         else:
             raise ValueError(f"Unsupported scheduler: {scheduler_type}")
