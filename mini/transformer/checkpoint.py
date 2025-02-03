@@ -21,29 +21,30 @@ class MiniCheckpoint:
     def __init__(
         self,
         path: str,
+        config: Optional[TransformerConfig] = None,
         optimizer: Optional[optim.Optimizer] = None,
+        device: Optional[torch.device] = None,
         verbose: bool = False,
     ):
         """Initializes the MiniCheckpoint object."""
         self.path = path
+        self.config = config
         self.optimizer = optimizer
+        self.device = device if device else torch.device("cpu")
         self.verbose = verbose
 
     def save(self, model: nn.Module) -> None:
         """Saves the model and optimizer state to a checkpoint file."""
         checkpoint = {
             "model_state": model.state_dict(),
+            "model_config": self.config.as_dict(),
             "optimizer_state": self.optimizer.state_dict() if self.optimizer else None,
         }
         torch.save(checkpoint, self.path)
         if self.verbose:
             print(f"Saved model to {self.path}")
 
-    def load(
-        self,
-        config: Optional[TransformerConfig] = None,
-        device: Optional[torch.device] = None,
-    ) -> Tuple[nn.Module, Optional[optim.Optimizer]]:
+    def load(self) -> Tuple[nn.Module, Optional[optim.Optimizer]]:
         """Loads a checkpoint and returns the model (and optimizer, if applicable)."""
         if self.verbose:
             print(f"Loading checkpoint from {self.path}")
@@ -52,11 +53,11 @@ class MiniCheckpoint:
         checkpoint = torch.load(self.path) if os.path.exists(self.path) else {}
 
         # Load config dynamically
-        if config is None and "model_config" in checkpoint:
-            config = TransformerConfig(**checkpoint["model_config"])
+        if self.config is None and "model_config" in checkpoint:
+            self.config = TransformerConfig(**checkpoint["model_config"])
 
         # Reconstruct model dynamically
-        model = MiniTransformer(config).to(device)
+        model = MiniTransformer(self.config).to(self.device)
 
         # Load model state
         if "model_state" in checkpoint:
