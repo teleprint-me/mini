@@ -43,7 +43,7 @@ class MiniCheckpoint:
         self,
         config: Optional[TransformerConfig] = None,
         device: Optional[torch.device] = None,
-    ) -> Union[nn.Module, tuple[nn.Module, optim.Optimizer]]:
+    ) -> Union[tuple[nn.Module, Optional[optim.Optimizer]]]:
         """Loads a checkpoint and returns the model (and optimizer, if applicable)."""
         if self.verbose:
             print(f"Loading checkpoint from {self.path}")
@@ -66,4 +66,4 @@ class MiniCheckpoint:
         if self.optimizer is not None and "optimizer_state" in checkpoint:
             self.optimizer.load_state_dict(checkpoint["optimizer_state"])
 
-        return (model, self.optimizer) if self.optimizer else model
+        return (model, self.optimizer) if self.optimizer else (model, None)
