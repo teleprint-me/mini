@@ -36,8 +36,8 @@ class MiniCheckpoint:
     def save(self, model: nn.Module) -> None:
         """Saves the model and optimizer state to a checkpoint file."""
         checkpoint = {
-            "model_state": model.state_dict(),
             "model_config": self.config.as_dict(),
+            "model_state": model.state_dict(),
             "optimizer_state": self.optimizer.state_dict() if self.optimizer else None,
         }
         torch.save(checkpoint, self.path)
@@ -54,7 +54,7 @@ class MiniCheckpoint:
 
         # Load config dynamically
         if self.config is None and "model_config" in checkpoint:
-            self.config = self.config.from_dict(checkpoint["model_config"])
+            self.config = TransformerConfig(**checkpoint["model_config"])
 
         # Reconstruct model dynamically
         model = MiniTransformer(self.config).to(self.device)
