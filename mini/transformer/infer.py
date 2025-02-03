@@ -4,24 +4,27 @@ Script: mini.transformer.infer
 Description: Simple completion for text-to-text generation with streaming output.
 """
 
+from typing import List, Optional
+
 import torch
 import torch.nn.functional as F
 from sentencepiece import SentencePieceProcessor
 
 from mini.common.args import TransformerArgs
-from mini.transformer.model import MiniTransformer, TransformerConfig
-from mini.transformer.train import load_checkpoint
+from mini.transformer.checkpoint import MiniCheckpoint
+from mini.transformer.model import MiniTransformer
 
 
 def sample(
-    logits,
-    past_tokens,
-    top_k=50,
-    top_p=0.9,
-    temperature=0.8,
-    repetition_penalty=1.2,
-):
-    """Applies sampling with temperature, top-k, top-p filtering, and repetition penalty."""
+    logits: torch.Tensor,
+    past_tokens: List[int],
+    top_k: int = 50,
+    top_p: float = 0.9,
+    temperature: float = 0.8,
+    repetition_penalty: float = 1.2,
+    pad_id: Optional[int] = None,
+) -> torch.Tensor:
+    """Applies temperature, top-k, top-p filtering, and repetition penalty."""
 
     logits = logits / temperature  # Apply temperature scaling
 
@@ -29,6 +32,10 @@ def sample(
     if past_tokens:
         for token in set(past_tokens):
             logits[:, token] /= repetition_penalty
+
+    # Mask PAD tokens
+    if pad_id is not None:
+        logits[:, pad_id] = -float("inf")
 
     probs = F.softmax(logits, dim=-1)
 
@@ -64,13 +71,9 @@ def generate(
     """Generates text using the trained transformer model."""
 
     model.eval()
-
-    # Encode prompt
+    pad_id = max(processor.pad_id(), 0)
     input_ids = processor.encode(prompt, add_bos=True, add_eos=False)
-    print("Encoded input IDs:", input_ids)  # Debug
     input_tensor = torch.tensor([input_ids], dtype=torch.long, device=device)
-    print("Initial input tensor shape:", input_tensor.shape)  # Debug
-
     generated_tokens = input_ids[:]  # Copy input tokens
 
     with torch.no_grad():
@@ -83,10 +86,15 @@ def generate(
                 top_p=top_p,
                 temperature=temperature,
                 repetition_penalty=repetition_penalty,
+                pad_id=pad_id,  # Mask PAD token
             )
 
-            output_text = processor.decode([next_token])
-            print(output_text, end="", flush=True)  # Stream output
+            # Decode and stream output
+            if next_token == pad_id:
+                continue  # Ignore PAD token
+
+            output_text = processor.decode(next_token)
+            print(output_text, end="", flush=True)
 
             if next_token == processor.eos_id():
                 print("\nEOS token encountered, stopping generation.")
@@ -99,7 +107,6 @@ def generate(
                 [generated_tokens], dtype=torch.long, device=device
             )
 
-    print("\nEncoded output IDs:", generated_tokens)  # Debug
     return processor.decode(generated_tokens)
 
 
@@ -112,27 +119,15 @@ if __name__ == "__main__":
     # Load model
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # Model & Training Setup
-    vocab_size = processor.vocab_size()
-    pad_id = processor.pad_id()
-    if pad_id < 0:
-        pad_id = 0
-
-    # Load Transformer Config
-    config = TransformerConfig(
-        vocab_size=vocab_size,
-        embed_dim=args.embed_dim,
-        num_heads=args.num_heads,
-        head_dim=args.head_dim,
-        num_layers=args.num_layers,
-        ff_dim=args.ff_dim,
-        max_seq_len=args.max_seq_len,
-        pad_id=pad_id,
-        theta=args.rope_theta,
-        bias=args.bias,
+    # Load checkpoint without requiring training parameters
+    checkpoint = MiniCheckpoint(
+        path=args.model,
+        config=None,
+        optimizer=None,
+        device=device,
+        verbose=args.verbose,
     )
-    mini = MiniTransformer(config).to(device)
-    model, _ = load_checkpoint(args.model, model=mini, optimizer=None)
+    model, _ = checkpoint.load()
 
     # Run inference
     output = generate(
