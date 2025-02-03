@@ -180,6 +180,20 @@ class MiniTransformer(nn.Module):
         self.head = nn.Linear(config.embed_dim, config.vocab_size)
         self.max_seq_len = config.max_seq_len
 
+        self._init_weights()
+
+    def _init_weights(self):
+        """Initializes model parameters using best practices for transformers."""
+        for module in self.modules():
+            if isinstance(module, nn.Linear):
+                nn.init.xavier_uniform_(module.weight)
+                if module.bias is not None:
+                    nn.init.zeros_(module.bias)
+            elif isinstance(module, nn.Embedding):
+                nn.init.normal_(module.weight, mean=0, std=0.02)
+            elif isinstance(module, RMSNorm):
+                module.weight.data.fill_(1.0)
+
     def forward(self, x, mask=None):
         B, T = x.shape
         x = self.embed(x)
