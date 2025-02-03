@@ -20,7 +20,7 @@ class MiniOptimizer:
     @staticmethod
     def create_optimizer(model: nn.Module, **kwargs) -> optim.Optimizer:
         """Creates an optimizer based on the given configuration."""
-        optimizer_type = kwargs.get("optimizer", "adam").lower()
+        optimizer_type = kwargs.get("optimizer", "adamw").lower()
         optimizer_params = {
             "lr": kwargs.get("lr", 3e-4),
             "eps": kwargs.get("eps", 1e-8),
