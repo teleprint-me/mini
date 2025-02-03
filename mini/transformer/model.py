@@ -12,7 +12,7 @@ import torch.nn.functional as F
 
 
 @dataclass
-class TransformerConfig:
+class MiniConfig:
     vocab_size: int
     embed_dim: int
     num_heads: int
@@ -20,7 +20,8 @@ class TransformerConfig:
     num_layers: int
     ff_dim: int
     max_seq_len: int
-    pad_id: int
+    pad_id: int = -1
+    eps: float = 1e-8
     theta: float = 10000.0
     bias: bool = False
 
@@ -30,10 +31,10 @@ class TransformerConfig:
 
 
 class RMSNorm(nn.Module):
-    def __init__(self, dim: int, eps: float = 1e-6):
+    def __init__(self, config: MiniConfig):
         super().__init__()
-        self.eps = eps
-        self.weight = nn.Parameter(torch.ones(dim))  # Gamma parameter
+        self.eps = config.eps
+        self.weight = nn.Parameter(torch.ones(config.embed_dim))  # Gamma parameter
 
     def _norm(self, x: torch.Tensor) -> torch.Tensor:
         return x * torch.rsqrt(x.pow(2).mean(-1, keepdim=True) + self.eps)
@@ -43,12 +44,14 @@ class RMSNorm(nn.Module):
 
 
 class FeedForward(nn.Module):
-    def __init__(self, dim: int, hidden_dim: int, bias: bool = False):
+    def __init__(self, config: MiniConfig):
         super().__init__()
-        self.bias = bias
-        self.w1 = nn.Linear(dim, hidden_dim, bias=bias)
-        self.w2 = nn.Linear(hidden_dim, dim, bias=bias)
-        self.w3 = nn.Linear(dim, hidden_dim, bias=bias)
+        self.bias = config.bias
+
+        self.w1 = nn.Linear(config.embed_dim, config.ff_dim, bias=config.bias)
+        self.w2 = nn.Linear(config.ff_dim, config.embed_dim, bias=config.bias)
+        self.w3 = nn.Linear(config.embed_dim, config.ff_dim, bias=config.bias)
+
         self._init_weights()
 
     def _init_weights(self):
@@ -64,9 +67,10 @@ class FeedForward(nn.Module):
         return self.w2(F.silu(self.w1(x)) * self.w3(x))
 
 
-class Attention(nn.Module):
-    def __init__(self, config: TransformerConfig):
+class MiniAttention(nn.Module):
+    def __init__(self, config: MiniConfig):
         super().__init__()
+        self.bias = config.bias
         self.num_heads = config.num_heads
         self.head_dim = config.embed_dim // config.num_heads
         self.scale = self.head_dim**-0.5
@@ -75,6 +79,19 @@ class Attention(nn.Module):
         self.wk = nn.Linear(config.embed_dim, config.embed_dim, bias=config.bias)
         self.wv = nn.Linear(config.embed_dim, config.embed_dim, bias=config.bias)
         self.wo = nn.Linear(config.embed_dim, config.embed_dim, bias=config.bias)
+
+        self._init_weights()
+
+    def _init_weights(self):
+        nn.init.xavier_uniform_(self.wq.weight)
+        nn.init.xavier_uniform_(self.wk.weight)
+        nn.init.xavier_uniform_(self.wv.weight)
+        nn.init.xavier_uniform_(self.wo.weight)
+        if self.bias:
+            nn.init.uniform_(self.wq.bias)
+            nn.init.uniform_(self.wk.bias)
+            nn.init.uniform_(self.wv.bias)
+            nn.init.uniform_(self.wo.bias)
 
     def forward(self, x, mask=None):
         B, T, C = x.shape  # batch size, sequence length, embedding dimension
@@ -91,13 +108,13 @@ class Attention(nn.Module):
         return self.wo(out)
 
 
-class TransformerBlock(nn.Module):
-    def __init__(self, config: TransformerConfig):
+class MiniBlock(nn.Module):
+    def __init__(self, config: MiniConfig):
         super().__init__()
-        self.attn = Attention(config)
-        self.norm1 = RMSNorm(config.embed_dim)
-        self.norm2 = RMSNorm(config.embed_dim)
-        self.ff = FeedForward(config.embed_dim, config.ff_dim)
+        self.attn = MiniAttention(config)
+        self.norm1 = RMSNorm(config)
+        self.norm2 = RMSNorm(config)
+        self.ff = FeedForward(config)
 
     def forward(self, x, mask=None):
         x = self.norm1(x + self.attn(x, mask))
@@ -106,38 +123,44 @@ class TransformerBlock(nn.Module):
 
 
 class MiniEmbedding(nn.Module):
-    def __init__(self, config: TransformerConfig):
+    def __init__(self, config: MiniConfig):
         super().__init__()
+        padding_idx = max(self.config.pad_id(), 0)  # Ensure pad_id is non-negative
         self.embedding = nn.Embedding(
-            config.vocab_size, config.embed_dim, padding_idx=config.pad_id
+            config.vocab_size, config.embed_dim, padding_idx=padding_idx
         )
         self.hidden = nn.Linear(config.embed_dim, config.max_seq_len)
         self.projection = nn.Linear(config.max_seq_len, config.embed_dim)
 
         self.norm = nn.LayerNorm(config.max_seq_len)
         self.dropout = nn.Dropout(config.dropout)
-        self.activation = nn.GELU()
+
+        self._init_weights()  # Ensure weights are initialized properly
+        self.embedding.weight.requires_grad_(True)  # Force embedding updates
 
     def _init_weights(self):
-        nn.init.xavier_uniform__(self.hidden.weight)
+        nn.init.xavier_uniform_(self.hidden.weight)
         nn.init.xavier_uniform_(self.projection.weight)
         nn.init.uniform_(self.hidden.bias)
         nn.init.uniform_(self.projection.bias)
 
-    def forward(self, x: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
-        x = self.embedding(x)
-        hidden = self.dropout(self.activation(self.hidden(x)))
-        hidden = self.norm(hidden)
-        out = self.projection(hidden).mean(dim=1)
-        return F.normalize(out, p=2, dim=1)
+    def forward(self, x: torch.Tensor, mask: torch.Tensor = None) -> torch.Tensor:
+        x = self.embedding(x)  # Token embeddings (B, T, E)
+        # Apply padding mask by zeroing out embeddings for padding tokens
+        if mask is not None:
+            x = x * mask.unsqueeze(-1).float()
+        hidden = F.silu(self.hidden(x))  # Non-linear transformation
+        hidden = self.dropout(self.norm(hidden))  # Apply LayerNorm + Dropout
+        out = self.projection(hidden)  # Project back to embedding dim
+        return out  # No `F.normalize`, no `.mean(dim=1)`
 
 
 class MiniTransformer(nn.Module):
-    def __init__(self, config: TransformerConfig):
+    def __init__(self, config: MiniConfig):
         super().__init__()
         self.embedding = MiniEmbedding(config)
         self.blocks = nn.ModuleList(
-            [TransformerBlock(config) for _ in range(config.num_layers)]
+            [MiniBlock(config) for _ in range(config.num_layers)]
         )
         self.norm = RMSNorm(config.embed_dim)
         self.head = nn.Linear(config.embed_dim, config.vocab_size)
