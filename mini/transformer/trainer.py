@@ -120,7 +120,7 @@ class MiniTrainer:
 
             # Save model periodically
             if (epoch + 1) % save_every == 0:
-                self.checkpoint.save(self.model, self.optimizer, self.scheduler)
+                self.checkpoint.save(self.model)
 
         if self.verbose:
             print("Training complete!")
