@@ -4,152 +4,70 @@ Script: mini.transformer.train
 Description: Simple pre-training loop for text-to-text generation.
 """
 
-import os
 import random
 
 import torch
-import torch.nn as nn
-import torch.optim as optim
 from sentencepiece import SentencePieceProcessor
-from torch.optim.lr_scheduler import LRScheduler
 
 from mini.common.args import TransformerArgs
-from mini.data.set import MiniDataset, MiniTextDataset
+from mini.data.set import MiniDataset, MiniJsonDataset, MiniTextDataset
+from mini.transformer.checkpoint import MiniCheckpoint
 from mini.transformer.model import MiniTransformer, TransformerConfig
+from mini.transformer.optimizer import MiniOptimizer
+from mini.transformer.trainer import MiniTrainer
 
 
-def load_checkpoint(
-    model_path: str, model: nn.Module, optimizer: optim.Optimizer
-) -> tuple[nn.Module, optim.Optimizer]:
-    if os.path.exists(model_path):
-        print(f"Loading model from {model_path}")
-        checkpoint = torch.load(model_path, weights_only=True)
-        model.load_state_dict(checkpoint["model_state"])
-        if optimizer is not None:
-            optimizer.load_state_dict(checkpoint["optimizer_state"])
-    return model, optimizer
+def seed_all(seed: int) -> None:
+    """Sets the random seed for reproducibility."""
+    random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
 
 
-def save_checkpoint(model_path: str, model: nn.Module, optimizer: optim.Optimizer):
-    checkpoint = {
-        "model_state": model.state_dict(),
-        "optimizer_state": optimizer.state_dict(),
-    }
-    torch.save(checkpoint, model_path)
-    print(f"Saved model to {model_path}")
-
-
-def log_batch(
-    epoch: int,
-    num_epochs: int,
-    batch_idx: int,
-    dataset: MiniDataset,
-    loss: torch.Tensor,
-):
-    """Logs the loss for each batch in an epoch."""
-    perplexity = (
-        torch.exp(loss).item() if isinstance(loss, torch.Tensor) else torch.exp(loss)
-    )
-    print(
-        f"[Epoch {epoch+1}/{num_epochs}] [{batch_idx}/{len(dataset)}] Loss: {loss.item():.6f}, Perplexity: {perplexity:.6f}"
-    )
-
-
-def log_epoch(
-    epoch: int, total_loss: int, dataset: MiniDataset, scheduler: LRScheduler
-):
-    """Logs the epoch loss and learning rate."""
-    print(
-        f"Epoch {epoch+1} Completed | Avg Loss: {total_loss / len(dataset):.4f} | LR: {scheduler.get_last_lr()[0]:.8f}"
-    )
-
-
-def train(
-    model_path: str,
-    model: nn.Module,
-    dataset: MiniDataset,
-    optimizer: optim.Optimizer,
-    scheduler: LRScheduler,
-    criterion: nn.Module,
-    device: torch.device,
-    num_epochs: int = 10,
-    save_every: int = 10,
-    grad_accum_steps: int = 1,
-    verbose: bool = False,
-):
-    # Set the device type for autocast
-    device_type = "cuda" if torch.cuda.is_available() else "cpu"
-
-    # Load the model and optimizer if a checkpoint exists
-    model, optimizer = load_checkpoint(model_path, model, optimizer)
-    model.train()
-
-    for epoch in range(num_epochs):
-        total_loss = 0
-        optimizer.zero_grad()
-
-        for batch_idx, (x, y) in enumerate(dataset):
-            x, y = x.to(device), y.to(device)
-            mask = (x != 0).unsqueeze(1).unsqueeze(2)  # (B, 1, 1, T)
-
-            with torch.amp.autocast(device_type=device_type):
-                logits = model(x, mask)
-                loss = criterion(logits.view(-1, logits.size(-1)), y.view(-1))
-                loss = loss / grad_accum_steps  # Normalize loss
-
-            loss.backward()
-
-            if (batch_idx + 1) % grad_accum_steps == 0 or batch_idx == len(dataset) - 1:
-                optimizer.step()
-                optimizer.zero_grad()
-
-            if verbose:
-                log_batch(epoch, num_epochs, batch_idx, dataset, loss)
-
-        scheduler.step()  # Now updates LR per epoch
-        total_loss += loss.item() * grad_accum_steps  # Re-scale
-        log_epoch(epoch, total_loss, dataset, scheduler)
-
-        # Save the model periodically
-        if (epoch + 1) % save_every == 0:
-            save_checkpoint(model_path, model, optimizer)
+def get_device() -> torch.device:
+    """Automatically detects and returns the best available device."""
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+        return torch.device("cuda")
+    return torch.device("cpu")
 
 
 if __name__ == "__main__":
+    # Parse arguments
     args = TransformerArgs("Mini Training Tool").parse_args("train")
+    # Set random seed
+    seed_all(args.seed)
+    # Load device
+    device = get_device()
 
-    # Set seed
-    random.seed(args.seed)
-    torch.manual_seed(args.seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(args.seed)
-
-    # Load tokenizer
+    # Load the model tokenizer
     processor = SentencePieceProcessor(model_file=args.processor)
-
-    # Automatically detect the physical device
-    device = None
-    if torch.cuda.is_available():
-        torch.cuda.empty_cache()
-        device = torch.device("cuda")
-    else:
-        device = torch.device("cpu")
+    # Get the vocab size
+    vocab_size = processor.vocab_size()
+    # Get the pad id
+    pad_id = max(processor.pad_id(), 0)
 
     # Setup PyTorch Dataset & DataLoader
-    dataset = MiniTextDataset(
-        file_path=args.dataset,
-        processor=processor,
-        max_seq_len=args.max_seq_len,
-        batch_size=args.batch_size,
-        stride=args.batch_stride,
-        verbose=args.verbose,
-    )
-
-    # Model & Training Setup
-    vocab_size = processor.vocab_size()
-    pad_id = processor.pad_id()
-    if pad_id < 0:
-        pad_id = 0
+    dataset = None
+    if args.dataset.endswith(".json"):
+        dataset = MiniJsonDataset(
+            file_path=args.dataset,
+            processor=processor,
+            max_seq_len=args.max_seq_len,
+            batch_size=args.batch_size,
+            schema_path=args.schema_path,
+            verbose=args.verbose,
+        )
+    else:  # Assume plaintext file
+        dataset = MiniTextDataset(
+            file_path=args.dataset,
+            processor=processor,
+            max_seq_len=args.max_seq_len,
+            batch_size=args.batch_size,
+            batch_stride=args.batch_stride,
+            verbose=args.verbose,
+        )
 
     # Load Transformer Config
     config = TransformerConfig(
@@ -165,32 +83,58 @@ if __name__ == "__main__":
         bias=args.bias,
     )
 
-    # Initialize Model & Optimizer
-    model = MiniTransformer(config).to(device)
-    optimizer = optim.AdamW(
-        model.parameters(),
+    # Initialize the model and move it to the specified device
+    model = MiniTransformer(config=config).to(device=device)
+
+    # Initialize the optimizer
+    optimizer = MiniOptimizer.create_optimizer(
+        model=model,
+        optimizer=args.optimizer,
         lr=args.lr,
         eps=args.eps,
         weight_decay=args.weight_decay,
-        amsgrad=args.amsgrad,
+        ams_grad=args.ams_grad,
+        momentum=args.momentum,
+        dampening=args.dampening,
+        nesterov=args.nesterov,
     )
-    scheduler = torch.optim.lr_scheduler.StepLR(
-        optimizer, step_size=args.step_size, gamma=args.gamma
-    )
-    criterion = nn.CrossEntropyLoss(ignore_index=pad_id)  # Ignore pad token
 
-    print("Starting training...")
-    train(
-        model_path=args.model,
-        model=model,
+    # Initialize the scheduler
+    scheduler = MiniOptimizer.create_scheduler(
+        optimizer=optimizer,
+        scheduler=args.scheduler,
+        step_size=args.step_size,
+        gamma=args.gamma,
+        t_max=args.t_max,
+        eta_min=args.eta_min,
+        start_factor=args.start_factor,
+        total_iters=args.total_iters,
+    )
+
+    # Initialize the criterion
+    criterion = MiniOptimizer.create_criterion(args.criterion, pad_id=pad_id)
+
+    # Initialize the checkpoint
+    checkpoint = MiniCheckpoint(
+        path=args.model, optimizer=optimizer, verbose=args.verbose
+    )
+
+    # Load trainer
+    trainer = MiniTrainer(
+        processor=processor,
         dataset=dataset,
+        model=model,
+        config=config,
         optimizer=optimizer,
         scheduler=scheduler,
         criterion=criterion,
+        checkpoint=checkpoint,
         device=device,
+        verbose=args.verbose,
+    )
+
+    trainer.train(
         num_epochs=args.num_epochs,
         save_every=args.save_every,
         grad_accum_steps=args.grad_accum_steps,
-        verbose=args.verbose,
     )
-    print("Training complete!")
