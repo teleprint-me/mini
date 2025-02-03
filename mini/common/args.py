@@ -257,7 +257,7 @@ class TransformerArgs:
             default=50,
             help="Total linear iterations (Default: 50).",
         )
-        self.parse_args.add_argument(
+        self.parser.add_argument(
             "--criterion",
             choices=["cross_entropy", "mse", "mae"],
             default="cross_entropy",
