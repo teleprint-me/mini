@@ -70,7 +70,7 @@ class MiniTrainer:
 
     def resume(self) -> None:
         """Load checkpoint, restoring optimizer/scheduler if available."""
-        loaded = self.checkpoint.load(config=self.config, device=self.device)
+        loaded = self.checkpoint.load()
         if loaded[0] is not None:
             self.model = loaded[0]
         if loaded[1] is not None:
