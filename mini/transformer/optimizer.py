@@ -21,6 +21,8 @@ class MiniOptimizer:
     def create_optimizer(model: nn.Module, **kwargs) -> optim.Optimizer:
         """Creates an optimizer based on the given configuration."""
         optimizer_type = kwargs.get("optimizer", "adamw").lower()
+        print(f"Optimizer type: Using {optimizer_type}")
+
         optimizer_params = {
             "lr": kwargs.get("lr", 3e-4),
             "eps": kwargs.get("eps", 1e-8),
@@ -56,6 +58,7 @@ class MiniOptimizer:
     def create_scheduler(optimizer: optim.Optimizer, **kwargs) -> Optional[LRScheduler]:
         """Creates an LR scheduler for the optimizer."""
         scheduler_type = kwargs.get("scheduler", "step").lower()
+        print(f"Scheduler type: Using {scheduler_type}")
 
         if scheduler_type == "step":
             return torch.optim.lr_scheduler.StepLR(
@@ -84,6 +87,7 @@ class MiniOptimizer:
     ) -> nn.Module:
         """Creates a loss function based on the given criterion type."""
         criterion_type = criterion_type.lower()
+        print(f"Criterion type: Using {criterion_type}")
 
         if criterion_type == "cross_entropy":
             return (
