@@ -4,11 +4,40 @@ Module: mini.transformer.model
 Description: A simplified transformer model for baseline training.
 """
 
+import functools
+import random
 from dataclasses import dataclass
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+
+@dataclass
+class MiniRuntime:
+    """Manages runtime-specific settings like device handling and seeding."""
+
+    seed: int = 42
+
+    @functools.cached_property
+    def device_name(self) -> str:
+        """Returns the best available device name ('cuda' or 'cpu')."""
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            return "cuda"
+        return "cpu"
+
+    @functools.cached_property
+    def device_type(self) -> torch.device:
+        """Returns the best available device as a `torch.device` object."""
+        return torch.device(self.device_name)
+
+    def seed_all(self) -> None:
+        """Sets the random seed for reproducibility."""
+        random.seed(self.seed)
+        torch.manual_seed(self.seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(self.seed)
 
 
 @dataclass
