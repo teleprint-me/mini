@@ -1,6 +1,6 @@
 # Mini
 
-Mini is a Language Model for Natural Language Processing instruction based tasks implemented in PyTorch.
+Mini is a toolkit for pre-training, fine-tuning, and evaluating transformer based language models using PyTorch.
 
 ## About
 
@@ -8,7 +8,7 @@ Mini is a Decoder-only Language Model (LM) designed for instruction-based tasks.
 
 ## Features
 
-- [ ] **Pre-training**: Mini can be pre-trained using plaintext or structured data.
+- [x] **Pre-training**: Mini can be pre-trained using plaintext or structured data.
 - [ ] **Inference**: Mini can be used for inference to generate text given a prompt or instruction.
 - [ ] **Fine-tuning**: Mini can be fine-tuned for specific tasks using a small amount of data.
 - [ ] **Evaluation**: Mini can be evaluated on various metrics such as perplexity and BLEU score.
