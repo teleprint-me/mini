@@ -81,11 +81,10 @@ class MiniTrainer:
         grad_accum_steps: int = 1,
     ):
         """Trains the model with gradient accumulation support."""
-        if self.verbose:
-            print("Starting training...")
+        self.logger.info("Starting training...")
 
         self.state.load()
-        device = self.state.runtime.device_type()
+        device = self.state.runtime.device_type
 
         model = self.state.model.to(device)
         model.train()
@@ -105,7 +104,7 @@ class MiniTrainer:
                 loss = loss / grad_accum_steps  # Normalize loss for accumulation
 
                 loss.backward(retain_graph=True)
-                optimizer.step()  # temporarily block this for debugging
+                # optimizer.step()  # temporarily block this for debugging
                 total_loss += loss.item() * grad_accum_steps
 
                 # Debug: Check if weights are updating
@@ -115,13 +114,10 @@ class MiniTrainer:
                         optimizer.step()  # Apply optimizer updates
                         after = param.clone().detach()
                         diff = torch.norm(after - before).item()
-                        print(f"Weight update norm for {name}: {diff}")
-                        print(f"Before: {before}, After: {after}")
                         assert diff > 0, f"Weight {name} is not updating!"
                         break
 
-                if self.verbose:
-                    self.log_batch(epoch, num_epochs, batch, loss)
+                self.log_batch(epoch, num_epochs, batch, loss)
 
             scheduler.step()  # Step LR scheduler **once per epoch**
             self.log_epoch(epoch, num_epochs, total_loss)
@@ -130,5 +126,4 @@ class MiniTrainer:
             if (epoch + 1) % save_every == 0:
                 self.state.save()
 
-        if self.verbose:
-            print("Training complete!")
+        self.logger.info("Training complete!")
