@@ -264,6 +264,12 @@ class TransformerArgs:
             help="Criterion for loss calculation (Default: cross_entropy).",
         )
         self.parser.add_argument(
+            "--reduction",
+            choices=["mean", "sum", "none"],
+            default="mean",
+            help="Reduction method for loss (Default: mean).",
+        )
+        self.parser.add_argument(
             "--grad-accum-steps",
             type=int,
             default=1,
