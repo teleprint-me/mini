@@ -1,103 +1,151 @@
 """
 Copyright © 2023 Austin Berrio
-Module: mini.transformer.optimizer
+Module: mini.transformer.manager
 Description: Defines a class for creating and managing optimizers in the transformer model.
 """
 
-from typing import Optional
+from dataclasses import dataclass
+from typing import Any, Dict, Optional
 
 import torch
 from torch import nn, optim
 from torch.optim.lr_scheduler import LRScheduler
 
 
-class MiniOptimizer:
-    """
-    Class: MiniOptimizer
-    Description: Manages the creation and management of optimizers for the transformer model.
-    """
+@dataclass
+class ManagerConfig:
+    """Base class for optimizer, scheduler, and criterion configs."""
 
-    @staticmethod
-    def create_optimizer(model: nn.Module, **kwargs) -> optim.Optimizer:
-        """Creates an optimizer based on the given configuration."""
-        optimizer_type = kwargs.get("optimizer", "adamw").lower()
-        print(f"Optimizer type: Using {optimizer_type}")
+    type: str
 
-        optimizer_params = {
-            "lr": kwargs.get("lr", 3e-4),
-            "eps": kwargs.get("eps", 1e-8),
-            "weight_decay": kwargs.get("weight_decay", 0),
+    def as_dict(self) -> Dict[str, Any]:
+        """Returns a dictionary representation of the config."""
+        return {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
+
+    def get_keys(self) -> Dict[str, Any]:
+        """Returns allowed parameters for different object types."""
+        raise NotImplementedError("Subclasses must implement `get_keys()`.")
+
+    def get_params(self, key: str) -> Dict[str, Any]:
+        """Filters parameters relevant to the specified object type."""
+        key = key.lower()
+        params = self.as_dict()
+        keys = self.get_keys()
+        if key not in keys:
+            raise ValueError(f"Unsupported type: {key}")
+        return {k: v for k, v in params.items() if k in keys[key]}
+
+
+@dataclass
+class OptimizerConfig(ManagerConfig):
+    type: str = "adamw"  # Default optimizer
+    recurse: bool = True
+    lr: float = 1e-3
+    eps: float = 1e-8
+    amsgrad: bool = False
+    weight_decay: float = 0
+    momentum: float = 0
+    dampening: float = 0
+    nesterov: bool = False
+
+    def get_keys(self) -> Dict[str, Any]:
+        """Default optimizer parameters for common optimizers."""
+        return {
+            "adam": {"lr", "eps", "weight_decay", "amsgrad"},
+            "adamw": {"lr", "eps", "weight_decay", "amsgrad"},
+            "sgd": {"lr", "weight_decay", "momentum", "dampening", "nesterov"},
         }
 
+
+@dataclass
+class SchedulerConfig(ManagerConfig):
+    type: str = "step"  # Default scheduler
+    step_size: int = 10
+    gamma: float = 0.1
+    t_max: int = 50
+    eta_min: float = 1e-6
+    start_factor: float = 0.1
+    total_iters: int = 50
+
+    def get_keys(self) -> Dict[str, Any]:
+        """Default scheduler parameters for common schedulers."""
+        return {
+            "step": {"step_size", "gamma"},
+            "cosine": {"t_max", "eta_min"},
+            "linear": {"start_factor", "total_iters"},
+        }
+
+
+@dataclass
+class CriterionConfig(ManagerConfig):
+    type: str = "cross_entropy"  # Default loss function
+    ignore_index: int = -1
+    reduction: str = "mean"
+
+    def get_keys(self) -> Dict[str, Any]:
+        """Loss function parameters."""
+        return {
+            "cross_entropy": {"ignore_index", "reduction"},
+            "mse": {"reduction"},
+            "mae": {"reduction"},
+        }
+
+
+class MiniManager:
+    def __init__(
+        self,
+        optimizer: Optional[OptimizerConfig] = None,
+        scheduler: Optional[SchedulerConfig] = None,
+        criterion: Optional[CriterionConfig] = None,
+    ):
+        self.optimizer = optimizer if optimizer else OptimizerConfig()
+        self.scheduler = scheduler if scheduler else SchedulerConfig()
+        self.criterion = criterion if criterion else CriterionConfig()
+
+    def optimize(self, model: nn.Module) -> optim.Optimizer:
+        """Creates an optimizer based on the given configuration."""
+        optimizer_type = self.optimizer.type.lower()
+        print(f"Optimizer type: Using {optimizer_type}")
+
+        optimizer_params = self.optimizer.get_params(optimizer_type)
+        model_params = model.parameters(self.optimizer.recurse)
         if optimizer_type == "adam":
-            return optim.Adam(
-                model.parameters(),
-                **optimizer_params,
-                amsgrad=kwargs.get("amsgrad", False),
-            )
+            return optim.Adam(model_params, **optimizer_params)
         elif optimizer_type == "adamw":
-            return optim.AdamW(
-                model.parameters(),
-                **optimizer_params,
-                amsgrad=kwargs.get("amsgrad", False),
-            )
+            return optim.AdamW(model_params, **optimizer_params)
         elif optimizer_type == "sgd":
-            # Copy params to avoid modifying original dict
-            sgd_params = {k: v for k, v in optimizer_params.items() if k != "eps"}
-            return optim.SGD(
-                model.parameters(),
-                **sgd_params,
-                momentum=kwargs.get("momentum", 0.9),
-                dampening=kwargs.get("dampening", 0),
-                nesterov=kwargs.get("nesterov", False),
-            )
+            return optim.SGD(model_params, **optimizer_params)
         else:
             raise ValueError(f"Unsupported optimizer: {optimizer_type}")
 
-    @staticmethod
-    def create_scheduler(optimizer: optim.Optimizer, **kwargs) -> Optional[LRScheduler]:
-        """Creates an LR scheduler for the optimizer."""
-        scheduler_type = kwargs.get("scheduler", "step").lower()
+    def schedule(self, optimizer: optim.Optimizer) -> Optional[LRScheduler]:
+        """Creates a learning rate scheduler based on configuration."""
+        scheduler_type = self.scheduler.type.lower()
         print(f"Scheduler type: Using {scheduler_type}")
 
+        scheduler_params = self.scheduler.get_params(scheduler_type)
         if scheduler_type == "step":
-            return torch.optim.lr_scheduler.StepLR(
-                optimizer,
-                step_size=kwargs.get("step_size", 10),
-                gamma=kwargs.get("gamma", 0.1),
-            )
+            return torch.optim.lr_scheduler.StepLR(optimizer, **scheduler_params)
         elif scheduler_type == "cosine":
             return torch.optim.lr_scheduler.CosineAnnealingLR(
-                optimizer,
-                T_max=kwargs.get("t_max", 50),
-                eta_min=kwargs.get("eta_min", 1e-6),
+                optimizer, **scheduler_params
             )
         elif scheduler_type == "linear":
-            return torch.optim.lr_scheduler.LinearLR(
-                optimizer,
-                start_factor=kwargs.get("start_factor", 0.1),
-                total_iters=kwargs.get("total_iters", 50),
-            )
+            return torch.optim.lr_scheduler.LinearLR(optimizer, **scheduler_params)
         else:
-            raise ValueError(f"Unsupported scheduler: {scheduler_type}")
+            raise ValueError(f"Unsupported scheduler type: {scheduler_type}")
 
-    @staticmethod
-    def create_criterion(
-        criterion_type: str = "cross_entropy", pad_id: Optional[int] = None
-    ) -> nn.Module:
+    def criterion(self) -> nn.Module:
         """Creates a loss function based on the given criterion type."""
-        criterion_type = criterion_type.lower()
+        criterion_type = self.criterion.type.lower()
         print(f"Criterion type: Using {criterion_type}")
 
+        criterion_params = self.criterion.get_params(criterion_type)
         if criterion_type == "cross_entropy":
-            return (
-                nn.CrossEntropyLoss(ignore_index=pad_id)
-                if pad_id is not None
-                else nn.CrossEntropyLoss()
-            )
+            return nn.CrossEntropyLoss(**criterion_params)
         elif criterion_type == "mse":
-            return nn.MSELoss()
+            return nn.MSELoss(**criterion_params)
         elif criterion_type == "mae":
-            return nn.L1Loss()
+            return nn.L1Loss(**criterion_params)
         else:
             raise ValueError(f"Unsupported criterion: {criterion_type}")
