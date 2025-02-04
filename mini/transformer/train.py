@@ -100,6 +100,7 @@ if __name__ == "__main__":
         optimizer=optimizer_config,
         scheduler=scheduler_config,
         criterion=criterion_config,
+        verbose=args.verbose,
     )
 
     # Load state manager
@@ -108,6 +109,7 @@ if __name__ == "__main__":
         config=config,
         manager=manager,
         runtime=runtime,
+        verbose=args.verbose,
     )
 
     # Load trainer
