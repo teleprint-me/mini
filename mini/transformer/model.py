@@ -13,14 +13,15 @@ import torch.nn.functional as F
 
 @dataclass
 class MiniConfig:
-    vocab_size: int
-    embed_dim: int
-    num_heads: int
-    head_dim: int
-    num_layers: int
-    ff_dim: int
-    max_seq_len: int
+    vocab_size: int = 32000
+    embed_dim: int = 512
+    num_heads: int = 8
+    head_dim: int = 32
+    num_layers: int = 8
+    ff_dim: int = 256
+    max_seq_len: int = 512
     pad_id: int = -1
+    dropout: float = 0.1
     eps: float = 1e-8
     theta: float = 10000.0
     bias: bool = False
@@ -55,7 +56,7 @@ class FeedForward(nn.Module):
         self._init_weights()
 
     def _init_weights(self):
-        nn.init.xavier_uniform__(self.w1.weight)
+        nn.init.xavier_uniform_(self.w1.weight)
         nn.init.xavier_uniform_(self.w2.weight)
         nn.init.xavier_uniform_(self.w3.weight)
         if self.bias:
@@ -122,10 +123,11 @@ class MiniBlock(nn.Module):
         return x
 
 
-class MiniEmbedding(nn.Module):
+class MiniEncoder(nn.Module):
     def __init__(self, config: MiniConfig):
         super().__init__()
-        padding_idx = max(self.config.pad_id(), 0)  # Ensure pad_id is non-negative
+        self.bias = config.bias
+        padding_idx = max(config.pad_id, 0)  # Ensure pad_id is non-negative
         self.embedding = nn.Embedding(
             config.vocab_size, config.embed_dim, padding_idx=padding_idx
         )
@@ -141,8 +143,9 @@ class MiniEmbedding(nn.Module):
     def _init_weights(self):
         nn.init.xavier_uniform_(self.hidden.weight)
         nn.init.xavier_uniform_(self.projection.weight)
-        nn.init.uniform_(self.hidden.bias)
-        nn.init.uniform_(self.projection.bias)
+        if self.bias:
+            nn.init.uniform_(self.hidden.bias)
+            nn.init.uniform_(self.projection.bias)
 
     def forward(self, x: torch.Tensor, mask: torch.Tensor = None) -> torch.Tensor:
         x = self.embedding(x)  # Token embeddings (B, T, E)
@@ -151,35 +154,31 @@ class MiniEmbedding(nn.Module):
             x = x * mask.unsqueeze(-1).float()
         hidden = F.silu(self.hidden(x))  # Non-linear transformation
         hidden = self.dropout(self.norm(hidden))  # Apply LayerNorm + Dropout
-        out = self.projection(hidden)  # Project back to embedding dim
-        return out  # No `F.normalize`, no `.mean(dim=1)`
+        return self.projection(hidden)  # Project back to embedding dim
 
 
 class MiniTransformer(nn.Module):
     def __init__(self, config: MiniConfig):
         super().__init__()
-        self.embedding = MiniEmbedding(config)
+        self.bias = config.bias
+
+        self.encoder = MiniEncoder(config)
         self.blocks = nn.ModuleList(
             [MiniBlock(config) for _ in range(config.num_layers)]
         )
-        self.norm = RMSNorm(config.embed_dim)
+        self.norm = RMSNorm(config)
         self.head = nn.Linear(config.embed_dim, config.vocab_size)
+
         self.max_seq_len = config.max_seq_len
         self._init_weights()
 
     def _init_weights(self):
-        for module in self.modules():
-            if isinstance(module, nn.Linear):
-                nn.init.xavier_uniform_(module.weight)
-                if module.bias is not None:
-                    nn.init.zeros_(module.bias)
-            elif isinstance(module, nn.Embedding):
-                nn.init.uniform_(module.weight, -0.1, 0.1)
-            elif isinstance(module, RMSNorm):
-                module.weight.data.fill_(1.0)
+        nn.init.xavier_uniform_(self.head.weight)
+        if self.bias is not None:
+            nn.init.uniform_(self.head.bias)
 
     def forward(self, x, mask=None):
-        x = self.embedding(x)
+        x = self.encoder(x)
         for block in self.blocks:
             x = block(x, mask)
         x = self.norm(x)
