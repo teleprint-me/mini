@@ -152,22 +152,50 @@ class MiniBlock(nn.Module):
         return x
 
 
-class MiniEncoder(nn.Module):
+class PositionalEncoder(nn.Module):
+    """Positional Encoder for the MiniTransformer model."""
+
+    def __init__(self, config: MiniConfig):
+        super().__init__()
+        self.embed_dim = config.embed_dim
+        self.max_seq_len = config.max_seq_len
+        self.dropout = nn.Dropout(config.dropout)
+        self.pe = self._create_positional_encoding()
+        self.register_buffer("pe", self.pe.unsqueeze(0))
+
+    def _create_positional_encoding(self) -> torch.Tensor:
+        pe = torch.zeros(self.max_seq_len, self.embed_dim)
+        for pos in range(self.max_seq_len):
+            for i in range(self.embed_dim):
+                pe[pos, i] = pos / torch.pow(10000, 2 * i / self.embed_dim)
+        pe[:, 0::2] = torch.sin(pe[:, 0::2])
+        pe[:, 1::2] = torch.cos(pe[:, 1::2])
+        return pe
+
+    def forward(self, x):
+        return self.dropout(x + self.pe[:, : x.size(1)])
+
+
+class MiniEmbedding(nn.Module):
+    """Handles token and positional embeddings for the transformer model."""
+
     def __init__(self, config: MiniConfig):
         super().__init__()
         self.bias = config.bias
-        padding_idx = max(config.pad_id, 0)  # Ensure pad_id is non-negative
-        self.embedding = nn.Embedding(
+        padding_idx = max(config.pad_id, 0)
+
+        self.position = PositionalEncoder(config)
+        self.table = nn.Embedding(
             config.vocab_size, config.embed_dim, padding_idx=padding_idx
         )
+
         self.hidden = nn.Linear(config.embed_dim, config.max_seq_len)
         self.projection = nn.Linear(config.max_seq_len, config.embed_dim)
 
         self.norm = nn.LayerNorm(config.max_seq_len)
         self.dropout = nn.Dropout(config.dropout)
 
-        self._init_weights()  # Ensure weights are initialized properly
-        self.embedding.weight.requires_grad_(True)  # Force embedding updates
+        self._init_weights()
 
     def _init_weights(self):
         nn.init.xavier_uniform_(self.hidden.weight)
@@ -177,13 +205,16 @@ class MiniEncoder(nn.Module):
             nn.init.uniform_(self.projection.bias)
 
     def forward(self, x: torch.Tensor, mask: torch.Tensor = None) -> torch.Tensor:
-        x = self.embedding(x)  # Token embeddings (B, T, E)
-        # Apply padding mask by zeroing out embeddings for padding tokens
+        # Token embeddings + Positional encoding
+        x = self.position(self.table(x))
+
+        # Apply padding mask
         if mask is not None:
             x = x * mask.unsqueeze(-1).float()
-        hidden = F.silu(self.hidden(x))  # Non-linear transformation
-        hidden = self.dropout(self.norm(hidden))  # Apply LayerNorm + Dropout
-        return self.projection(hidden)  # Project back to embedding dim
+
+        hidden = F.silu(self.hidden(x))
+        hidden = self.dropout(self.norm(hidden))
+        return self.projection(hidden)
 
 
 class MiniTransformer(nn.Module):
@@ -191,7 +222,7 @@ class MiniTransformer(nn.Module):
         super().__init__()
         self.bias = config.bias
 
-        self.encoder = MiniEncoder(config)
+        self.embedding = MiniEmbedding(config)
         self.blocks = nn.ModuleList(
             [MiniBlock(config) for _ in range(config.num_layers)]
         )
@@ -207,7 +238,7 @@ class MiniTransformer(nn.Module):
             nn.init.uniform_(self.head.bias)
 
     def forward(self, x, mask=None):
-        x = self.encoder(x)
+        x = self.embedding(x, mask)
         for block in self.blocks:
             x = block(x, mask)
         x = self.norm(x)
