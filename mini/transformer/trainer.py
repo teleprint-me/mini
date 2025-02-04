@@ -5,7 +5,7 @@ Description: Trainer for the MiniTransformer model.
 """
 
 import logging
-from typing import Union
+from typing import Optional, Union
 
 import torch
 from sentencepiece import SentencePieceProcessor
@@ -31,6 +31,75 @@ class MiniTrainer:
         log_level = logging.DEBUG if verbose else logging.INFO
         self.logger = get_logger(name=self.__class__.__name__, level=log_level)
 
+    # === 🔥 Convenience Properties === #
+    @property
+    def device(self) -> torch.device:
+        return self.state.runtime.device_type
+
+    @property
+    def model(self) -> torch.nn.Module:
+        return self.state.model
+
+    @property
+    def optimizer(self) -> torch.optim.Optimizer:
+        return self.state.optimizer
+
+    @property
+    def scheduler(self) -> Optional[torch.optim.lr_scheduler.LRScheduler]:
+        return self.state.scheduler  # Returns None if no scheduler is used
+
+    @property
+    def loss(self) -> torch.nn.Module:
+        return self.state.criterion
+
+    def load(self) -> None:
+        """Loads state, moves model to device, and sets it to training mode."""
+        self.state.load()
+        self.model.to(self.device)
+        self.model.train()
+
+    def save(self) -> None:
+        """Saves current model state."""
+        self.state.save()
+
+    # === 🔥 Training Methods === #
+    def train(
+        self,
+        num_epochs: int = 10,
+        save_every: int = 10,
+        grad_accum_steps: int = 1,
+    ):
+        """Trains the model with gradient accumulation support."""
+        self.logger.info("Starting training...")
+        self.load()
+
+        for epoch in range(num_epochs):
+            total_loss = 0
+            for batch, (x, y) in enumerate(self.dataset):
+                self.optimizer.zero_grad()
+                x, y = x.to(self.device), y.to(self.device)
+
+                logits = self.model(x, self.mask(x))
+                loss = self.loss(logits.view(-1, logits.size(-1)), y.view(-1))
+                loss = loss / grad_accum_steps  # Normalize loss for accumulation
+
+                loss.backward()
+                self.optimizer.step()  # Apply optimizer updates
+                total_loss += loss.item() * grad_accum_steps
+
+                self.log_batch(epoch, num_epochs, batch, loss)
+
+            if self.scheduler is not None:
+                self.scheduler.step()  # Step LR scheduler **once per epoch**
+            self.log_epoch(epoch, num_epochs, total_loss)
+
+            # Save model periodically
+            if (epoch + 1) % save_every == 0:
+                self.save()
+
+        self.logger.info("Training complete!")
+
+    # === 🔥 Logging & Utilities === #
     def log_batch(
         self,
         epoch: int,
@@ -50,9 +119,9 @@ class MiniTrainer:
         """Logs total epoch loss, learning rate, and perplexity."""
         average_loss = self.average_loss(total_loss)
         lr = (
-            self.state.scheduler.get_last_lr()[0]
-            if self.state.scheduler is not None
-            else self.state.optimizer.defaults["lr"]
+            self.scheduler.get_last_lr()[0]
+            if self.scheduler is not None
+            else self.optimizer.defaults["lr"]
         )
 
         self.logger.info(
@@ -75,64 +144,6 @@ class MiniTrainer:
 
     def mask(self, x: torch.Tensor) -> torch.Tensor:
         """Creates a mask for the input tensor to ignore pad tokens."""
-        # Mask set to (B, 1, T, T) to mask pad id
         return (
             (x != self.pad_id).unsqueeze(1).unsqueeze(2).expand(-1, -1, x.size(1), -1)
         )
-
-    def train(
-        self,
-        num_epochs: int = 10,
-        save_every: int = 10,
-        grad_accum_steps: int = 1,
-    ):
-        """Trains the model with gradient accumulation support."""
-        self.logger.info("Starting training...")
-
-        self.state.load()
-        device = self.state.runtime.device_type
-
-        model = self.state.model.to(device)
-        model.train()
-
-        optimizer = self.state.optimizer
-        # No-op function if scheduler is None
-        scheduler = self.state.scheduler or (lambda: None)
-        criterion = self.state.criterion
-
-        for epoch in range(num_epochs):
-            total_loss = 0
-            for batch, (x, y) in enumerate(self.dataset):
-                optimizer.zero_grad()
-                x, y = x.to(device), y.to(device)
-
-                logits = model(x, self.mask(x))
-                loss = criterion(logits.view(-1, logits.size(-1)), y.view(-1))
-                loss = loss / grad_accum_steps  # Normalize loss for accumulation
-
-                loss.backward()
-                optimizer.step()  # Apply optimizer updates
-
-                # Debug: Check if weights are updating
-                for name, param in model.named_parameters():
-                    if param.requires_grad and param.grad is not None:
-                        before = param.clone().detach()
-                        after = param.clone().detach()
-                        diff = torch.norm(after - before).item()
-                        if diff == 0:
-                            self.logger.warning(
-                                f"Warning: Weight {name} is not updating!"
-                            )
-                        break
-
-                total_loss += loss.item() * grad_accum_steps
-                self.log_batch(epoch, num_epochs, batch, loss)
-
-            scheduler.step()  # Step LR scheduler **once per epoch**
-            self.log_epoch(epoch, num_epochs, total_loss)
-
-            # Save model periodically
-            if (epoch + 1) % save_every == 0:
-                self.state.save()
-
-        self.logger.info("Training complete!")
