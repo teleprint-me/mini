@@ -98,17 +98,17 @@ class MiniManager:
         scheduler: Optional[SchedulerConfig] = None,
         criterion: Optional[CriterionConfig] = None,
     ):
-        self.optimizer = optimizer if optimizer else OptimizerConfig()
-        self.scheduler = scheduler if scheduler else SchedulerConfig()
-        self.criterion = criterion if criterion else CriterionConfig()
+        self.optimizer_config = optimizer if optimizer else OptimizerConfig()
+        self.scheduler_config = scheduler if scheduler else SchedulerConfig()
+        self.criterion_config = criterion if criterion else CriterionConfig()
 
     def optimize(self, model: nn.Module) -> optim.Optimizer:
         """Creates an optimizer based on the given configuration."""
-        optimizer_type = self.optimizer.type.lower()
+        optimizer_type = self.optimizer_config.type.lower()
         print(f"Optimizer type: Using {optimizer_type}")
 
-        optimizer_params = self.optimizer.get_params(optimizer_type)
-        model_params = model.parameters(self.optimizer.recurse)
+        optimizer_params = self.optimizer_config.get_params(optimizer_type)
+        model_params = model.parameters(self.optimizer_config.recurse)
         if optimizer_type == "adam":
             return optim.Adam(model_params, **optimizer_params)
         elif optimizer_type == "adamw":
@@ -120,10 +120,10 @@ class MiniManager:
 
     def schedule(self, optimizer: optim.Optimizer) -> Optional[LRScheduler]:
         """Creates a learning rate scheduler based on configuration."""
-        scheduler_type = self.scheduler.type.lower()
+        scheduler_type = self.scheduler_config.type.lower()
         print(f"Scheduler type: Using {scheduler_type}")
 
-        scheduler_params = self.scheduler.get_params(scheduler_type)
+        scheduler_params = self.scheduler_config.get_params(scheduler_type)
         if scheduler_type == "step":
             return torch.optim.lr_scheduler.StepLR(optimizer, **scheduler_params)
         elif scheduler_type == "cosine":
@@ -137,10 +137,10 @@ class MiniManager:
 
     def criterion(self) -> nn.Module:
         """Creates a loss function based on the given criterion type."""
-        criterion_type = self.criterion.type.lower()
+        criterion_type = self.criterion_config.type.lower()
         print(f"Criterion type: Using {criterion_type}")
 
-        criterion_params = self.criterion.get_params(criterion_type)
+        criterion_params = self.criterion_config.get_params(criterion_type)
         if criterion_type == "cross_entropy":
             return nn.CrossEntropyLoss(**criterion_params)
         elif criterion_type == "mse":
