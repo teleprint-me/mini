@@ -1,4 +1,5 @@
 """
+Copyright © 2023 Austin Berrio
 Module: mini.transformer.state
 Description: Utility class for saving and loading checkpoints.
 """
