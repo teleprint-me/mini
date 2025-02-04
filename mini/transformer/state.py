@@ -13,7 +13,7 @@ from torch import nn, optim
 from torch.optim.lr_scheduler import LRScheduler
 
 from mini.transformer.manager import MiniManager
-from mini.transformer.model import MiniConfig, MiniTransformer, RuntimeConfig
+from mini.transformer.model import MiniConfig, MiniRuntime, MiniTransformer
 
 
 @dataclass
@@ -23,7 +23,7 @@ class MiniState:
     path: str
     config: MiniConfig
     manager: MiniManager
-    runtime: RuntimeConfig
+    runtime: MiniRuntime
     verbose: bool = False
 
     checkpoint: Dict[str, Any] = field(default_factory=dict)
@@ -50,6 +50,7 @@ class MiniState:
         # **Step 1: Load Model**
         if "model_config" in self.checkpoint:
             self.config = MiniConfig(**self.checkpoint["model_config"])
+
         self.model = MiniTransformer(self.config)
         if "model_state" in self.checkpoint:
             self.model.load_state_dict(self.checkpoint["model_state"])
@@ -67,8 +68,7 @@ class MiniState:
     def _load_scheduler(self) -> None:
         # **Step 3: Create & Restore Scheduler**
         self.scheduler = self.manager.schedule(self.optimizer)
-
-        if "scheduler_state" in self.checkpoint and self.scheduler:
+        if "scheduler_state" in self.checkpoint:
             self.scheduler.load_state_dict(self.checkpoint["scheduler_state"])
             if self.verbose:
                 print("Scheduler state loaded from checkpoint.")
@@ -94,7 +94,7 @@ class MiniState:
             "model_config": self.config.as_dict(),
             "model_state": self.model.state_dict(),
             "optimizer_state": self.optimizer.state_dict(),
-            "scheduler_state": self.scheduler.state_dict() if self.scheduler else None,
+            "scheduler_state": self.scheduler.state_dict(),
             "criterion_type": self.manager.criterion.type,
         }
         torch.save(checkpoint, self.path)
