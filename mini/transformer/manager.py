@@ -1,7 +1,7 @@
 """
 Copyright © 2023 Austin Berrio
 Module: mini.transformer.manager
-Description: Defines a class for creating and managing optimizers in the transformer model.
+Description: Defines classes for managing optimizers, schedulers, and criteria in the transformer model.
 """
 
 from dataclasses import dataclass
