@@ -32,8 +32,6 @@ The current implementation focuses on **pre-training** with a learnable
 embedding block. Future iterations may include **RoPE (Rotary Positional
 Encoding)** and **adaptive attention mechanisms**.
 
----
-
 ## **Installation & Setup**
 
 ### **1. Clone the repository**
@@ -56,8 +54,6 @@ pip install -r requirements.txt
 mkdir data
 wget https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt -O data/tinyshakespeare.txt
 ```
-
----
 
 ## **Usage**
 
