@@ -36,8 +36,10 @@ class MiniState:
 
     def __post_init__(self):
         """Initializes state by loading from checkpoint (if exists) or setting up new components."""
-        log_level = logging.DEBUG if self.verbose else logging.INFO
-        self.logger = get_logger(name=self.__class__.__name__, level=log_level)
+        self.logger = get_logger(
+            name=self.__class__.__name__,
+            level=logging.DEBUG if self.verbose else logging.INFO,
+        )
         self.logger.debug("Initializing MiniState.")
         self.load()
 
