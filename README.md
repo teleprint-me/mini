@@ -1,103 +1,124 @@
-# Mini
+# **Mini**
 
-Mini is a toolkit for pre-training, fine-tuning, and evaluating transformer based language models using PyTorch.
+_A lightweight toolkit for training language models in PyTorch._
 
-## About
+Mini is a modular framework for pre-training, fine-tuning, and evaluating
+transformer-based language models. It is designed to support
+sequence-to-sequence learning tasks such as **next-word prediction**,
+**instruction tuning**, and **text generation**.
 
-Mini is a Decoder-only Language Model (LM) designed for instruction-based tasks. It is trained on a synthetic corpus of instruction-based data created by a Teacher. Mini is trained to predict the next word in a sequence given an instruction and can be fine-tuned for specific tasks.
+## **Key Features**
 
-## Features
+- **Pre-training on structured & unstructured text**
+- **Fine-tuning for instruction-based tasks** _(coming soon)_
+- **Evaluation with perplexity and future metric support** _(BLEU, ROUGE, etc.)_
+- **Easy CLI interface for training, inference, and evaluation**
+- **Support for model checkpointing & resuming**
+- **Optimized training with RMSNorm, SiLU activation, and learnable embeddings**
 
-- [x] **Pre-training**: Mini can be pre-trained using plaintext or structured data.
-- [ ] **Inference**: Mini can be used for inference to generate text given a prompt or instruction.
-- [ ] **Fine-tuning**: Mini can be fine-tuned for specific tasks using a small amount of data.
-- [ ] **Evaluation**: Mini can be evaluated on various metrics such as perplexity and BLEU score.
+## **Architecture**
 
-## Setup
+Mini follows a transformer-based architecture with a simplified and efficient
+design:
 
-1. Clone the repository:
+- **`MiniEmbedding`** – Learns both token and positional embeddings.
+- **`MiniAttention`** – Implements scaled dot-product self-attention.
+- **`MiniBlock`** – Stacks self-attention and feedforward layers.
+- **`MiniTransformer`** – A lightweight sequence-to-sequence model.
+- **`RMSNorm`** – Stabilizes training by normalizing activations.
+- **`FeedForward`** – Non-linear transformations with SiLU activation.
+
+The current implementation focuses on **pre-training** with a learnable
+embedding block. Future iterations may include **RoPE (Rotary Positional
+Encoding)** and **adaptive attention mechanisms**.
+
+---
+
+## **Installation & Setup**
+
+### **1. Clone the repository**
 
 ```sh
 git clone https://github.com/teleprint-me/mini.git
 cd mini
 ```
 
-2. Setup PyTorch:
+### **2. Install dependencies**
 
 ```sh
 pip install torch --index-url https://download.pytorch.org/whl/cpu
-```
-
-3. Install requirements:
-
-```sh
 pip install -r requirements.txt
 ```
 
-## Usage
-
-1. Create a directory for the dataset:
+### **3. Prepare a dataset**
 
 ```sh
 mkdir data
+wget https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt -O data/tinyshakespeare.txt
 ```
 
-2. Download the dataset:
+---
 
-```sh
-wget https://raw.githubusercontent.com/karpathy/char-rnn/refs/heads/master/data/tinyshakespeare/input.txt -O data/tinyshakespeare.txt
-```
+## **Usage**
 
-3. Train the model:
+### **Pre-training**
+
+Train a model from scratch on a dataset:
 
 ```sh
 python -m mini.transformer.train --processor models/tokenizer.model \
     --dataset data/tinyshakespeare.txt \
-    --model models/mini_transformer.pt \
-    --embed-dim 256 \
-    --num-heads 4 \
-    --head-dim 64 \
-    --num-layers 6 \
-    --ff-dim 512 \
-    --max-seq-len 128 \
-    --batch-size 4 \
-    --batch-stride 16 \
-    --num-epochs 3 \
-    --save-every 1 \
-    --lr 5e-4 \
-    --eps 1e-8 \
-    --weight-decay 0.01 \
-    --step-size 1 \
-    --gamma 0.9 \
-    --grad-accum-steps 2 \
-    -v
+    --model models/mini.pt \
+    --embed-dim 256 --num-heads 4 --head-dim 64 \
+    --num-layers 6 --ff-dim 512 --max-seq-len 128 \
+    --batch-size 4 --batch-stride 16 --num-epochs 3 \
+    --save-every 1 --lr 5e-4 --eps 1e-8 --weight-decay 0.01 \
+    --step-size 1 --gamma 0.9 --grad-accum-steps 2 -v
 ```
 
-4. Inference the model:
+### **Inference** _(coming soon)_
+
+Run inference on a trained model:
 
 ```sh
 python -m mini.transformer.infer --processor models/tokenizer.model \
-    --model models/mini_transformer.pt \
-    --embed-dim 256 \
-    --num-heads 4 \
-    --head-dim 64 \
-    --num-layers 6 \
-    --ff-dim 512 \
-    --max-seq-len 128 \
-    --max-tokens 64 \
-    --prompt 'You common cry of curs! whose'
+    --model models/mini.pt \
+    --embed-dim 256 --num-heads 4 --head-dim 64 \
+    --num-layers 6 --ff-dim 512 --max-seq-len 128 \
+    --max-tokens 64 --prompt 'You common cry of curs! whose'
 ```
 
-5. Evaluate the model:
+### **Fine-tuning** _(coming soon)_
+
+Fine-tune on an instruction-based dataset.
 
 ```sh
-# TODO: Add instructions for evaluating the model
+# Placeholder for fine-tuning command
 ```
 
-## License
+### **Evaluation** _(coming soon)_
 
-This project is licensed under the AGPL License. See the [LICENSE](LICENSE) file for details.
+Evaluate model performance with perplexity, BLEU, and other metrics.
 
-## Contributing
+```sh
+# Placeholder for evaluation script
+```
 
-Contributions are welcome! Please open an issue or submit a pull request with your changes. Make sure to follow the [Code of Conduct](CODE_OF_CONDUCT.md). 
+## **Development Roadmap**
+
+- [x] **Pre-training on custom datasets**
+- [ ] **Inference support for text generation** _(up next! 🚀)_
+- [ ] **Fine-tuning for instruction-based tasks**
+- [ ] **Evaluation with additional NLP metrics**
+- [ ] **Distributed training & performance optimizations**
+
+## **License**
+
+This project is licensed under **AGPL-3.0**. See the [LICENSE](LICENSE) file for
+details.
+
+## **Contributing**
+
+Contributions are welcome! If you have ideas or improvements, feel free to open
+an issue or submit a pull request. Be sure to follow the
+[Code of Conduct](CODE_OF_CONDUCT.md).
