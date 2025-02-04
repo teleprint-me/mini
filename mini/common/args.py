@@ -216,9 +216,9 @@ class TransformerArgs:
         )
         self.parser.add_argument(
             "--scheduler",
-            choices=["step", "cosine", "linear"],
+            choices=["none", "step", "cosine", "linear"],
             default="step",
-            help="Learning rate scheduler (Default: step).",
+            help="Optional learning rate scheduler (Default: step).",
         )
         self.parser.add_argument(
             "--step-size",
