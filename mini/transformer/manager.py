@@ -4,12 +4,15 @@ Module: mini.transformer.manager
 Description: Defines classes for managing optimizers, schedulers, and criteria in the transformer model.
 """
 
+import logging
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
 import torch
 from torch import nn, optim
 from torch.optim.lr_scheduler import LRScheduler
+
+from mini.common.logger import get_logger
 
 
 @dataclass
@@ -97,7 +100,13 @@ class MiniManager:
         optimizer: Optional[OptimizerConfig] = None,
         scheduler: Optional[SchedulerConfig] = None,
         criterion: Optional[CriterionConfig] = None,
+        verbose: bool = False,
     ):
+        self.logger = get_logger(
+            name=self.__class__.__name__,
+            level=logging.DEBUG if verbose else logging.INFO,
+        )
+
         self.optimizer_config = optimizer if optimizer else OptimizerConfig()
         self.scheduler_config = scheduler if scheduler else SchedulerConfig()
         self.criterion_config = criterion if criterion else CriterionConfig()
@@ -105,7 +114,7 @@ class MiniManager:
     def optimize(self, model: nn.Module) -> optim.Optimizer:
         """Creates an optimizer based on the given configuration."""
         optimizer_type = self.optimizer_config.type.lower()
-        print(f"Optimizer type: Using {optimizer_type}")
+        self.logger.info(f"Using optimizer: {optimizer_type}")
 
         optimizer_params = self.optimizer_config.get_params(optimizer_type)
         model_params = model.parameters(self.optimizer_config.recurse)
@@ -121,7 +130,13 @@ class MiniManager:
     def schedule(self, optimizer: optim.Optimizer) -> Optional[LRScheduler]:
         """Creates a learning rate scheduler based on configuration."""
         scheduler_type = self.scheduler_config.type.lower()
-        print(f"Scheduler type: Using {scheduler_type}")
+
+        # **Handle Optional Scheduler**
+        if scheduler_type == "none":
+            self.logger.info("No learning rate scheduler is being used.")
+            return None  # Early exit, no scheduler applied
+
+        self.logger.info(f"Using scheduler: {scheduler_type}")
 
         scheduler_params = self.scheduler_config.get_params(scheduler_type)
         if scheduler_type == "step":
@@ -138,7 +153,7 @@ class MiniManager:
     def criterion(self) -> nn.Module:
         """Creates a loss function based on the given criterion type."""
         criterion_type = self.criterion_config.type.lower()
-        print(f"Criterion type: Using {criterion_type}")
+        self.logger.info(f"Using criterion: {criterion_type}")
 
         criterion_params = self.criterion_config.get_params(criterion_type)
         if criterion_type == "cross_entropy":
