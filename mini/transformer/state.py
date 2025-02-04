@@ -95,7 +95,7 @@ class MiniState:
             "model_state": self.model.state_dict(),
             "optimizer_state": self.optimizer.state_dict(),
             "scheduler_state": self.scheduler.state_dict(),
-            "criterion_type": self.manager.criterion.type,
+            "criterion_type": self.manager.criterion_config.type,
         }
         torch.save(checkpoint, self.path)
         if self.verbose:
