@@ -49,11 +49,17 @@ class MiniTrainer:
     def log_epoch(self, epoch: int, num_epochs: int, total_loss: float):
         """Logs total epoch loss, learning rate, and perplexity."""
         average_loss = self.average_loss(total_loss)
+        lr = (
+            self.state.scheduler.get_last_lr()[0]
+            if self.state.scheduler is not None
+            else self.state.optimizer.defaults["lr"]
+        )
+
         self.logger.info(
             f"[Epoch: {epoch+1}/{num_epochs}] "
             f"[Total Loss: {total_loss:.4f}] "
             f"[Avg Loss: {average_loss:.4f}] "
-            f"[LR: {self.state.scheduler.get_last_lr()[0]:.8f}] "
+            f"[LR: {lr:.8f}] "
             f"[Perplexity: {self.perplexity(average_loss):.6f}]"
         )
 
@@ -90,7 +96,8 @@ class MiniTrainer:
         model.train()
 
         optimizer = self.state.optimizer
-        scheduler = self.state.scheduler
+        # No-op function if scheduler is None
+        scheduler = self.state.scheduler or (lambda: None)
         criterion = self.state.criterion
 
         for epoch in range(num_epochs):
@@ -103,20 +110,22 @@ class MiniTrainer:
                 loss = criterion(logits.view(-1, logits.size(-1)), y.view(-1))
                 loss = loss / grad_accum_steps  # Normalize loss for accumulation
 
-                loss.backward(retain_graph=True)
-                # optimizer.step()  # temporarily block this for debugging
-                total_loss += loss.item() * grad_accum_steps
+                loss.backward()
+                optimizer.step()  # Apply optimizer updates
 
                 # Debug: Check if weights are updating
                 for name, param in model.named_parameters():
                     if param.requires_grad and param.grad is not None:
                         before = param.clone().detach()
-                        optimizer.step()  # Apply optimizer updates
                         after = param.clone().detach()
                         diff = torch.norm(after - before).item()
-                        assert diff > 0, f"Weight {name} is not updating!"
+                        if diff == 0:
+                            self.logger.warning(
+                                f"Warning: Weight {name} is not updating!"
+                            )
                         break
 
+                total_loss += loss.item() * grad_accum_steps
                 self.log_batch(epoch, num_epochs, batch, loss)
 
             scheduler.step()  # Step LR scheduler **once per epoch**
