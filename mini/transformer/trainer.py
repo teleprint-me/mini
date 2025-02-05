@@ -72,6 +72,7 @@ class MiniTrainer:
         """Trains the model with gradient accumulation support."""
         self.logger.info("Starting training...")
         self.load()
+        self.log_parameters()
 
         for epoch in range(num_epochs):
             total_loss = 0
@@ -100,6 +101,10 @@ class MiniTrainer:
         self.logger.info("Training complete!")
 
     # === 🔥 Logging & Utilities === #
+    def log_parameters(self):
+        num_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
+        self.logger.info(f"Model has {num_params:,} learnable parameters.")
+
     def log_batch(
         self,
         epoch: int,
