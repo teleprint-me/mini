@@ -103,8 +103,8 @@ class TransformerArgs:
         self.parser.add_argument(
             "--num-heads",
             type=int,
-            default=8,
-            help="Number of attention heads (Default: 8).",
+            default=4,
+            help="Number of attention heads (Default: 4).",
         )
         self.parser.add_argument(
             "--head-dim",
@@ -121,20 +121,20 @@ class TransformerArgs:
         self.parser.add_argument(
             "--ff-dim",
             type=int,
-            default=256,
-            help="Feed-forward network dimension (Default: 256).",
+            default=128,
+            help="Feed-forward network dimension (Default: 128).",
         )
         self.parser.add_argument(
             "--max-seq-len",
             type=int,
-            default=512,
-            help="Maximum sequence length (Default: 512).",
+            default=256,
+            help="Maximum sequence length (Default: 256).",
         )
         self.parser.add_argument(
             "--rope-theta",
             type=float,
             default=10000.0,
-            help="Theta for RoPE encoding (Default: 10000.0).",
+            help="Theta for RoPE encoding (Deprecated; Default: 10000.0).",
         )
 
         # Mutually exclusive bias flags
