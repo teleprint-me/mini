@@ -3,3 +3,4 @@ jsonschema
 sentencepiece
 numpy
 tqdm
+regex
