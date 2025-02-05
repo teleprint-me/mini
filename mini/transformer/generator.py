@@ -30,7 +30,7 @@ class GeneratorConfig:
     sampler: MiniSampler
     runtime: MiniRuntime
     processor: SentencePieceProcessor
-    pre_tokenizer: Optional[re.Pattern] = DEFAULT_PRETOKENIZER
+    pre_tokenizer: Optional[re.Pattern] = None
 
 
 class MiniGenerator:
