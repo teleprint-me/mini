@@ -94,14 +94,18 @@ class MiniState:
         """Initializes criterion (loss function)."""
         self.criterion = self.manager.criterion()
 
-    def load(self) -> None:
+    def load(self, train: bool = False) -> None:
         """Loads training state from checkpoint or initializes new components."""
         self.logger.debug("Loading model state...")
+        # Load model parameters for inferencing
         self._load_checkpoint()
         self._load_model()
-        self._load_optimizer()
-        self._load_scheduler()
-        self._load_criterion()
+
+        # Load optimization parameters for training
+        if train:
+            self._load_optimizer()
+            self._load_scheduler()
+            self._load_criterion()
 
         # Log final loaded state
         self.logger.info(f"Model Configuration: {self.config}")

@@ -54,7 +54,7 @@ class MiniTrainer:
 
     def load(self) -> None:
         """Loads state, moves model to device, and sets it to training mode."""
-        self.state.load()
+        self.state.load(train=True)
         self.model.to(self.device)
         self.model.train()
 
