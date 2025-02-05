@@ -144,6 +144,4 @@ class MiniTrainer:
 
     def mask(self, x: torch.Tensor) -> torch.Tensor:
         """Creates a mask for the input tensor to ignore pad tokens."""
-        return (
-            (x != self.pad_id).unsqueeze(1).unsqueeze(2).expand(-1, -1, x.size(1), -1)
-        )
+        return (x != self.pad_id).unsqueeze(1).unsqueeze(2)
