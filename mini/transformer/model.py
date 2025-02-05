@@ -144,7 +144,6 @@ class MiniAttention(nn.Module):
         # Compute and apply mask
         mask = self._mask(x)  # Ensure shape [B, 1, T, T]
         if mask is not None:
-            print(f"Attention Mask Shape: {mask.shape}")  # Debug
             attn_weights = attn_weights.masked_fill(mask == 0, float("-inf"))
 
         attn_weights = F.softmax(attn_weights, dim=-1)
@@ -231,14 +230,12 @@ class MiniEmbedding(nn.Module):
         return (x != self.pad_id).unsqueeze(-1)  # Shape: [B, T, 1]
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        print(f"MiniEmbedding: input {x.shape}")
         # Token embeddings
         y = self.table(x)
 
         # Compute and apply padding mask **before** position encoding
         mask = self._mask(x)
         if mask is not None:
-            print(f"embedding: mask: {mask.shape}")
             y *= mask.float()
 
         # Positional encoding
