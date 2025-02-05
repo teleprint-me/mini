@@ -21,39 +21,51 @@ def generate(
     sampler: MiniSampler,
     runtime: MiniRuntime,
 ) -> str:
-    """Generates text using the trained transformer model."""
+    """Generates text using the trained transformer model with efficient token sampling."""
 
-    state.load(train=False)  # Ignore the optimizer, scheduler, and criterion
+    # Load model state
+    state.load(train=False)  # Ignore optimizer, scheduler, and criterion
     state.model.eval()
+
+    # Fetch constants once
     pad_id = max(processor.pad_id(), 0)
+    eos_id = processor.eos_id()
+
+    # Encode prompt
     input_ids = processor.encode(prompt, add_bos=True, add_eos=False)
+    generated_tokens = input_ids[:]  # Copy input tokens
+
+    # Convert to tensor once and move to device
     input_tensor = torch.tensor(
         [input_ids], dtype=torch.long, device=runtime.device_type
     )
-    generated_tokens = input_ids[:]  # Copy input tokens
 
     with torch.no_grad():
-        for _ in range(state.model.max_seq_len):
+        for _ in range(state.model.max_seq_len - len(generated_tokens)):
             logits = state.model(input_tensor)[:, -1, :]  # Forward pass
             next_token = sampler.sample(logits, past_tokens=generated_tokens)
 
-            # Decode and stream output
             if next_token == pad_id:
                 continue  # Ignore PAD token
 
-            output_text = processor.decode(next_token)
-            print(output_text, end="", flush=True)
-
-            if next_token == processor.eos_id():
-                print("\nEOS token encountered, stopping generation.")
-                break  # Stop if EOS token is generated
-
             generated_tokens.append(next_token)
 
-            # Update input tensor for next step
-            input_tensor = torch.tensor(
-                [generated_tokens], dtype=torch.long, device=runtime.device_type
+            # Efficient input tensor update: append only the new token
+            input_tensor = torch.cat(
+                [
+                    input_tensor,
+                    torch.tensor([[next_token]], device=runtime.device_type),
+                ],
+                dim=1,
             )
+
+            # Decode only the latest token and print
+            output_text = processor.decode([next_token])
+            print(output_text, end="", flush=True)
+
+            if next_token == eos_id:
+                print("\nEOS token encountered, stopping generation.")
+                break  # Stop if EOS token is generated
 
     return processor.decode(generated_tokens)
 
