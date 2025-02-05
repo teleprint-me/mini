@@ -4,90 +4,38 @@ Script: mini.transformer.infer
 Description: Simple completion for text-to-text generation with streaming output.
 """
 
-from typing import List, Optional
-
 import torch
-import torch.nn.functional as F
 from sentencepiece import SentencePieceProcessor
 
 from mini.common.args import TransformerArgs
-from mini.transformer.checkpoint import MiniCheckpoint
-from mini.transformer.model import MiniTransformer
-
-
-def sample(
-    logits: torch.Tensor,
-    past_tokens: List[int],
-    top_k: int = 50,
-    top_p: float = 0.9,
-    temperature: float = 0.8,
-    repetition_penalty: float = 1.2,
-    pad_id: Optional[int] = None,
-) -> torch.Tensor:
-    """Applies temperature, top-k, top-p filtering, and repetition penalty."""
-
-    logits = logits / temperature  # Apply temperature scaling
-
-    # Apply repetition penalty
-    if past_tokens:
-        for token in set(past_tokens):
-            logits[:, token] /= repetition_penalty
-
-    # Mask PAD tokens
-    if pad_id is not None:
-        logits[:, pad_id] = -float("inf")
-
-    probs = F.softmax(logits, dim=-1)
-
-    # Apply top-k filtering
-    if top_k > 0:
-        values, _ = torch.topk(probs, top_k)
-        min_prob = values[:, -1].unsqueeze(-1)
-        probs = torch.where(probs < min_prob, torch.zeros_like(probs), probs)
-
-    # Apply top-p (nucleus) sampling
-    if top_p > 0:
-        sorted_probs, indices = torch.sort(probs, descending=True)
-        cumulative_probs = torch.cumsum(sorted_probs, dim=-1)
-        mask = cumulative_probs > top_p
-        sorted_probs[mask] = 0
-        sorted_probs = sorted_probs / sorted_probs.sum()
-        probs.scatter_(-1, indices, sorted_probs)
-
-    return torch.multinomial(probs, 1).item()  # Sample next token
+from mini.transformer.manager import MiniManager
+from mini.transformer.model import MiniConfig, MiniRuntime
+from mini.transformer.sampler import MiniSampler, SamplerConfig
+from mini.transformer.state import MiniState
 
 
 def generate(
-    model: MiniTransformer,
-    processor: SentencePieceProcessor,
     prompt: str,
-    max_tokens: int = 128,
-    temperature: float = 0.8,
-    top_k: int = 10,
-    top_p: float = 0.9,
-    repetition_penalty: float = 1.2,
-    device: torch.device = "cpu",
+    processor: SentencePieceProcessor,
+    state: MiniState,
+    sampler: MiniSampler,
+    runtime: MiniRuntime,
 ) -> str:
     """Generates text using the trained transformer model."""
 
-    model.eval()
+    state.load(train=False)  # Ignore the optimizer, scheduler, and criterion
+    state.model.eval()
     pad_id = max(processor.pad_id(), 0)
     input_ids = processor.encode(prompt, add_bos=True, add_eos=False)
-    input_tensor = torch.tensor([input_ids], dtype=torch.long, device=device)
+    input_tensor = torch.tensor(
+        [input_ids], dtype=torch.long, device=runtime.device_type
+    )
     generated_tokens = input_ids[:]  # Copy input tokens
 
     with torch.no_grad():
-        for _ in range(max_tokens):
-            logits = model(input_tensor)[:, -1, :]  # Forward pass
-            next_token = sample(
-                logits,
-                past_tokens=generated_tokens,
-                top_k=top_k,
-                top_p=top_p,
-                temperature=temperature,
-                repetition_penalty=repetition_penalty,
-                pad_id=pad_id,  # Mask PAD token
-            )
+        for _ in range(state.model.max_seq_len):
+            logits = state.model(input_tensor)[:, -1, :]  # Forward pass
+            next_token = sampler.sample(logits, past_tokens=generated_tokens)
 
             # Decode and stream output
             if next_token == pad_id:
@@ -104,7 +52,7 @@ def generate(
 
             # Update input tensor for next step
             input_tensor = torch.tensor(
-                [generated_tokens], dtype=torch.long, device=device
+                [generated_tokens], dtype=torch.long, device=runtime.device_type
             )
 
     return processor.decode(generated_tokens)
@@ -113,32 +61,63 @@ def generate(
 if __name__ == "__main__":
     args = TransformerArgs("Mini Inference Tool").parse_args("infer")
 
-    # Load processor
+    # Load runtime configuration
+    runtime = MiniRuntime(seed=args.seed)
+    runtime.seed_all()
+
+    # Load model tokenizer
     processor = SentencePieceProcessor(model_file=args.processor)
 
-    # Load model
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    # Load Transformer Config
+    config = MiniConfig(
+        vocab_size=processor.vocab_size(),
+        embed_dim=args.embed_dim,
+        num_heads=args.num_heads,
+        head_dim=args.head_dim,
+        num_layers=args.num_layers,
+        ff_dim=args.ff_dim,
+        max_seq_len=args.max_seq_len,
+        pad_id=max(processor.pad_id(), 0),
+        eps=args.eps,
+        theta=args.rope_theta,
+        bias=args.bias,
+    )
 
-    # Load checkpoint without requiring training parameters
-    checkpoint = MiniCheckpoint(
-        path=args.model,
-        config=None,
+    # Load optimization manager
+    manager = MiniManager(
         optimizer=None,
-        device=device,
+        scheduler=None,
+        criterion=None,
         verbose=args.verbose,
     )
-    model, _ = checkpoint.load()
+
+    # Load state manager
+    state = MiniState(
+        path=args.model,
+        config=config,
+        manager=manager,
+        runtime=runtime,
+        verbose=args.verbose,
+    )
+
+    sampler_config = SamplerConfig(
+        top_k=args.top_k,
+        top_p=args.top_p,
+        temperature=args.temperature,
+        repetition_penalty=args.repetition_penalty,
+        greedy=args.greedy,
+        pad_id=max(processor.pad_id(), 0),
+        verbose=args.verbose,
+    )
+
+    sampler = MiniSampler(config=sampler_config)
 
     # Run inference
     output = generate(
-        model,
-        processor,
         args.prompt,
-        max_tokens=args.max_tokens,
-        temperature=args.temperature,
-        top_k=args.top_k,
-        top_p=args.top_p,
-        repetition_penalty=args.repetition_penalty,
-        device=device,
+        processor,
+        state=state,
+        sampler=sampler,
+        runtime=runtime,
     )
     print("\nGenerated Output:", output)
