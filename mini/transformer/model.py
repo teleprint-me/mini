@@ -94,6 +94,7 @@ class FeedForward(nn.Module):
             nn.init.uniform_(self.w3.bias)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        print(f"FeedForward: {x.shape}")
         return self.w2(F.silu(self.w1(x)) * self.w3(x))
 
 
@@ -124,6 +125,7 @@ class MiniAttention(nn.Module):
             nn.init.uniform_(self.wo.bias)
 
     def forward(self, x, mask=None):
+        print(f"MiniAttention: {x.shape}")
         B, T, C = x.shape  # batch size, sequence length, embedding dimension
         q, k, v = self.wq(x), self.wk(x), self.wv(x)
         q, k, v = [
@@ -146,8 +148,9 @@ class MiniBlock(nn.Module):
         self.norm2 = RMSNorm(config)
         self.ff = FeedForward(config)
 
-    def forward(self, x, mask=None):
-        x = self.norm1(x + self.attn(x, mask))
+    def forward(self, x):
+        print(f"MiniBlock: {x.shape}")  # Debug log
+        x = self.norm1(x + self.attn(x))
         x = self.norm2(x + self.ff(x))
         return x
 
@@ -178,7 +181,9 @@ class PositionalEncoder(nn.Module):
         return pe
 
     def forward(self, x):
-        return self.dropout(x + self.pe[:, : x.size(1)])
+        """Ensure output shape remains (B, T, C)"""
+        print(f"PositionalEncoder: {x.shape}")
+        return self.dropout(x + self.pe[:, : x.shape[1], :])
 
 
 class MiniEmbedding(nn.Module):
@@ -187,17 +192,19 @@ class MiniEmbedding(nn.Module):
     def __init__(self, config: MiniConfig):
         super().__init__()
         self.bias = config.bias
-        padding_idx = max(config.pad_id, 0)
+        self.pad_id = max(config.pad_id, 0)
 
         self.position = PositionalEncoder(config)
         self.table = nn.Embedding(
-            config.vocab_size, config.embed_dim, padding_idx=padding_idx
+            config.vocab_size,
+            config.embed_dim,
+            padding_idx=self.pad_id,
         )
 
-        self.hidden = nn.Linear(config.embed_dim, config.max_seq_len)
-        self.projection = nn.Linear(config.max_seq_len, config.embed_dim)
+        self.hidden = nn.Linear(config.embed_dim, config.ff_dim)
+        self.projection = nn.Linear(config.ff_dim, config.embed_dim)
 
-        self.norm = nn.LayerNorm(config.max_seq_len)
+        self.norm = nn.LayerNorm(config.ff_dim)
         self.dropout = nn.Dropout(config.dropout)
 
         self._init_weights()
@@ -209,17 +216,31 @@ class MiniEmbedding(nn.Module):
             nn.init.uniform_(self.hidden.bias)
             nn.init.uniform_(self.projection.bias)
 
-    def forward(self, x: torch.Tensor, mask: torch.Tensor = None) -> torch.Tensor:
-        # Token embeddings + Positional encoding
-        x = self.position(self.table(x))
+    def _mask(self, x: torch.Tensor) -> torch.Tensor:
+        """Creates a padding mask for embeddings."""
+        return (x != self.pad_id).unsqueeze(-1)  # Shape: [B, T, 1]
 
-        # Apply padding mask
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        print(f"MiniEmbedding: input {x.shape}")
+        # Token embeddings
+        y = self.table(x)
+
+        # Compute and apply padding mask **before** position encoding
+        mask = self._mask(x)
         if mask is not None:
-            x = x * mask.unsqueeze(-1).float()
+            print(f"embedding: mask: {mask.shape}")
+            y *= mask.float()
 
-        hidden = F.silu(self.hidden(x))
+        # Positional encoding
+        position = self.position(y)
+
+        # Hidden transformation
+        hidden = F.silu(self.hidden(position))
         hidden = self.dropout(self.norm(hidden))
-        return self.projection(hidden)
+
+        # Final projection
+        out = self.projection(hidden)
+        return out
 
 
 class MiniTransformer(nn.Module):
@@ -242,9 +263,9 @@ class MiniTransformer(nn.Module):
         if self.bias is not None:
             nn.init.uniform_(self.head.bias)
 
-    def forward(self, x, mask=None):
-        x = self.embedding(x, mask)
+    def forward(self, x):
+        x = self.embedding(x)
         for block in self.blocks:
-            x = block(x, mask)
+            x = block(x)
         x = self.norm(x)
         return self.head(x)
