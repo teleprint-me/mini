@@ -4,6 +4,9 @@ Script: mini.transformer.infer
 Description: Simple completion for text-to-text generation with streaming output.
 """
 
+import sys
+
+import regex as re  # Use `regex`, not `re`
 import torch
 from sentencepiece import SentencePieceProcessor
 
@@ -12,6 +15,12 @@ from mini.transformer.manager import MiniManager
 from mini.transformer.model import MiniConfig, MiniRuntime
 from mini.transformer.sampler import MiniSampler, SamplerConfig
 from mini.transformer.state import MiniState
+
+# GPT-2 style pre-tokenizer regex (handles contractions, punctuation, numbers, etc.)
+pattern = re.compile(
+    r"""'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+""",
+    re.IGNORECASE,  # Ensure case insensitivity for BPE merges
+)
 
 
 def generate(
@@ -33,15 +42,20 @@ def generate(
 
     # Encode prompt
     input_ids = processor.encode(prompt, add_bos=True, add_eos=False)
-    buffer = input_ids[:]  # Copy input tokens
 
     # Convert to tensor once and move to device
     input_tensor = torch.tensor(
         [input_ids], dtype=torch.long, device=runtime.device_type
     )
 
+    # Buffer for accumulating generated tokens
+    buffer = input_ids[:]
+
+    # Tracking last output for comparison
+    last_output = processor.decode(input_ids[:])
+
+    print(f"\033[32;1;1m{prompt}\033[0m", end="", flush=True)  # Output prompt
     with torch.no_grad():
-        print(f"\033[32;1;1m{prompt}\033[0m ", end="", flush=True)  # Output prompt
         for _ in range(state.model.max_seq_len - len(buffer)):
             logits = state.model(input_tensor)[:, -1, :]
             next_token = sampler.sample(logits, past_tokens=buffer)
@@ -60,15 +74,28 @@ def generate(
                 dim=1,
             )
 
-            # Decode only unprinted tokens in small batches
-            output_text = processor.decode(buffer)
-            print(output_text, end="", flush=True)
+            # Decode the latest sequence
+            new_output = processor.decode(buffer)
+
+            # Use GPT-2 regex to extract tokens
+            old_tokens = re.findall(pattern, last_output)
+            new_tokens = re.findall(pattern, new_output)
+
+            # Extract and print only the **new** tokens
+            diff_tokens = new_tokens[len(old_tokens) :]
+            if diff_tokens:
+                sys.stdout.write("".join(diff_tokens))
+                sys.stdout.flush()
+
+            last_output = new_output  # Update last output
 
             if next_token == eos_id:
                 print("\nEOS token encountered, stopping generation.")
                 break
 
-    return processor.decode(buffer)
+    # Final full output
+    print()  # Ensure final newline
+    return last_output
 
 
 if __name__ == "__main__":
