@@ -77,7 +77,7 @@ class TransformerArgs:
         self.parser.add_argument(
             "--max-tokens",
             type=int,
-            default=128,
+            default=None,
             help="Maximum number of tokens to generate.",
         )
         self.parser.add_argument(
