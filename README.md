@@ -62,14 +62,22 @@ wget https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakesp
 Train a model from scratch on a dataset:
 
 ```sh
-python -m mini.transformer.train --processor models/tokenizer.model \
-    --dataset data/tinyshakespeare.txt \
+python -m mini.transformer.train \
+    --processor models/tokenizer.model \
     --model models/mini.pt \
-    --embed-dim 256 --num-heads 4 --head-dim 64 \
-    --num-layers 6 --ff-dim 512 --max-seq-len 128 \
-    --batch-size 4 --batch-stride 16 --num-epochs 3 \
-    --save-every 1 --lr 5e-4 --eps 1e-8 --weight-decay 0.01 \
-    --step-size 1 --gamma 0.9 --grad-accum-steps 2 -v
+    --dataset data/mini-owl.md \
+    --batch-size 2 \
+    --batch-stride 8 \
+    --num-epochs 100 \
+    --save-every 10 \
+    --num-layers 4 \
+    --num-heads 8 \
+    --head-dim 16 \
+    --embed-dim 256 \
+    --lr 1e-4 \
+    --scheduler none \
+    --bias \
+    --verbose
 ```
 
 ### **Inference** _(coming soon)_
