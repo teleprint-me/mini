@@ -160,16 +160,21 @@ class PositionalEncoder(nn.Module):
         self.embed_dim = config.embed_dim
         self.max_seq_len = config.max_seq_len
         self.dropout = nn.Dropout(config.dropout)
-        self.pe = self._create_positional_encoding()
-        self.register_buffer("pe", self.pe.unsqueeze(0))
+
+        # Directly register buffer without creating a duplicate local variable
+        self.register_buffer("pe", self._create_positional_encoding().unsqueeze(0))
 
     def _create_positional_encoding(self) -> torch.Tensor:
         pe = torch.zeros(self.max_seq_len, self.embed_dim)
-        for pos in range(self.max_seq_len):
-            for i in range(self.embed_dim):
-                pe[pos, i] = pos / torch.pow(10000, 2 * i / self.embed_dim)
-        pe[:, 0::2] = torch.sin(pe[:, 0::2])
-        pe[:, 1::2] = torch.cos(pe[:, 1::2])
+
+        position = torch.arange(self.max_seq_len, dtype=torch.float32).unsqueeze(1)
+        div_term = torch.pow(
+            10000.0, torch.arange(0, self.embed_dim, 2).float() / self.embed_dim
+        )
+
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+
         return pe
 
     def forward(self, x):
