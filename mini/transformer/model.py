@@ -94,7 +94,6 @@ class FeedForward(nn.Module):
             nn.init.uniform_(self.w3.bias)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        print(f"FeedForward: {x.shape}")
         return self.w2(F.silu(self.w1(x)) * self.w3(x))
 
 
