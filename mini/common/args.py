@@ -47,6 +47,13 @@ class TransformerArgs:
         self.parser.add_argument(
             "--model", required=True, help="Path to save or load the model."
         )
+        self.parser.add_argument("--seed", type=int, default=42, help="Random seed.")
+        self.parser.add_argument(
+            "--eps",
+            type=float,
+            default=1e-8,
+            help="Epsilon for numerical stability (Default: 1e-8).",
+        )
 
     def add_required_for_train(self) -> None:
         """Required arguments for training mode."""
@@ -90,6 +97,11 @@ class TransformerArgs:
             type=float,
             default=1.2,
             help="Repetition penalty factor (Default: 1.2).",
+        )
+        self.parser.add_argument(
+            "--greedy",
+            action="store_true",
+            help="Enable greedy sampling (Default: False).",
         )
 
     def add_model_config(self) -> None:
@@ -149,7 +161,6 @@ class TransformerArgs:
 
     def add_optimizer_params(self) -> None:
         """Training hyperparameters."""
-        self.parser.add_argument("--seed", type=int, default=42, help="Random seed.")
         self.parser.add_argument(
             "--batch-size", type=int, default=8, help="Batch size (Default: 8)."
         )
@@ -179,12 +190,6 @@ class TransformerArgs:
         )
         self.parser.add_argument(
             "--lr", type=float, default=1e-4, help="Learning rate (Default: 1e-4)."
-        )
-        self.parser.add_argument(
-            "--eps",
-            type=float,
-            default=1e-8,
-            help="Epsilon for numerical stability (Default: 1e-8).",
         )
         self.parser.add_argument(
             "--weight-decay",
