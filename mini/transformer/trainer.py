@@ -79,7 +79,7 @@ class MiniTrainer:
                 self.optimizer.zero_grad()
                 x, y = x.to(self.device), y.to(self.device)
 
-                logits = self.model(x, self.mask(x))
+                logits = self.model(x)
                 loss = self.loss(logits.view(-1, logits.size(-1)), y.view(-1))
                 loss = loss / grad_accum_steps  # Normalize loss for accumulation
 
@@ -141,7 +141,3 @@ class MiniTrainer:
         if isinstance(x, float):
             x = torch.tensor(x)
         return torch.exp(x).item()
-
-    def mask(self, x: torch.Tensor) -> torch.Tensor:
-        """Creates a mask for the input tensor to ignore pad tokens."""
-        return (x != self.pad_id).unsqueeze(1).unsqueeze(2)
