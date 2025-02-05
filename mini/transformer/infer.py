@@ -33,7 +33,7 @@ def generate(
 
     # Encode prompt
     input_ids = processor.encode(prompt, add_bos=True, add_eos=False)
-    generated_tokens = input_ids[:]  # Copy input tokens
+    buffer = input_ids[:]  # Copy input tokens
 
     # Convert to tensor once and move to device
     input_tensor = torch.tensor(
@@ -41,16 +41,17 @@ def generate(
     )
 
     with torch.no_grad():
-        for _ in range(state.model.max_seq_len - len(generated_tokens)):
-            logits = state.model(input_tensor)[:, -1, :]  # Forward pass
-            next_token = sampler.sample(logits, past_tokens=generated_tokens)
+        print(f"\033[32;1;1m{prompt}\033[0m ", end="", flush=True)  # Output prompt
+        for _ in range(state.model.max_seq_len - len(buffer)):
+            logits = state.model(input_tensor)[:, -1, :]
+            next_token = sampler.sample(logits, past_tokens=buffer)
 
             if next_token == pad_id:
                 continue  # Ignore PAD token
 
-            generated_tokens.append(next_token)
+            buffer.append(next_token)
 
-            # Efficient input tensor update: append only the new token
+            # Efficient input tensor update
             input_tensor = torch.cat(
                 [
                     input_tensor,
@@ -59,15 +60,15 @@ def generate(
                 dim=1,
             )
 
-            # Decode only the latest token and print
-            output_text = processor.decode([next_token])
+            # Decode only unprinted tokens in small batches
+            output_text = processor.decode(buffer)
             print(output_text, end="", flush=True)
 
             if next_token == eos_id:
                 print("\nEOS token encountered, stopping generation.")
-                break  # Stop if EOS token is generated
+                break
 
-    return processor.decode(generated_tokens)
+    return processor.decode(buffer)
 
 
 if __name__ == "__main__":
@@ -132,4 +133,4 @@ if __name__ == "__main__":
         sampler=sampler,
         runtime=runtime,
     )
-    print("\nGenerated Output:", output)
+    print("\n\033[34;1;1mGenerated Output:\033[0m", output)  # Debug
