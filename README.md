@@ -84,7 +84,7 @@ python -m mini.cli.train \
     --verbose
 ```
 
-### **Inference** _(coming soon)_
+### **Inference**
 
 Run inference on a trained model:
 
