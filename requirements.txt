@@ -4,3 +4,4 @@ sentencepiece
 numpy
 tqdm
 regex
+pytest
