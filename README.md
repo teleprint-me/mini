@@ -51,9 +51,13 @@ pip install -r requirements.txt
 ### **3. Prepare a dataset**
 
 ```sh
-mkdir data
-wget https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt -O data/tinyshakespeare.txt
+file data/mini-owl.md
+wc -c data/mini-owl.md
 ```
+
+**NOTE:** Any plaintext file will work. `mini-owl.md` is used for isolated and
+controlled experimentation. See [training.md](docs/training.md) for more
+information.
 
 ## **Usage**
 
@@ -62,10 +66,10 @@ wget https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakesp
 Train a model from scratch on a dataset:
 
 ```sh
-python -m mini.transformer.train \
+python -m mini.cli.train \
+    --dataset data/mini-owl.md \
     --processor models/tokenizer.model \
     --model models/mini.pt \
-    --dataset data/mini-owl.md \
     --batch-size 2 \
     --batch-stride 8 \
     --num-epochs 100 \
@@ -85,11 +89,10 @@ python -m mini.transformer.train \
 Run inference on a trained model:
 
 ```sh
-python -m mini.transformer.infer --processor models/tokenizer.model \
+python -m mini.cli.infer \
+    --processor models/tokenizer.model \
     --model models/mini.pt \
-    --embed-dim 256 --num-heads 4 --head-dim 64 \
-    --num-layers 6 --ff-dim 512 --max-seq-len 128 \
-    --max-tokens 64 --prompt 'You common cry of curs! whose'
+    --prompt "The young bird listened"
 ```
 
 ### **Fine-tuning** _(coming soon)_
@@ -111,8 +114,8 @@ Evaluate model performance with perplexity, BLEU, and other metrics.
 ## **Development Roadmap**
 
 - [x] **Pre-training on custom datasets**
-- [ ] **Inference support for text generation** _(up next! 🚀)_
-- [ ] **Fine-tuning for instruction-based tasks**
+- [x] **Inference support for text generation**
+- [ ] **Fine-tuning for instruction-based tasks** _(up next! 🚀)_
 - [ ] **Evaluation with additional NLP metrics**
 - [ ] **Distributed training & performance optimizations**
 
