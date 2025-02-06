@@ -82,7 +82,7 @@ if __name__ == "__main__":
         type=args.scheduler,
         step_size=args.step_size,
         gamma=args.gamma,
-        t_max=args.t_max,
+        T_max=args.t_max,
         eta_min=args.eta_min,
         start_factor=args.start_factor,
         total_iters=args.total_iters,

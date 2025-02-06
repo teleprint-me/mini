@@ -65,7 +65,7 @@ class SchedulerConfig(ManagerConfig):
     type: str = "step"  # Default scheduler
     step_size: int = 10
     gamma: float = 0.1
-    t_max: int = 50
+    T_max: int = 50
     eta_min: float = 1e-6
     start_factor: float = 0.1
     total_iters: int = 50
@@ -74,7 +74,7 @@ class SchedulerConfig(ManagerConfig):
         """Default scheduler parameters for common schedulers."""
         return {
             "step": {"step_size", "gamma"},
-            "cosine": {"t_max", "eta_min"},
+            "cosine": {"T_max", "eta_min"},
             "linear": {"start_factor", "total_iters"},
         }
 
