@@ -70,17 +70,30 @@ pip install torch --index-url https://download.pytorch.org/whl/cu126
 pip install torch --index-url https://download.pytorch.org/whl/rocm6.2.4
 ```
 
-#### **Requirements**
+#### **Install Requirements**
 
 ```sh
 pip install -r requirements.txt
 ```
 
-### **4. Prepare a dataset**
+### **4. Validate tokenizer and dataset**
 
 ```sh
-file data/mini-owl.md
-wc -c data/mini-owl.md
+sha256sum -c sha256sum.txt
+```
+
+Expected output:
+
+```sh
+models/tokenizer.model: OK
+data/mini-fairy.md: OK
+data/mini-owl.md: OK
+```
+
+Check the dataset character count.
+
+```sh
+wc -c data/mini-owl.md # ~1053 characters
 ```
 
 **NOTE:** Any plaintext file will work. `mini-owl.md` is used for isolated and
