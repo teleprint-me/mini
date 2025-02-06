@@ -5,7 +5,6 @@ Description: Simple completions for text-to-text generation with streaming outpu
 """
 
 import functools
-import sys
 from dataclasses import dataclass
 from typing import List, Optional, Union
 
