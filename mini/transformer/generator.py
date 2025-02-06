@@ -70,6 +70,12 @@ class MiniGenerator:
     def batch(self, encodings: List[int]) -> torch.Tensor:
         return torch.tensor([encodings], dtype=torch.long, device=self.device)
 
+    def predict(self, x: torch.Tensor) -> torch.Tensor:
+        return self.config.state.model(x)[:, -1, :]
+
+    def sample(self, x: torch.Tensor, past_tokens: List[int]) -> int:
+        return self.config.sampler.sample(x, past_tokens=past_tokens)
+
     def cat(self, x: torch.Tensor, token: int) -> torch.Tensor:
         return torch.cat([x, torch.tensor([[token]], device=self.device)], dim=1)
 
@@ -93,8 +99,8 @@ class MiniGenerator:
         with torch.no_grad():
             max_len = max_tokens if max_tokens else self.max_seq_len
             for _ in range(max_len - len(buffer)):
-                logits = self.config.state.model(input_tensor)[:, -1, :]
-                next_token = self.config.sampler.sample(logits, past_tokens=buffer)
+                logits = self.predict(input_tensor)
+                next_token = self.sample(logits, buffer)
 
                 if next_token == self.pad_id:
                     continue  # Ignore PAD token
