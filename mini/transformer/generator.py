@@ -79,8 +79,8 @@ class MiniGenerator:
             return [text]
         return re.findall(self.config.pre_tokenizer, text)
 
-    def generate(self, prompt: str, max_tokens: Optional[int] = None) -> str:
-        """Generates text from the given prompt with token streaming."""
+    def stream(self, prompt: str, max_tokens: Optional[int] = None):
+        """Generates text from the given prompt with token streaming (yields tokens)."""
 
         # Encode input
         input_ids = self.encode(prompt)
@@ -89,8 +89,6 @@ class MiniGenerator:
         # Token tracking
         buffer = input_ids[:]
         last_output = self.decode(input_ids[:])
-
-        print(f"\033[32;1;1m{prompt}\033[0m ", end="", flush=True)  # Output prompt
 
         with torch.no_grad():
             max_len = max_tokens if max_tokens else self.max_seq_len
@@ -111,17 +109,12 @@ class MiniGenerator:
                 old_tokens = self.pre_tokenize(last_output)
                 new_tokens = self.pre_tokenize(new_output)
 
-                # Print only newly generated tokens
+                # Yield only newly generated tokens
                 diff_tokens = new_tokens[len(old_tokens) :]
                 if diff_tokens:
-                    sys.stdout.write("".join(diff_tokens))
-                    sys.stdout.flush()
+                    yield "".join(diff_tokens)
 
                 last_output = new_output  # Update last output
 
                 if next_token == self.eos_id:
-                    print("\nEOS token encountered, stopping generation.")
                     break
-
-        print()  # Ensure final newline
-        return last_output
