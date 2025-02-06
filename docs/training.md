@@ -42,7 +42,7 @@ custom tokenizer.
 
 ```sh
 # Tokenizing a sample input
-python -m mini.data.tokenizer --model-file models/tokenizer.model --input-file data/mini-owl.md
+python -m mini.cli.tokenizer --model-file models/tokenizer.model --input-file data/mini-owl.md
 ```
 
 This command will generate a tokenized version of the dataset, which is required
