@@ -3,6 +3,7 @@ Module: mini.data.tokenizer
 Description: This module provides a tokenizer class for tokenizing text data.
 """
 
+import os
 from argparse import ArgumentParser, Namespace
 
 from sentencepiece import SentencePieceProcessor
@@ -28,31 +29,76 @@ def clean_text(text: str) -> str:
 def parse_args() -> Namespace:
     parser = ArgumentParser(description="Tokenize text data using SentencePiece.")
     parser.add_argument(
-        "--model-file", required=True, help="Path to the SentencePiece model file."
+        "--model",
+        required=True,
+        help="Path to the SentencePiece model file.",
     )
     parser.add_argument(
-        "--input-file", required=True, help="Path to the input text file."
+        "--input",
+        required=True,
+        help="Path to the input text or file.",
     )
-    parser.add_argument("--output-file", help="Path to the output tokenized file.")
+    parser.add_argument("--output", help="Path to the tokenized output file.")
+    parser.add_argument(
+        "--decode",
+        action="store_true",
+        help="Output decoded tokens (Default: False).",
+    )
+    parser.add_argument(
+        "--encode",
+        action="store_true",
+        help="Set out_type to str when encoding (Default: False).",
+    )
+    parser.add_argument(
+        "--vocab-size",
+        action="store_true",
+        help="Output the vocab size (Default: False)",
+    )
+    parser.add_argument(
+        "--clip",
+        type=int,
+        default=0,
+        help="Clip output size (Default: 0).",
+    )
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
 
-    text = open_text(args.input_file)
-    cleaned_text = clean_text(text)
+    if args.input == args.output:
+        raise ValueError("Do **not** output to input file!")
 
-    processor = SentencePieceProcessor(model_file=args.model_file)
-    print("Vocab size:", processor.vocab_size())
+    if args.clip < 0:
+        raise ValueError("Clip must be 0 or greater.")
 
-    tokens = processor.encode(cleaned_text)
-    print("Encoded:", tokens[:100])
+    if os.path.exists(args.input):
+        text = clean_text(open_text(args.input))
+    else:
+        text = args.input
 
-    decoded = processor.decode(tokens)
-    print("Decoded:", decoded[:100])
+    processor = SentencePieceProcessor(model_file=args.model)
+    if args.vocab_size:
+        print("Vocab size:", processor.vocab_size())
 
-    if args.output_file:
+    if args.encode:
+        tokens = processor.encode(text, out_type=str)
+    else:
+        tokens = processor.encode(text, out_type=None)
+
+    if args.clip > 0:
+        print("Encoded:", tokens[: args.clip])
+    else:
+        print("Encoded:", tokens)
+
+    if args.decode:
+        decoded = processor.decode(tokens)
+        if args.clip > 0:
+            print("Decoded:", decoded[: args.clip])
+        else:
+            print("Decoded:", decoded)
+
+    if args.output:
         save_tokens(tokens, args.output_file)
 
 
