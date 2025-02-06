@@ -41,14 +41,42 @@ git clone https://github.com/teleprint-me/mini.git
 cd mini
 ```
 
-### **2. Install dependencies**
+### **2. Setup a virtual environment**
+
+```sh
+python3.12 -m venv .venv
+source .venv/bin/activate
+```
+
+### **3. Install dependencies**
+
+#### **Install PyTorch**
+
+- **CPU**
 
 ```sh
 pip install torch --index-url https://download.pytorch.org/whl/cpu
+```
+
+- **CUDA**
+
+```sh
+pip install torch --index-url https://download.pytorch.org/whl/cu126
+```
+
+- **ROCm**
+
+```sh
+pip install torch --index-url https://download.pytorch.org/whl/rocm6.2.4
+```
+
+#### **Requirements**
+
+```sh
 pip install -r requirements.txt
 ```
 
-### **3. Prepare a dataset**
+### **4. Prepare a dataset**
 
 ```sh
 file data/mini-owl.md
