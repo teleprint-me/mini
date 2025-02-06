@@ -58,6 +58,7 @@ class MiniGenerator:
     def load(self) -> None:
         """Load the model state and set to evaluation mode."""
         self.config.state.load(train=False)
+        self.config.state.model.to(self.device)
         self.config.state.model.eval()
 
     def encode(self, prompt: str) -> List[int]:
