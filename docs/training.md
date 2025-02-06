@@ -90,10 +90,13 @@ Model hyperparameters directly affect how well the model converges. The
 Example configuration:
 
 ```sh
-python -m mini.transformer.train \
-    --model models/mini.pt \
-    --processor models/tokenizer.model \
+python -m mini.cli.train \
     --dataset data/mini-owl.md \
+    --processor models/tokenizer.model \
+    --model models/mini.pt \
+    --optimizer 'adamw' \
+    --scheduler 'none' \
+    --criterion 'cross_entropy' \
     --batch-size 2 --batch-stride 8 \
     --lr 1e-4 --epochs 100
 ```
@@ -109,10 +112,10 @@ During training, monitor logs for:
 Run the CLI tool to start training:
 
 ```sh
-python -m mini.transformer.train \
+python -m mini.cli.train \
+    --dataset data/mini-owl.md \
     --processor models/tokenizer.model \
     --model models/mini.pt \
-    --dataset data/mini-owl.md \
     --batch-size 2 \
     --batch-stride 8 \
     --num-epochs 100 \
