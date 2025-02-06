@@ -88,7 +88,7 @@ if __name__ == "__main__":
     generator = MiniGenerator(config=generator_config)
 
     # Run inference
-    print(f"\033[32;1;1m{args.prompt}\033[0m ", end="", flush=True)  # Output prompt
+    print(f"\033[32;1;1m{args.prompt}\033[0m", end="", flush=True)  # Output prompt
     for token in generator.stream(args.prompt, max_tokens=args.max_tokens):
         sys.stdout.write(token)
         sys.stdout.flush()
