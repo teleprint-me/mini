@@ -1,6 +1,6 @@
 """
 Copyright © 2023 Austin Berrio
-Script: mini.transformer.train
+Script: mini.cli.train
 Description: Simple pre-training loop for text-to-text generation.
 """
 
