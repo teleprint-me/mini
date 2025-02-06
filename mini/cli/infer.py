@@ -4,6 +4,8 @@ Script: mini.cli.infer
 Description: Simple completion for text-to-text generation with streaming output.
 """
 
+import sys
+
 from sentencepiece import SentencePieceProcessor
 
 from mini.common.args import TransformerArgs
@@ -59,6 +61,7 @@ if __name__ == "__main__":
         verbose=args.verbose,
     )
 
+    # Load sampler config
     sampler_config = SamplerConfig(
         top_k=args.top_k,
         top_p=args.top_p,
@@ -69,8 +72,10 @@ if __name__ == "__main__":
         verbose=args.verbose,
     )
 
+    # Load sampler state
     sampler = MiniSampler(config=sampler_config)
 
+    # Load generator config
     generator_config = GeneratorConfig(
         state=state,
         sampler=sampler,
@@ -79,6 +84,12 @@ if __name__ == "__main__":
         pre_tokenizer=DEFAULT_PRETOKENIZER,
     )
 
-    # Run inference
+    # Load generator
     generator = MiniGenerator(config=generator_config)
-    generator.generate(args.prompt, max_tokens=args.max_tokens)
+
+    # Run inference
+    print(f"\033[32;1;1m{args.prompt}\033[0m ", end="", flush=True)  # Output prompt
+    for token in generator.stream(args.prompt, max_tokens=args.max_tokens):
+        sys.stdout.write(token)
+        sys.stdout.flush()
+    print()  # Pad output
