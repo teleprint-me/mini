@@ -6,7 +6,6 @@ Description: Embedding blocks for transformer models.
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 from mini.transformer.config import TransformerConfig
 from mini.transformer.encoding import LinearPositionalEncoding, PositionalEncoding
@@ -55,65 +54,82 @@ class LinearEmbedding(nn.Module):
 
     def __init__(self, config: TransformerConfig):
         super().__init__()
-        self.pad_id = config.pad_id
+        self.pad_id = max(config.pad_id, 0)
         self.bias = config.bias
+        self.embed_dim = config.embed_dim
 
-        # We do not need a mask because padding_idx ignores pad_id
+        # Token embedding table
         self.tokens = nn.Embedding(
             config.vocab_size,
             config.embed_dim,
             padding_idx=self.pad_id,
         )
 
-        # Positional encoding is added to the token embeddings
+        # Positional encoding (learnable variant)
         self.positions = LinearPositionalEncoding(config)
 
-        # Hidden layer shapes needs to match positional encoding shape
+        # Define MLP layers for embedding transformation
         self.hidden_layers = nn.ModuleList(
             [
                 nn.Sequential(
-                    # 1. Add learnable layers to embedding block
                     nn.Linear(
                         config.embed_dim if i == 0 else config.max_seq_len,
                         config.max_seq_len,
-                        device=config.device,
                     ),
-                    # 2. Activate learnable positions
                     nn.SiLU(),
-                    # 3. Normalize learned positions
-                    nn.LayerNorm(config.max_seq_len, device=config.device),
-                    # 4. Dropout for regularization
+                    nn.LayerNorm(config.max_seq_len),
                     nn.Dropout(config.dropout),
                 )
-                # Save memory for transformer blocks
-                for i in range(3)  # We don't want the embedding block to be deep
+                for i in range(config.num_embed_layers)  # Keeping depth small
             ]
         )
 
-        # Projection layer to convert hidden layer output to token embeddings
+        # Final projection to match token embedding space
         self.projection = nn.Linear(config.max_seq_len, config.embed_dim)
+
+        # Dropout & LayerNorm for regularization
+        self.norm = nn.LayerNorm(config.embed_dim)
+        self.dropout = nn.Dropout(config.dropout)
+
         # Initialize weights
         self._init_weights()
 
     def _init_weights(self):
-        self.tokens.weight.data.normal_(mean=0.0, std=0.02)
-        if self.pad_id > 0:  # Ensure padding embeddings remain zero
-            self.tokens.weight.data[self.pad_id] = 0
+        """Initializes all weights using Xavier uniform and bias adjustments."""
+        nn.init.xavier_uniform_(self.tokens.weight)
+        if self.pad_id > 0:
+            self.tokens.weight.data[self.pad_id] = 0  # Ensure padding remains zero
+
         for layer in self.hidden_layers:
-            nn.init.xavier_uniform_(layer.linear.weight)
-            nn.init.xavier_uniform_(layer.norm.weight)
-            if self.bias:
-                nn.init.uniform_(layer.norm.bias, a=-0.1, b=0.1)
-                nn.init.uniform_(layer.linear.bias, a=-0.1, b=0.1)
+            for module in layer:
+                if isinstance(module, nn.Linear):
+                    nn.init.xavier_uniform_(module.weight)
+                    if self.bias:
+                        nn.init.uniform_(module.bias, a=-0.1, b=0.1)
+                elif isinstance(module, nn.LayerNorm):
+                    nn.init.xavier_uniform_(module.weight)
+                    if self.bias:
+                        nn.init.uniform_(module.bias, a=-0.1, b=0.1)
+
         nn.init.xavier_uniform_(self.projection.weight)
         if self.bias:
             nn.init.uniform_(self.projection.bias, a=-0.1, b=0.1)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # Input shape is (B, T)
-        x = self.tokens(x)  # Shape becomes (B, T, C)
-        x = self.positions(x)  # Encode positions
+        """Computes token + positional embeddings and applies MLP layers."""
+        x = self.tokens(x)  # (B, T, C)
+        x = self.positions(x)  # Add positional encodings
+
         for layer in self.hidden_layers:
-            x = layer(x)  # Apply each linear layer
-        x = self.dropout(self.norm(x))  # Apply normalization & dropout
-        return self.projection(x)  # Output is (B, T, C)
+            x = layer(x)  # Apply MLP layers
+
+        x = self.norm(self.dropout(x))  # Regularization & normalization
+        return self.projection(x)  # (B, T, C) output
+
+
+class RotaryEmbedding(nn.Module):
+    """Rotary positional embeddings for transformers."""
+
+    def __init__(self, config: TransformerConfig):
+        super().__init__()
+        raise NotImplementedError("RotaryEmbedding is not yet implemented.")
