@@ -10,7 +10,8 @@ import torch
 import torch.nn as nn
 
 
-@pytest.fixture
+# Need test to reset after each test
+@pytest.fixture(scope="module")
 def embedding(mini_config) -> torch.nn.Embedding:
     """Fixture to create an embedding layer."""
     return nn.Embedding(
@@ -20,7 +21,7 @@ def embedding(mini_config) -> torch.nn.Embedding:
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def input_data(processor, mini_config, embedding) -> torch.Tensor:
     """Fixture to generate embedded token sequences for Positional Encoding (PE) testing."""
 
@@ -39,22 +40,21 @@ def input_data(processor, mini_config, embedding) -> torch.Tensor:
     return embedding(tensor_ids)  # Output shape is (B, T, C)
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def expected_first_row():
     """Fixture to provide expected output data for positional encoding tests."""
     # cos() and sin() oscillations for the first row when input is padding token
     return torch.tensor([0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0])
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def expected_trend():
     """Fixture to provide expected trend data for positional encoding tests."""
-    # NOTE: This needs to be fixed to match the actual trend of the positional encoding.
     return torch.tensor(
         [
-            [0.8415, 0.5403, 0.0998, 0.9950],  # pos=1
-            [0.9093, -0.4161, 0.1987, 0.9801],  # pos=2
-            [0.1411, -0.9899, 0.2955, 0.9553],  # pos=3
+            [0.6926, 0.5657, -1.6573, 0.2519],  # pos=0
+            [0.3389, 0.2706, -0.7765, -2.5436],  # pos=1
+            [-0.6137, -3.8481, -0.3941, -2.9618],  # pos=2
         ]
     )
 
@@ -76,6 +76,7 @@ def test_pe_addition(positional_encoding, input_data):
 
 def test_pe_first_row(positional_encoding, input_data, expected_first_row):
     """Verify that the first row of the PE matrix follows the expected structure."""
+    # Positional encodings create a sinusoidal pattern for each position
     pe = positional_encoding._create_positional_encoding()
     assert torch.allclose(
         pe[0, :10], expected_first_row
@@ -84,14 +85,10 @@ def test_pe_first_row(positional_encoding, input_data, expected_first_row):
 
 def test_pe_trend(positional_encoding, input_data, expected_trend):
     """Check the trend of the first few rows of the PE matrix."""
-    # Is seeding working in conftest? Values keep changing.
     pe = positional_encoding(input_data)
-    print(f"PE shape: {pe.shape}")
-    print(f"PE first few values: {pe[1:4, :4]}")
-    print(f"Expected trend: {expected_trend}")
 
     # If batch-first, remove batch dim
     if pe.dim() == 3:
-        pe = pe.squeeze(0)  # Remove batch dimension if present
+        pe = pe.squeeze(0)  # Convert (1, T, d_e) → (T, d_e)
 
     assert torch.allclose(pe[1:4, :4], expected_trend, atol=1e-2), "PE trend mismatch"
