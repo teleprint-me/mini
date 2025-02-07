@@ -164,30 +164,31 @@ class MiniBlock(nn.Module):
         return x
 
 
-class PositionalEncoder(nn.Module):
+class PositionalEncoding(nn.Module):
     """Positional Encoder for the MiniTransformer model."""
 
     def __init__(self, config: MiniConfig):
         super().__init__()
-        self.embed_dim = config.embed_dim
-        self.max_seq_len = config.max_seq_len
+        self.embed_dim = config.embed_dim  # (C)
+        self.max_seq_len = config.max_seq_len  # (T)
         self.dropout = nn.Dropout(config.dropout)
 
         # Directly register buffer without creating a duplicate local variable
         self.register_buffer("pe", self._create_positional_encoding().unsqueeze(0))
 
     def _create_positional_encoding(self) -> torch.Tensor:
+        # Create a zero matrix of shape (max_seq_len, embed_dim)
         pe = torch.zeros(self.max_seq_len, self.embed_dim)
-
+        # Create a column vector of positions
         position = torch.arange(self.max_seq_len, dtype=torch.float32).unsqueeze(1)
+        # Apply frequency scaling to the frequency terms
         div_term = torch.pow(
             10000.0, torch.arange(0, self.embed_dim, 2).float() / self.embed_dim
         )
-
-        pe[:, 0::2] = torch.sin(position * div_term)
-        pe[:, 1::2] = torch.cos(position * div_term)
-
-        return pe
+        # Compute the positional encoding for sine and cosine terms
+        pe[:, 0::2] = torch.sin(position * div_term)  # Even indices for sine terms
+        pe[:, 1::2] = torch.cos(position * div_term)  # Odd indices for cosine terms
+        return pe  # Return the positional encoding tensor
 
     def forward(self, x):
         """Ensure output shape remains (B, T, C)"""
@@ -200,53 +201,41 @@ class MiniEmbedding(nn.Module):
     def __init__(self, config: MiniConfig):
         super().__init__()
         self.bias = config.bias
-        self.pad_id = max(config.pad_id, 0)
 
-        self.position = PositionalEncoder(config)
-        self.table = nn.Embedding(
+        # We do not need a mask because padding_idx ignores pad_id
+        self.tokens = nn.Embedding(
             config.vocab_size,
             config.embed_dim,
             padding_idx=self.pad_id,
         )
+        self.positions = PositionalEncoding(config)
 
-        self.hidden = nn.Linear(config.embed_dim, config.ff_dim)
-        self.projection = nn.Linear(config.ff_dim, config.embed_dim)
+        # Hidden layer shape needs to match positional encoding shape
+        self.hidden = nn.Linear(config.embed_dim, config.max_seq_len)
+        self.projection = nn.Linear(config.max_seq_len, config.embed_dim)
 
-        self.norm = nn.LayerNorm(config.ff_dim)
+        self.norm = nn.LayerNorm(config.max_seq_len)
         self.dropout = nn.Dropout(config.dropout)
 
         self._init_weights()
 
     def _init_weights(self):
+        self.tokens.weight.data.normal_(mean=0.0, std=0.02)
+        if self.pad_id > 0:  # Ensure padding embeddings remain zero
+            self.tokens.weight.data[self.pad_id] = 0
         nn.init.xavier_uniform_(self.hidden.weight)
         nn.init.xavier_uniform_(self.projection.weight)
         if self.bias:
             nn.init.uniform_(self.hidden.bias)
             nn.init.uniform_(self.projection.bias)
 
-    def _mask(self, x: torch.Tensor) -> torch.Tensor:
-        """Creates a padding mask for embeddings."""
-        return (x != self.pad_id).unsqueeze(-1)  # Shape: [B, T, 1]
-
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # Token embeddings
-        y = self.table(x)
-
-        # Compute and apply padding mask **before** position encoding
-        mask = self._mask(x)
-        if mask is not None:
-            y *= mask.float()
-
-        # Positional encoding
-        position = self.position(y)
-
-        # Hidden transformation
-        hidden = F.silu(self.hidden(position))
-        hidden = self.dropout(self.norm(hidden))
-
-        # Final projection
-        out = self.projection(hidden)
-        return out
+        # Input shape is (B, T)
+        x = self.tokens(x)  # Shape becomes (B, T, C)
+        x = self.positions(x)  # Encode positions
+        x = F.silu(self.hidden(x))  # Apply SiLU activation
+        x = self.dropout(self.norm(x))  # Apply normalization & dropout
+        return self.projection(x)  # Output is (B, T, C)
 
 
 class MiniTransformer(nn.Module):
