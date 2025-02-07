@@ -1,105 +1,26 @@
 """
 Copyright © 2023 Austin Berrio
-Module: mini.transformer.manager
+Module: mini.engine.optimizer
 Description: Defines classes for managing optimizers, schedulers, and criteria in the transformer model.
 """
 
 import logging
-from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Optional
 
 import torch
 from torch import nn, optim
 from torch.optim.lr_scheduler import LRScheduler
 
 from mini.common.logger import get_logger
+from mini.config import MiniConfigCriterion, MiniConfigOptimizer, MiniConfigScheduler
 
 
-@dataclass
-class ManagerConfig:
-    """Base class for optimizer, scheduler, and criterion configs."""
-
-    type: str
-
-    def as_dict(self) -> Dict[str, Any]:
-        """Returns a dictionary representation of the config."""
-        return {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
-
-    def get_keys(self) -> Dict[str, Any]:
-        """Returns allowed parameters for different object types."""
-        raise NotImplementedError("Subclasses must implement `get_keys()`.")
-
-    def get_params(self, key: str) -> Dict[str, Any]:
-        """Filters parameters relevant to the specified object type."""
-        key = key.lower()
-        params = self.as_dict()
-        keys = self.get_keys()
-        if key not in keys:
-            raise ValueError(f"Unsupported type: {key}")
-        return {k: v for k, v in params.items() if k in keys[key]}
-
-
-@dataclass
-class OptimizerConfig(ManagerConfig):
-    type: str = "adamw"  # Default optimizer
-    recurse: bool = True
-    lr: float = 1e-3
-    eps: float = 1e-8
-    amsgrad: bool = False
-    weight_decay: float = 0
-    momentum: float = 0
-    dampening: float = 0
-    nesterov: bool = False
-
-    def get_keys(self) -> Dict[str, Any]:
-        """Default optimizer parameters for common optimizers."""
-        return {
-            "adam": {"lr", "eps", "weight_decay", "amsgrad"},
-            "adamw": {"lr", "eps", "weight_decay", "amsgrad"},
-            "sgd": {"lr", "weight_decay", "momentum", "dampening", "nesterov"},
-        }
-
-
-@dataclass
-class SchedulerConfig(ManagerConfig):
-    type: str = "step"  # Default scheduler
-    step_size: int = 10
-    gamma: float = 0.1
-    T_max: int = 50
-    eta_min: float = 1e-6
-    start_factor: float = 0.1
-    total_iters: int = 50
-
-    def get_keys(self) -> Dict[str, Any]:
-        """Default scheduler parameters for common schedulers."""
-        return {
-            "step": {"step_size", "gamma"},
-            "cosine": {"T_max", "eta_min"},
-            "linear": {"start_factor", "total_iters"},
-        }
-
-
-@dataclass
-class CriterionConfig(ManagerConfig):
-    type: str = "cross_entropy"  # Default loss function
-    ignore_index: int = -1
-    reduction: str = "mean"
-
-    def get_keys(self) -> Dict[str, Any]:
-        """Loss function parameters."""
-        return {
-            "cross_entropy": {"ignore_index", "reduction"},
-            "mse": {"reduction"},
-            "mae": {"reduction"},
-        }
-
-
-class MiniManager:
+class MiniEngineOptimizer:
     def __init__(
         self,
-        optimizer: Optional[OptimizerConfig] = None,
-        scheduler: Optional[SchedulerConfig] = None,
-        criterion: Optional[CriterionConfig] = None,
+        optimizer: Optional[MiniConfigOptimizer] = None,
+        scheduler: Optional[MiniConfigScheduler] = None,
+        criterion: Optional[MiniConfigCriterion] = None,
         verbose: bool = False,
     ):
         self.logger = get_logger(
@@ -107,9 +28,9 @@ class MiniManager:
             level=logging.DEBUG if verbose else logging.INFO,
         )
 
-        self.optimizer_config = optimizer if optimizer else OptimizerConfig()
-        self.scheduler_config = scheduler if scheduler else SchedulerConfig()
-        self.criterion_config = criterion if criterion else CriterionConfig()
+        self.optimizer_config = optimizer if optimizer else MiniConfigOptimizer()
+        self.scheduler_config = scheduler if scheduler else MiniConfigScheduler()
+        self.criterion_config = criterion if criterion else MiniConfigCriterion()
 
     def optimize(self, model: nn.Module) -> optim.Optimizer:
         """Creates an optimizer based on the given configuration."""

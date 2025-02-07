@@ -1,6 +1,6 @@
 """
 Copyright © 2023 Austin Berrio
-Module: mini.transformer.trainer
+Module: mini.engine.trainer
 Description: Trainer for the MiniTransformer model.
 """
 

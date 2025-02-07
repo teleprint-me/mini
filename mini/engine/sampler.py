@@ -1,30 +1,20 @@
 """
 Copyright © 2023 Austin Berrio
 Module: mini.transformer.sampler
+Description: Sampler for modeling output logits.
 """
 
 import logging
-from dataclasses import dataclass
-from typing import List, Optional
+from typing import List
 
 import torch
 import torch.nn.functional as F
 
 from mini.common.logger import get_logger
+from mini.config import SamplerConfig
 
 
-@dataclass
-class SamplerConfig:
-    top_k: int = 50
-    top_p: float = 0.9
-    temperature: float = 0.8
-    repetition_penalty: float = 1.2
-    greedy: bool = False  # Greedy decoding mode
-    pad_id: Optional[int] = None
-    verbose: bool = False  # Enable debug mode
-
-
-class MiniSampler:
+class MiniEngineSampler:
     def __init__(self, config: SamplerConfig):
         self.config = config
         self.logger = get_logger(

@@ -1,6 +1,6 @@
 """
 Copyright © 2023 Austin Berrio
-Module: mini.transformer.state
+Module: mini.engine.state
 Description: Utility class for saving and loading checkpoints.
 """
 
@@ -19,7 +19,7 @@ from mini.transformer.model import MiniConfig, MiniRuntime, MiniTransformer
 
 
 @dataclass
-class MiniState:
+class MiniEngineState:
     """Manages training state, including model, optimizer, scheduler, and criterion."""
 
     path: str

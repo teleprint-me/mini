@@ -1,39 +1,20 @@
 """
 Copyright © 2023 Austin Berrio
-Script: mini.transformer.generator
+Script: mini.engine.generator
 Description: Simple completions for text-to-text generation with streaming output.
 """
 
 import functools
-from dataclasses import dataclass
 from typing import List, Optional, Union
 
 import regex as re  # Use `regex`, not `re`
 import torch
-from sentencepiece import SentencePieceProcessor
 
-from mini.transformer.model import MiniRuntime
-from mini.transformer.sampler import MiniSampler
-from mini.transformer.state import MiniState
-
-# Default GPT-2 style pre-tokenizer regex
-DEFAULT_PRETOKENIZER = re.compile(
-    r"""'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+""",
-    re.IGNORECASE,
-)
+from mini.config import MiniConfigGenerator
 
 
-@dataclass
-class GeneratorConfig:
-    state: MiniState
-    sampler: MiniSampler
-    runtime: MiniRuntime
-    processor: SentencePieceProcessor
-    pre_tokenizer: Optional[re.Pattern] = None
-
-
-class MiniGenerator:
-    def __init__(self, config: GeneratorConfig):
+class MiniEngineGenerator:
+    def __init__(self, config: MiniConfigGenerator):
         self.config = config
 
     def __post_init__(self):
