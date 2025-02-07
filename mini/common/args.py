@@ -148,16 +148,9 @@ class TransformerArgs:
             default=10000.0,
             help="Theta for RoPE encoding (Deprecated; Default: 10000.0).",
         )
-
-        # Mutually exclusive bias flags
-        group = self.parser.add_mutually_exclusive_group()
-        group.add_argument(
+        self.parser.add_argument(
             "--bias", action="store_true", help="Use bias in FFN (Default: False)."
         )
-        group.add_argument(
-            "--no-bias", action="store_false", dest="bias", help="Disable bias in FFN."
-        )
-        self.parser.set_defaults(bias=False)
 
     def add_optimizer_params(self) -> None:
         """Training hyperparameters."""
@@ -194,8 +187,8 @@ class TransformerArgs:
         self.parser.add_argument(
             "--weight-decay",
             type=float,
-            default=1e-2,
-            help="Weight decay (Default: 1e-2).",
+            default=0,
+            help="Weight decay (Default: 0).",
         )
         self.parser.add_argument(
             "--amsgrad",
