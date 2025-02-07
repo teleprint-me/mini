@@ -1,5 +1,5 @@
 """
-Module: tests.pe
+Module: tests.test_positional_encoding
 Description: This module contains tests for positional encoding.
 NOTE: This is tricky because the positional encoding depends on the embedding object. To mitigate this,
 we create a fixture to simulate the embedding layer and use it in the positional encoding tests.
