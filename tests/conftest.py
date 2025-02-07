@@ -122,12 +122,35 @@ def mini_config(processor, pad_id) -> MiniConfig:
 
 
 @pytest.fixture(scope="session")
+def input_tensor(processor, mini_config) -> torch.Tensor:
+    """Fixture to generate embedded token sequences for Positional Encoding (PE) testing."""
+
+    # B: Number of batches of input sequences
+    # T: Number of tokens in each sequence
+
+    # (B, T) where v \in V = [0, V-1] for V tokens
+    input_ids = processor.encode("The quick brown fox jumped over the")
+    # Calculate padding needed to reach the maximum sequence length
+    add_padding = mini_config.max_seq_len - len(input_ids)
+    # Pad the input IDs with the pad token
+    padded_ids = input_ids + ([mini_config.pad_id] * add_padding)
+    # Convert the padded IDs to a tensor of shape (B, T)
+    return torch.tensor([padded_ids], dtype=torch.long)
+
+
+@pytest.fixture(scope="session")
 def positional_encoding(mini_config) -> PositionalEncoding:
     """Fixture for positional encoding model."""
+    # Input is l \in [0, l_max) for l tokens
+    # Output is e_p \in \mathbb{R}^{d_e} for l tokens
+    # Params is W_p \in \mathbb{R}^{d_e \times l_max} for l tokens
     return PositionalEncoding(mini_config)
 
 
 @pytest.fixture(scope="session")
 def mini_embedding(mini_config) -> MiniEmbedding:
     """Fixture for embedding model."""
+    # Input is v \in V = [0, V-1] for V tokens
+    # Output is e \in \mathbb{R}^{d_e} for V tokens
+    # Params is W_e \in \mathbb{R}^{d_e \times N_V} for V tokens
     return MiniEmbedding(mini_config)
