@@ -1,6 +1,6 @@
 """
 Copyright © 2023 Austin Berrio
-Module: mini.transformer.encoding
+Module: mini.blocks.encoding
 Description: Encoding blocks for transformer models.
 """
 

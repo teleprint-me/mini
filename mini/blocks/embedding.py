@@ -1,14 +1,14 @@
 """
 Copyright © 2023 Austin Berrio
-Module: mini.transformer.embedding
+Module: mini.blocks.embedding
 Description: Embedding blocks for transformer models.
 """
 
 import torch
 import torch.nn as nn
 
+from mini.blocks.encoding import LinearPositionalEncoding, PositionalEncoding
 from mini.transformer.config import TransformerConfig
-from mini.transformer.encoding import LinearPositionalEncoding, PositionalEncoding
 
 
 class Embedding(nn.Module):
