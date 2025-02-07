@@ -22,16 +22,21 @@ def embedding(mini_config) -> torch.nn.Embedding:
 
 @pytest.fixture
 def input_data(processor, mini_config, embedding) -> torch.Tensor:
-    """Fixture to generate embedded token sequences for PE testing."""
-    # Encode text to token IDs (T = v \in [0, V-1] for V tokens)
+    """Fixture to generate embedded token sequences for Positional Encoding (PE) testing."""
+
+    # B: Number of batches of input sequences
+    # T: Number of tokens in each sequence
+
+    # (B, T) where v \in V = [0, V-1] for V tokens
     input_ids = processor.encode("The quick brown fox jumped over the")
-    # Pad sequence (l_max = l \in [0, l_max] for l tokens)
+    # Calculate padding needed to reach the maximum sequence length
     add_padding = mini_config.max_seq_len - len(input_ids)
+    # Pad the input IDs with the pad token
     padded_ids = input_ids + ([mini_config.pad_id] * add_padding)
-    # Convert to tensor (B, T) where B = 1 batch and T = l_max tokens
+    # Convert the padded IDs to a tensor of shape (B, T)
     tensor_ids = torch.tensor([padded_ids], dtype=torch.long)
-    # Simulated token embeddings (B, T, d_e)
-    return embedding(tensor_ids)
+    # Simulated token embeddings of shape (B, T, C)
+    return embedding(tensor_ids)  # Output shape is (B, T, C)
 
 
 @pytest.fixture
