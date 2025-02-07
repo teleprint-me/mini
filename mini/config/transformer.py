@@ -1,4 +1,5 @@
 """
+Copyright © 2023 Austin Berrio
 Module: mini.config.transformer
 Description: Configuration settings for the transformer model.
 """

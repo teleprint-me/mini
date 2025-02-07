@@ -1,4 +1,5 @@
 """
+Copyright © 2023 Austin Berrio
 Module: mini.config.base
 Description: Base configuration class for mini projects.
 """

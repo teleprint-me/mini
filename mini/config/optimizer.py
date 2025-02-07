@@ -1,4 +1,5 @@
 """
+Copyright © 2023 Austin Berrio
 Module: mini.config.optimizer
 Description: Configuration for optimizer, scheduler, and criterion.
 """

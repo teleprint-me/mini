@@ -1,4 +1,5 @@
 """
+Copyright © 2023 Austin Berrio
 Module: mini.config.runtime
 Description: Manages runtime-specific settings like device handling and seeding.
 """
