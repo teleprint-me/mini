@@ -10,21 +10,21 @@ from typing import TYPE_CHECKING, ClassVar, Optional
 import regex as re
 from sentencepiece import SentencePieceProcessor
 
-from mini.config.base import BaseConfig
-from mini.config.runtime import RuntimeConfig
+from mini.config.base import MiniConfigBase
+from mini.config.runtime import MiniConfigRuntime
 
 if TYPE_CHECKING:
-    from mini.engine import MiniSampler, MiniState
+    from mini.engine import MiniEngineSampler, MiniEngineState
 else:
     # Forward declarations to mitigate circular dependency.
     # Actual implementations are defined in mini.engine.state and mini.engine.sampler
-    class MiniState:
-        """Placeholder for MiniState. Defined in mini.engine.state."""
+    class MiniEngineState:
+        """Placeholder for MiniEngineState. Defined in mini.engine.state."""
 
         pass
 
-    class MiniSampler:
-        """Placeholder for MiniSampler. Defined in mini.engine.sampler."""
+    class MiniEngineSampler:
+        """Placeholder for MiniEngineSampler. Defined in mini.engine.sampler."""
 
         pass
 
@@ -37,7 +37,7 @@ DEFAULT_PRETOKENIZER = re.compile(
 
 
 @dataclass
-class TransformerConfig(BaseConfig):
+class MiniConfigTransformer(MiniConfigBase):
     """Configuration for transformer model architecture."""
 
     # Encoder and Embedding
@@ -60,7 +60,7 @@ class TransformerConfig(BaseConfig):
 
 
 @dataclass
-class SamplerConfig(BaseConfig):
+class MiniConfigSampler(MiniConfigBase):
     """Configuration for sampling strategies in generation."""
 
     pad_id: Optional[int] = None
@@ -73,13 +73,13 @@ class SamplerConfig(BaseConfig):
 
 
 @dataclass
-class GeneratorConfig(BaseConfig):
+class MiniConfigGenerator(MiniConfigBase):
     """Configuration for text generation."""
 
     # Model
-    runtime: RuntimeConfig
-    state: MiniState
-    sampler: MiniSampler
+    runtime: MiniConfigRuntime
+    state: MiniEngineState
+    sampler: MiniEngineSampler
 
     # Tokenizer
     processor: SentencePieceProcessor  # Tokenizer

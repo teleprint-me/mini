@@ -7,11 +7,11 @@ Description: Configuration for optimizer, scheduler, and criterion.
 from dataclasses import dataclass
 from typing import Any, Dict
 
-from mini.config.base import BaseConfig
+from mini.config.base import MiniConfigBase
 
 
 @dataclass
-class ManagerConfig(BaseConfig):
+class MiniConfigTrainer(MiniConfigBase):
     """Base class for optimizer, scheduler, and criterion configs."""
 
     type: str
@@ -31,7 +31,7 @@ class ManagerConfig(BaseConfig):
 
 
 @dataclass
-class OptimizerConfig(ManagerConfig):
+class MiniConfigOptimizer(MiniConfigTrainer):
     """Configuration for optimizers like Adam, AdamW, and SGD."""
 
     type: str = "adamw"  # Default optimizer
@@ -54,7 +54,7 @@ class OptimizerConfig(ManagerConfig):
 
 
 @dataclass
-class SchedulerConfig(ManagerConfig):
+class MiniConfigScheduler(MiniConfigTrainer):
     """Configuration for learning rate schedulers."""
 
     type: str = "step"  # Default scheduler
@@ -75,7 +75,7 @@ class SchedulerConfig(ManagerConfig):
 
 
 @dataclass
-class CriterionConfig(ManagerConfig):
+class MiniConfigCriterion(MiniConfigTrainer):
     """Configuration for loss functions."""
 
     type: str = "cross_entropy"  # Default loss function
