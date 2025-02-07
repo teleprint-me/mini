@@ -1,4 +1,5 @@
 """
+Copyright © 2023 Austin Berrio
 Module: mini.transformer.config
 Description: Common configuration components for transformer models.
 """
