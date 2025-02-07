@@ -200,6 +200,7 @@ class MiniEmbedding(nn.Module):
 
     def __init__(self, config: MiniConfig):
         super().__init__()
+        self.pad_id = config.pad_id
         self.bias = config.bias
 
         # We do not need a mask because padding_idx ignores pad_id
