@@ -4,13 +4,29 @@ Description: Configuration settings for the transformer model.
 """
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import TYPE_CHECKING, ClassVar, Optional
 
 import regex as re
 from sentencepiece import SentencePieceProcessor
 
 from mini.config.base import BaseConfig
 from mini.config.runtime import RuntimeConfig
+
+if TYPE_CHECKING:
+    from mini.engine import MiniSampler, MiniState
+else:
+    # Forward declarations to mitigate circular dependency.
+    # Actual implementations are defined in mini.engine.state and mini.engine.sampler
+    class MiniState:
+        """Placeholder for MiniState. Defined in mini.engine.state."""
+
+        pass
+
+    class MiniSampler:
+        """Placeholder for MiniSampler. Defined in mini.engine.sampler."""
+
+        pass
+
 
 # Default GPT-2 style pre-tokenizer regex
 DEFAULT_PRETOKENIZER = re.compile(
@@ -55,16 +71,15 @@ class SamplerConfig(BaseConfig):
     verbose: bool = False  # Enable debug mode
 
 
-# NOTE: This might create a circular dependency if not handled properly.
 @dataclass
 class GeneratorConfig(BaseConfig):
     """Configuration for text generation."""
-
-    # Tokenizer
-    pre_tokenizer: Optional[re.Pattern] = None
-    processor: SentencePieceProcessor
 
     # Model
     runtime: RuntimeConfig
     state: MiniState
     sampler: MiniSampler
+
+    # Tokenizer
+    processor: SentencePieceProcessor  # Tokenizer
+    pre_tokenizer: ClassVar[re.Pattern] = DEFAULT_PRETOKENIZER
