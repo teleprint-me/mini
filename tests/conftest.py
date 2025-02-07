@@ -16,9 +16,6 @@ from mini.transformer.model import (
     PositionalEncoding,
 )
 
-# Set PYTHONPATH to current working directory
-os.environ["PYTHONPATH"] = os.getcwd()
-
 torch.manual_seed(42)
 
 
@@ -152,13 +149,14 @@ def positional_encoding(mini_config) -> PositionalEncoding:
     # Input is l \in [0, l_max) for l tokens
     # Output is e_p \in \mathbb{R}^{d_e} for l tokens
     # Params is W_p \in \mathbb{R}^{d_e \times l_max} for l tokens
-    return PositionalEncoding(mini_config)
+    return PositionalEncoding(mini_config)  # Shape: (B, T, C)
 
 
 @pytest.fixture(scope="session")
-def mini_embedding(mini_config) -> MiniEmbedding:
-    """Fixture for embedding model."""
+def mini_embedding(mini_config, input_tensor) -> torch.Tensor:
+    """Fixture for embedding model with input tokens applied."""
     # Input is v \in V = [0, V-1] for V tokens
     # Output is e \in \mathbb{R}^{d_e} for V tokens
     # Params is W_e \in \mathbb{R}^{d_e \times N_V} for V tokens
-    return MiniEmbedding(mini_config)
+    embedding = MiniEmbedding(mini_config)
+    return embedding(input_tensor)  # Shape: (B, T, C)
