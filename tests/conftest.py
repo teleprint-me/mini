@@ -1,6 +1,6 @@
 """
 Module: tests.conftest
-Description: This module contains configuration and fixtures for testing.
+Description: This module contains configuration and fixtures for testing Mini.
 """
 
 import os
@@ -13,15 +13,16 @@ from mini.transformer.model import (
     MiniConfig,
     MiniEmbedding,
     MiniRuntime,
-    PositionalEmbedding,
+    PositionalEncoding,
 )
 
 # Set PYTHONPATH to current working directory
 os.environ["PYTHONPATH"] = os.getcwd()
 
+torch.manual_seed(42)
+
+
 # --- Pytest Configuration ---
-
-
 def pytest_addoption(parser):
     """Add custom CLI options for pytest."""
     parser.addoption(
@@ -75,32 +76,28 @@ def pytest_collection_modifyitems(config, items):
 
 
 # --- Fixtures ---
-
-
-# Need to seed torch with mini_runtime.seed_all()
-@pytest.fixture
-def mini_runtime() -> MiniRuntime:
-    """Fixture to initialize MiniRuntime."""
-    runtime = MiniRuntime(seed=42)
-    runtime.seed_all()
-    return runtime
-
-
-@pytest.fixture
-def runtime_device(mini_runtime) -> torch.device:
-    """Fixture to get the device to run the model on."""
-    return mini_runtime.device_type
-
-
-# Create a fixture for the processor
-@pytest.fixture
+@pytest.fixture(scope="session")
 def processor() -> SentencePieceProcessor:
     """Fixture to get the processor to tokenize the text."""
     return SentencePieceProcessor(model_file="models/tokenizer.model")
 
 
-# Create a fixture for the configuration object
-@pytest.fixture
+@pytest.fixture(scope="session")
+def mini_runtime(pytestconfig) -> MiniRuntime:
+    """Fixture to initialize MiniRuntime with CLI seed/device support."""
+    seed = pytestconfig.getoption("--seed")
+    runtime = MiniRuntime(seed=seed)
+    runtime.seed_all()
+    yield runtime  # No explicit cleanup needed
+
+
+@pytest.fixture(scope="session")
+def runtime_device(mini_runtime) -> torch.device:
+    """Fixture to get the device to run the model on."""
+    return mini_runtime.device_type
+
+
+@pytest.fixture(scope="session")
 def mini_config(processor) -> MiniConfig:
     """Fixture to get the configuration object."""
     return MiniConfig(
@@ -111,20 +108,20 @@ def mini_config(processor) -> MiniConfig:
         num_layers=4,
         ff_dim=512,
         max_seq_len=128,
-        pad_id=max(processor.get_piece_ids(), 0),
+        pad_id=max(processor.pad_id(), 0),
         dropout=0.1,
         eps=1e-6,
         bias=False,
     )
 
 
-# Create a fixture for the positional encoding model
-@pytest.fixture
-def positional_encoding(config):
-    return PositionalEmbedding(config)
+@pytest.fixture(scope="session")
+def positional_encoding(mini_config) -> PositionalEncoding:
+    """Fixture for positional encoding model."""
+    return PositionalEncoding(mini_config)
 
 
-# Create a fixture for the embedding model
-@pytest.fixture
-def embedding(config):
-    return MiniEmbedding(config)
+@pytest.fixture(scope="session")
+def embedding(mini_config) -> MiniEmbedding:
+    """Fixture for embedding model."""
+    return MiniEmbedding(mini_config)
