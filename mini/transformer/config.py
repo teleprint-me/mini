@@ -3,9 +3,8 @@ Module: mini.transformer.config
 Description: Common configuration components for transformer models.
 """
 
-import functools
 import random
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 
 import regex as re
@@ -23,25 +22,33 @@ DEFAULT_PRETOKENIZER = re.compile(
 
 
 @dataclass
-class RuntimeConfig:
+class BaseConfig:
+    """Base class for common configuration utilities."""
+
+    def as_dict(self) -> Dict[str, Any]:
+        """Returns a dictionary representation of the config."""
+        return {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
+
+
+@dataclass
+class RuntimeConfig(BaseConfig):
     """Manages runtime-specific settings like device handling and seeding."""
 
     seed: int = 42
+    device_name: str = field(init=False, default="cpu")
 
-    @functools.cached_property
-    def device_name(self) -> str:
-        """Returns the best available device name ('cuda' or 'cpu')."""
+    def __post_init__(self):
+        """Initialize device based on availability."""
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
-            return "cuda"
-        return "cpu"
+            self.device_name = "cuda"
 
-    @functools.cached_property
+    @property
     def device_type(self) -> torch.device:
         """Returns the best available device as a `torch.device` object."""
         return torch.device(self.device_name)
 
-    def seed_all(self) -> None:
+    def set_seed(self) -> None:
         """Sets the random seed for reproducibility."""
         random.seed(self.seed)
         torch.manual_seed(self.seed)
@@ -50,7 +57,9 @@ class RuntimeConfig:
 
 
 @dataclass
-class TransformerConfig:
+class TransformerConfig(BaseConfig):
+    """Configuration for transformer model architecture."""
+
     vocab_size: int = 32000
     embed_dim: int = 256
     num_heads: int = 8
@@ -63,22 +72,11 @@ class TransformerConfig:
     theta: float = 10000.0
     bias: bool = False
 
-    def as_dict(self) -> dict[str, any]:
-        """Returns a dictionary representation of the config."""
-        return {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
-
 
 @dataclass
-class GeneratorConfig:
-    state: MiniState
-    sampler: MiniSampler
-    runtime: RuntimeConfig
-    processor: SentencePieceProcessor
-    pre_tokenizer: Optional[re.Pattern] = None
+class SamplerConfig(BaseConfig):
+    """Configuration for sampling strategies in generation."""
 
-
-@dataclass
-class SamplerConfig:
     top_k: int = 50
     top_p: float = 0.9
     temperature: float = 0.8
@@ -89,18 +87,25 @@ class SamplerConfig:
 
 
 @dataclass
-class ManagerConfig:
+class GeneratorConfig(BaseConfig):
+    """Configuration for text generation."""
+
+    state: MiniState
+    sampler: MiniSampler
+    runtime: RuntimeConfig
+    processor: SentencePieceProcessor
+    pre_tokenizer: Optional[re.Pattern] = None
+
+
+@dataclass
+class ManagerConfig(BaseConfig):
     """Base class for optimizer, scheduler, and criterion configs."""
 
     type: str
 
-    def as_dict(self) -> Dict[str, Any]:
-        """Returns a dictionary representation of the config."""
-        return {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
-
     def get_keys(self) -> Dict[str, Any]:
         """Returns allowed parameters for different object types."""
-        raise NotImplementedError("Subclasses must implement `get_keys()`.")
+        raise ValueError(f"{self.__class__.__name__} must define `get_keys()`.")
 
     def get_params(self, key: str) -> Dict[str, Any]:
         """Filters parameters relevant to the specified object type."""
@@ -114,6 +119,8 @@ class ManagerConfig:
 
 @dataclass
 class OptimizerConfig(ManagerConfig):
+    """Configuration for optimizers like Adam, AdamW, and SGD."""
+
     type: str = "adamw"  # Default optimizer
     recurse: bool = True
     lr: float = 1e-3
@@ -135,6 +142,8 @@ class OptimizerConfig(ManagerConfig):
 
 @dataclass
 class SchedulerConfig(ManagerConfig):
+    """Configuration for learning rate schedulers."""
+
     type: str = "step"  # Default scheduler
     step_size: int = 10
     gamma: float = 0.1
@@ -154,6 +163,8 @@ class SchedulerConfig(ManagerConfig):
 
 @dataclass
 class CriterionConfig(ManagerConfig):
+    """Configuration for loss functions."""
+
     type: str = "cross_entropy"  # Default loss function
     ignore_index: int = -1
     reduction: str = "mean"
