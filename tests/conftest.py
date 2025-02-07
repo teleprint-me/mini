@@ -83,6 +83,12 @@ def processor() -> SentencePieceProcessor:
 
 
 @pytest.fixture(scope="session")
+def pad_id(processor) -> int:
+    """Fixture to get the pad token id."""
+    return max(processor.pad_id(), 0)  # assert pad_id > 0 else 0
+
+
+@pytest.fixture(scope="session")
 def mini_runtime(pytestconfig) -> MiniRuntime:
     """Fixture to initialize MiniRuntime with CLI seed/device support."""
     seed = pytestconfig.getoption("--seed")
@@ -98,7 +104,7 @@ def runtime_device(mini_runtime) -> torch.device:
 
 
 @pytest.fixture(scope="session")
-def mini_config(processor) -> MiniConfig:
+def mini_config(processor, pad_id) -> MiniConfig:
     """Fixture to get the configuration object."""
     return MiniConfig(
         vocab_size=processor.vocab_size(),
@@ -108,7 +114,7 @@ def mini_config(processor) -> MiniConfig:
         num_layers=4,
         ff_dim=512,
         max_seq_len=128,
-        pad_id=max(processor.pad_id(), 0),
+        pad_id=pad_id,
         dropout=0.1,
         eps=1e-6,
         bias=False,
@@ -122,6 +128,6 @@ def positional_encoding(mini_config) -> PositionalEncoding:
 
 
 @pytest.fixture(scope="session")
-def embedding(mini_config) -> MiniEmbedding:
+def mini_embedding(mini_config) -> MiniEmbedding:
     """Fixture for embedding model."""
     return MiniEmbedding(mini_config)
