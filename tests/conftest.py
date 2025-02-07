@@ -135,7 +135,15 @@ def input_tensor(processor, mini_config) -> torch.Tensor:
     # Pad the input IDs with the pad token
     padded_ids = input_ids + ([mini_config.pad_id] * add_padding)
     # Convert the padded IDs to a tensor of shape (B, T)
-    return torch.tensor([padded_ids], dtype=torch.long)
+    tensor_ids = torch.tensor([padded_ids], dtype=torch.long)
+
+    # Debugging output (only printed when pytest --capture=no is used)
+    print(f"\n[DEBUG] Input IDs: {input_ids}")
+    print(f"[DEBUG] Padded IDs: {padded_ids[:10]}")
+    print(f"[DEBUG] Tensor Shape: {tensor_ids.shape}")
+
+    # Convert the padded IDs to a tensor of shape (B, T)
+    return tensor_ids
 
 
 @pytest.fixture(scope="session")
