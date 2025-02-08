@@ -18,7 +18,7 @@ EncodedDataset = List[Dict[str, List[int]]]
 TensorDataset = List[Dict[str, torch.Tensor]]
 
 
-class MiniProcessor:
+class DatasetProcessor:
     """Base processor providing utility functions for text processing."""
 
     def __init__(self, processor: SentencePieceProcessor, verbose: bool = False):
@@ -58,7 +58,7 @@ class MiniProcessor:
         return batches
 
 
-class MiniTextProcessor(MiniProcessor):
+class TextDatasetProcessor(DatasetProcessor):
     """Processor for tokenizing and batching free-form text data."""
 
     def tokenize(
@@ -103,7 +103,7 @@ class MiniTextProcessor(MiniProcessor):
         return sequences
 
 
-class MiniJsonProcessor(MiniProcessor):
+class JsonDatasetProcessor(DatasetProcessor):
     """Processor for tokenizing structured instruction-response JSON datasets."""
 
     def tokenize(
