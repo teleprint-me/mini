@@ -9,11 +9,11 @@ from dataclasses import dataclass, field
 
 import torch
 
-from mini.config.base import MiniConfigBase
+from mini.config.base import ConfigBase
 
 
 @dataclass
-class MiniConfigRuntime(MiniConfigBase):
+class ConfigRuntime(ConfigBase):
     """Manages runtime-specific settings like device handling and seeding."""
 
     seed: int = 42

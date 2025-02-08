@@ -4,16 +4,16 @@ Module: mini.config
 Description: Configuration classes for mini projects.
 """
 
-from .runtime import MiniConfigRuntime
-from .trainer import MiniConfigCriterion, MiniConfigOptimizer, MiniConfigScheduler
-from .transformer import MiniConfigGenerator, MiniConfigSampler, MiniConfigTransformer
+from .runtime import ConfigRuntime
+from .trainer import ConfigCriterion, ConfigOptimizer, ConfigScheduler
+from .transformer import ConfigGenerator, ConfigSampler, ConfigTransformer
 
 __all__ = [
-    "MiniConfigRuntime",
-    "MiniConfigTransformer",
-    "MiniConfigSampler",
-    "MiniConfigGenerator",
-    "MiniConfigCriterion",
-    "MiniConfigOptimizer",
-    "MiniConfigScheduler",
+    "ConfigRuntime",
+    "ConfigTransformer",
+    "ConfigSampler",
+    "ConfigGenerator",
+    "ConfigCriterion",
+    "ConfigOptimizer",
+    "ConfigScheduler",
 ]

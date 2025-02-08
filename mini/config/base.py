@@ -9,7 +9,7 @@ from typing import Any, Dict
 
 
 @dataclass
-class MiniConfigBase:
+class ConfigBase:
     """Base class for common configuration utilities."""
 
     def as_dict(self) -> Dict[str, Any]:
