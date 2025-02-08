@@ -1,6 +1,6 @@
 """
 Copyright © 2023 Austin Berrio
-Module: mini.transformer.sampler
+Module: mini.engine.sampler
 Description: Sampler for modeling output logits.
 """
 
@@ -11,11 +11,11 @@ import torch
 import torch.nn.functional as F
 
 from mini.common.logger import get_logger
-from mini.config import SamplerConfig
+from mini.config import ConfigSampler
 
 
-class MiniEngineSampler:
-    def __init__(self, config: SamplerConfig):
+class EngineSampler:
+    def __init__(self, config: ConfigSampler):
         self.config = config
         self.logger = get_logger(
             name=self.__class__.__name__,

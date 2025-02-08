@@ -14,18 +14,19 @@ from torch import nn, optim
 from torch.optim.lr_scheduler import LRScheduler
 
 from mini.common.logger import get_logger
-from mini.transformer.manager import MiniManager
-from mini.transformer.model import MiniConfig, MiniRuntime, MiniTransformer
+from mini.config import ConfigRuntime, ConfigTransformer
+from mini.engine.optimizer_manager import EngineOptimizerManager
+from mini.models.valerie import ModelValerie
 
 
 @dataclass
-class MiniEngineState:
+class EngineState:
     """Manages training state, including model, optimizer, scheduler, and criterion."""
 
     path: str
-    config: MiniConfig
-    manager: MiniManager
-    runtime: MiniRuntime
+    config: ConfigTransformer
+    manager: EngineOptimizerManager
+    runtime: ConfigRuntime
     verbose: bool = False
 
     checkpoint: Dict[str, Any] = field(default_factory=dict)
@@ -40,8 +41,6 @@ class MiniEngineState:
             name=self.__class__.__name__,
             level=logging.DEBUG if self.verbose else logging.INFO,
         )
-        self.logger.debug("Initializing MiniState.")
-        self.load()
 
     def _load_checkpoint(self) -> None:
         """Loads checkpoint from disk if it exists, otherwise initializes a new checkpoint."""
@@ -59,9 +58,9 @@ class MiniEngineState:
     def _load_model(self) -> None:
         """Loads model from checkpoint if available, otherwise initializes a new model."""
         if "model_config" in self.checkpoint:
-            self.config = MiniConfig(**self.checkpoint["model_config"])
+            self.config = ConfigTransformer(**self.checkpoint["model_config"])
 
-        self.model = MiniTransformer(self.config)
+        self.model = ModelValerie(self.config)
 
         if "model_state" in self.checkpoint:
             self.model.load_state_dict(self.checkpoint["model_state"])
@@ -73,14 +72,14 @@ class MiniEngineState:
 
     def _load_optimizer(self) -> None:
         """Loads optimizer and restores state if available."""
-        self.optimizer = self.manager.optimize(self.model)
+        self.optimizer = self.manager.create_optimizer(self.model)
         if "optimizer_state" in self.checkpoint:
             self.optimizer.load_state_dict(self.checkpoint["optimizer_state"])
             self.logger.info("Optimizer state loaded from checkpoint.")
 
     def _load_scheduler(self) -> None:
         """Loads scheduler and restores state if available."""
-        self.scheduler = self.manager.schedule(self.optimizer)
+        self.scheduler = self.manager.create_scheduler(self.optimizer)
 
         if self.scheduler is None:
             self.logger.info("No scheduler is being used.")
@@ -92,17 +91,19 @@ class MiniEngineState:
 
     def _load_criterion(self) -> None:
         """Initializes criterion (loss function)."""
-        self.criterion = self.manager.criterion()
+        self.criterion = self.manager.create_criterion()
+        self.logger.info(f"Criterion: {self.criterion}")
 
-    def load(self, train: bool = False) -> None:
+    def load(self, training_mode: bool = False) -> None:
         """Loads training state from checkpoint or initializes new components."""
         self.logger.debug("Loading model state...")
-        # Load model parameters for inferencing
+
+        # Load model parameters for inference
         self._load_checkpoint()
         self._load_model()
 
         # Load optimization parameters for training
-        if train:
+        if training_mode:
             self._load_optimizer()
             self._load_scheduler()
             self._load_criterion()

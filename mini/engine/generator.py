@@ -10,11 +10,11 @@ from typing import List, Optional, Union
 import regex as re  # Use `regex`, not `re`
 import torch
 
-from mini.config import MiniConfigGenerator
+from mini.config import ConfigGenerator
 
 
-class MiniEngineGenerator:
-    def __init__(self, config: MiniConfigGenerator):
+class EngineGenerator:
+    def __init__(self, config: ConfigGenerator):
         self.config = config
 
     def __post_init__(self):

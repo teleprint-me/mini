@@ -5,6 +5,7 @@ Description: Trainer for the MiniTransformer model.
 """
 
 import logging
+from dataclasses import dataclass
 from typing import Optional, Union
 
 import torch
@@ -12,24 +13,24 @@ from sentencepiece import SentencePieceProcessor
 
 from mini.common.logger import get_logger
 from mini.data.set import MiniDataset
-from mini.transformer.state import MiniState
+from mini.engine.state import EngineState
 
 
-class MiniTrainer:
-    def __init__(
-        self,
-        processor: SentencePieceProcessor,
-        dataset: MiniDataset,
-        state: MiniState,
-        verbose: bool = False,
-    ):
-        self.processor = processor
-        self.dataset = dataset
-        self.state = state
+@dataclass
+class EngineTrainer:
+    """Trainer for the MiniTransformer model."""
+
+    processor: SentencePieceProcessor
+    dataset: MiniDataset
+    state: EngineState
+    verbose: bool = False
+
+    def __post_init__(self):
         self.pad_id = max(self.processor.pad_id(), 0)  # Ensure pad_id is non-negative
-
-        log_level = logging.DEBUG if verbose else logging.INFO
-        self.logger = get_logger(name=self.__class__.__name__, level=log_level)
+        self.logger = get_logger(
+            name=self.__class__.__name__,
+            level=logging.DEBUG if self.verbose else logging.INFO,
+        )
 
     # === 🔥 Convenience Properties === #
     @property
@@ -54,7 +55,7 @@ class MiniTrainer:
 
     def load(self) -> None:
         """Loads state, moves model to device, and sets it to training mode."""
-        self.state.load(train=True)
+        self.state.load(training_mode=True)
         self.model.to(self.device)
         self.model.train()
 
