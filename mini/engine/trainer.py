@@ -12,7 +12,7 @@ import torch
 from sentencepiece import SentencePieceProcessor
 
 from mini.common.logger import get_logger
-from mini.data.set import MiniDataset
+from mini.data.loader import DatasetLoader
 from mini.engine.state import EngineState
 
 
@@ -21,7 +21,7 @@ class EngineTrainer:
     """Trainer for the MiniTransformer model."""
 
     processor: SentencePieceProcessor
-    dataset: MiniDataset
+    dataset: DatasetLoader
     state: EngineState
     verbose: bool = False
 
