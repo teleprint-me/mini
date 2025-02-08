@@ -39,11 +39,34 @@ class BaseAttention(nn.Module):
             nn.init.uniform_(self.wv.bias)
             nn.init.uniform_(self.wo.bias)
 
-    def _attention_mask(self, x: torch.Tensor) -> torch.Tensor:
+    def _pad_id_mask(self, x: torch.Tensor) -> torch.Tensor:
         """Creates an attention mask of shape [B, 1, T, T] to ignore pad tokens."""
+        return (x[:, :, 0] != self.pad_id).unsqueeze(1).unsqueeze(2)
+
+    def _attention_mask(
+        self, x: torch.Tensor, mask_type: str = "causal"
+    ) -> torch.Tensor:
+        """Creates an attention mask for padding and sequence constraints.
+
+        mask_type:
+            - "bidirectional": All tokens can attend to each other.
+            - "causal": Each token can only attend to past and current tokens.
+        """
         B, T, _ = x.shape  # Extract batch size and sequence length
-        mask = (x[:, :, 0] != self.pad_id).unsqueeze(1).unsqueeze(2)  # [B, 1, 1, T]
-        return mask.expand(B, 1, T, T)  # Expand to [B, 1, T, T]
+
+        # Padding mask (ensures pad tokens are ignored)
+        pad_mask = self._pad_id_mask(x)  # [B, 1, 1, T]
+
+        # Mask selection with shape [T, T]
+        if mask_type == "bidirectional":
+            seq_mask = torch.ones(T, T, dtype=torch.bool, device=x.device)
+        elif mask_type == "causal":
+            seq_mask = torch.tril(torch.ones(T, T, dtype=torch.bool, device=x.device))
+        else:
+            raise ValueError(f"Invalid mask_type: {mask_type}")
+
+        # Combine padding and sequence masks
+        return pad_mask & seq_mask  # [B, 1, T, T]
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass of the attention mechanism."""
@@ -68,6 +91,11 @@ class SelfAttention(BaseAttention):
 
         # Compute scaled dot product attention
         attn_weights = (q @ k.transpose(-2, -1)) * self.scale  # [B, H, T, T]
+
+        # Mask pad id
+        mask = self._attention_mask(x, mask_type="bidirectional")  # [B, 1, T, T]
+        if mask is not None:
+            attn_weights = attn_weights.masked_fill(mask == 0, float("-inf"))
 
         # Apply softmax and compute output
         attn_weights = F.softmax(attn_weights, dim=-1)
@@ -94,8 +122,8 @@ class CausalAttention(BaseAttention):
         # Compute scaled dot product attention
         attn_weights = (q @ k.transpose(-2, -1)) * self.scale  # [B, H, T, T]
 
-        # Compute and apply mask
-        mask = self._attention_mask(x)  # Ensure shape [B, 1, T, T]
+        # Compute and apply causal mask with shape [B, 1, T, T]
+        mask = self._attention_mask(x, mask_type="causal")
         if mask is not None:
             attn_weights = attn_weights.masked_fill(mask == 0, float("-inf"))
 
@@ -132,8 +160,8 @@ class RotaryAttention(BaseAttention):
         # Compute scaled dot product attention
         attn_weights = (q @ k.transpose(-2, -1)) * self.scale  # [B, H, T, T]
 
-        # Compute and apply mask
-        mask = self._attention_mask(x)  # Ensure shape [B, 1, T, T]
+        # Compute and apply causal mask with shape [B, 1, T, T]
+        mask = self._attention_mask(x, mask_type="causal")
         if mask is not None:
             attn_weights = attn_weights.masked_fill(mask == 0, float("-inf"))
 
