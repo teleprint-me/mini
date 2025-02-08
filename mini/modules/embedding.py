@@ -1,20 +1,20 @@
 """
 Copyright © 2023 Austin Berrio
-Module: mini.blocks.embedding
+Module: mini.modules.embedding
 Description: Embedding blocks for transformer models.
 """
 
 import torch
 import torch.nn as nn
 
-from mini.blocks.encoding import LinearPositionalEncoding, PositionalEncoding
-from mini.transformer.config import TransformerConfig
+from mini.config import ConfigTransformer
+from mini.modules.encoding import LinearEncoding, PositionalEncoding
 
 
-class Embedding(nn.Module):
+class PositionalEmbedding(nn.Module):
     """Handles token and positional embeddings for the transformer model."""
 
-    def __init__(self, config: TransformerConfig):
+    def __init__(self, config: ConfigTransformer):
         super().__init__()
         self.pad_id = max(config.pad_id, 0)
         self.embed_dim = config.embed_dim
@@ -52,7 +52,7 @@ class Embedding(nn.Module):
 class LinearEmbedding(nn.Module):
     """Handles token and positional embeddings for the transformer model."""
 
-    def __init__(self, config: TransformerConfig):
+    def __init__(self, config: ConfigTransformer):
         super().__init__()
         self.pad_id = max(config.pad_id, 0)
         self.bias = config.bias
@@ -66,7 +66,7 @@ class LinearEmbedding(nn.Module):
         )
 
         # Positional encoding (learnable variant)
-        self.positions = LinearPositionalEncoding(config)
+        self.positions = LinearEncoding(config)
 
         # Define MLP layers for embedding transformation
         self.hidden_layers = nn.ModuleList(
@@ -130,6 +130,6 @@ class LinearEmbedding(nn.Module):
 class RotaryEmbedding(nn.Module):
     """Rotary positional embeddings for transformers."""
 
-    def __init__(self, config: TransformerConfig):
+    def __init__(self, config: ConfigTransformer):
         super().__init__()
         raise NotImplementedError("RotaryEmbedding is not yet implemented.")
