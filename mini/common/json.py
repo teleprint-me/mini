@@ -1,8 +1,6 @@
 """
 Copyright © 2023 Austin Berrio
-
 Module: mini.common.json
-
 Description: This module provides utility functions for working with JSON data.
 """
 

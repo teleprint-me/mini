@@ -1,11 +1,9 @@
 """
 Copyright © 2023 Austin Berrio
-
 Module: mini.common.logger
-
 Description:
-    This module provides a simple logger implementation using Python's built-in logging module.
-    It includes functions to get a logger instance, set the log level, and format log messages.
+This module provides a simple logger implementation using Python's built-in logging module.
+It includes functions to get a logger instance, set the log level, and format log messages.
 """
 
 import logging
