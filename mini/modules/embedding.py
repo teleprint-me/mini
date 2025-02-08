@@ -125,11 +125,3 @@ class LinearEmbedding(nn.Module):
 
         x = self.norm(self.dropout(x))  # Regularization & normalization
         return self.projection(x)  # (B, T, C) output
-
-
-class RotaryEmbedding(nn.Module):
-    """Rotary positional embeddings for transformers."""
-
-    def __init__(self, config: ConfigTransformer):
-        super().__init__()
-        raise NotImplementedError("RotaryEmbedding is not yet implemented.")

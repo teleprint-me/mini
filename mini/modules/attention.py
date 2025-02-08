@@ -1,7 +1,7 @@
 """
 Copyright © 2023 Austin Berrio
 Module: mini.modules.attention
-Description: Attention mechanisms for neural networks.
+Description: Modular attention mechanisms for neural networks.
 """
 
 import torch
@@ -9,9 +9,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from mini.config import ConfigTransformer
+from mini.modules.encoding import RotaryEncoding
 
 
-class MultiHeadAttention(nn.Module):
+class BaseAttention(nn.Module):
     def __init__(self, config: ConfigTransformer):
         super().__init__()
         self.pad_id = max(config.pad_id, 0)
@@ -45,6 +46,15 @@ class MultiHeadAttention(nn.Module):
         return mask.expand(B, 1, T, T)  # Expand to [B, 1, T, T]
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Forward pass of the attention mechanism."""
+        raise NotImplementedError("Forward method must be implemented by subclasses.")
+
+
+class SelfAttention(BaseAttention):
+    def __init__(self, config: ConfigTransformer):
+        super().__init__(config)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         B, T, C = x.shape  # Batch size, sequence length, embedding dimension
 
         # Compute Q, K, V matrices
@@ -55,6 +65,69 @@ class MultiHeadAttention(nn.Module):
             t.view(B, T, self.num_heads, self.head_dim).transpose(1, 2)
             for t in (q, k, v)
         ]
+
+        # Compute scaled dot product attention
+        attn_weights = (q @ k.transpose(-2, -1)) * self.scale  # [B, H, T, T]
+
+        # Apply softmax and compute output
+        attn_weights = F.softmax(attn_weights, dim=-1)
+        out = (attn_weights @ v).transpose(1, 2).contiguous().view(B, T, C)
+        return self.wo(out)
+
+
+class CausalAttention(BaseAttention):
+    def __init__(self, config: ConfigTransformer):
+        super().__init__(config)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        B, T, C = x.shape  # Batch size, sequence length, embedding dimension
+
+        # Compute Q, K, V matrices
+        q, k, v = self.wq(x), self.wk(x), self.wv(x)
+
+        # Reshape to multiple heads: [B, T, H, D] -> [B, H, T, D]
+        q, k, v = [
+            t.view(B, T, self.num_heads, self.head_dim).transpose(1, 2)
+            for t in (q, k, v)
+        ]
+
+        # Compute scaled dot product attention
+        attn_weights = (q @ k.transpose(-2, -1)) * self.scale  # [B, H, T, T]
+
+        # Compute and apply mask
+        mask = self._attention_mask(x)  # Ensure shape [B, 1, T, T]
+        if mask is not None:
+            attn_weights = attn_weights.masked_fill(mask == 0, float("-inf"))
+
+        # Apply softmax and compute output
+        attn_weights = F.softmax(attn_weights, dim=-1)
+        out = (attn_weights @ v).transpose(1, 2).contiguous().view(B, T, C)
+        return self.wo(out)
+
+
+class RotaryAttention(BaseAttention):
+    """Rotary attention mechanism for transformers."""
+
+    def __init__(self, config: ConfigTransformer):
+        super().__init__(config)
+
+        # Initialize rotary encoding
+        self.rope = RotaryEncoding(config)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        B, T, C = x.shape  # Batch size, sequence length, embedding dimension
+
+        # Compute Q, K, V matrices
+        q, k, v = self.wq(x), self.wk(x), self.wv(x)
+
+        # Reshape to multiple heads: [B, T, H, D] -> [B, H, T, D]
+        q, k, v = [
+            t.view(B, T, self.num_heads, self.head_dim).transpose(1, 2)
+            for t in (q, k, v)
+        ]
+
+        # Apply RoPE to Q and K
+        q, k = self.rope(q, k)
 
         # Compute scaled dot product attention
         attn_weights = (q @ k.transpose(-2, -1)) * self.scale  # [B, H, T, T]
