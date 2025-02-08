@@ -7,23 +7,24 @@ Description: Simple pre-training loop for text-to-text generation.
 from sentencepiece import SentencePieceProcessor
 
 from mini.common.args import TransformerArgs
-from mini.data.set import MiniJsonDataset, MiniTextDataset
-from mini.transformer.manager import (
-    CriterionConfig,
-    MiniManager,
-    OptimizerConfig,
-    SchedulerConfig,
+from mini.config import (
+    ConfigCriterion,
+    ConfigOptimizer,
+    ConfigRuntime,
+    ConfigScheduler,
+    ConfigTransformer,
 )
-from mini.transformer.model import MiniConfig, MiniRuntime
-from mini.transformer.state import MiniState
-from mini.transformer.trainer import MiniTrainer
+from mini.data.loader import JsonDatasetLoader, TestDatasetLoader
+from mini.engine.optimizer_manager import EngineOptimizerManager
+from mini.engine.state import EngineState
+from mini.engine.trainer import EngineTrainer
 
 if __name__ == "__main__":
     # Parse arguments
     args = TransformerArgs("Mini Training Tool").parse_args("train")
 
     # Load runtime configuration
-    runtime = MiniRuntime(seed=args.seed)
+    runtime = ConfigRuntime(seed=args.seed)
     runtime.seed_all()
 
     # Load model tokenizer
@@ -32,7 +33,7 @@ if __name__ == "__main__":
     # Dynamically load Dataset & DataLoader
     dataset = None
     if args.dataset.endswith(".json"):
-        dataset = MiniJsonDataset(
+        dataset = JsonDatasetLoader(
             file_path=args.dataset,
             processor=processor,
             max_seq_len=args.max_seq_len,
@@ -41,7 +42,7 @@ if __name__ == "__main__":
             verbose=args.verbose,
         )
     else:  # Assume plaintext file
-        dataset = MiniTextDataset(
+        dataset = TestDatasetLoader(
             file_path=args.dataset,
             processor=processor,
             max_seq_len=args.max_seq_len,
@@ -51,22 +52,22 @@ if __name__ == "__main__":
         )
 
     # Load Transformer Config
-    config = MiniConfig(
-        vocab_size=processor.vocab_size(),
-        embed_dim=args.embed_dim,
-        num_heads=args.num_heads,
-        head_dim=args.head_dim,
-        num_layers=args.num_layers,
-        ff_dim=args.ff_dim,
-        max_seq_len=args.max_seq_len,
+    config = ConfigTransformer(
         pad_id=max(processor.pad_id(), 0),
-        eps=args.eps,
+        vocab_size=processor.vocab_size(),
+        max_seq_len=args.max_seq_len,
+        embed_dim=args.embed_dim,
         theta=args.rope_theta,
+        num_blocks=args.num_layers,
+        num_heads=args.num_heads,
+        hidden_dim=args.hidden_dim,
+        eps=args.eps,
+        dropout=args.dropout,
         bias=args.bias,
     )
 
     # Load optimizer config
-    optimizer_config = OptimizerConfig(
+    config_optimizer = ConfigOptimizer(
         type=args.optimizer,
         lr=args.lr,
         eps=args.eps,
@@ -78,7 +79,7 @@ if __name__ == "__main__":
     )
 
     # Load scheduler config
-    scheduler_config = SchedulerConfig(
+    config_scheduler = ConfigScheduler(
         type=args.scheduler,
         step_size=args.step_size,
         gamma=args.gamma,
@@ -89,22 +90,22 @@ if __name__ == "__main__":
     )
 
     # Load criterion config
-    criterion_config = CriterionConfig(
+    config_criterion = ConfigCriterion(
         type=args.criterion,
         ignore_index=max(processor.pad_id(), 0),
         reduction=args.reduction,
     )
 
     # Load optimization manager
-    manager = MiniManager(
-        optimizer=optimizer_config,
-        scheduler=scheduler_config,
-        criterion=criterion_config,
+    manager = EngineOptimizerManager(
+        config_optimizer=config_optimizer,
+        config_scheduler=config_scheduler,
+        config_criterion=config_criterion,
         verbose=args.verbose,
     )
 
     # Load state manager
-    state = MiniState(
+    state = EngineState(
         path=args.model,
         config=config,
         manager=manager,
@@ -113,7 +114,7 @@ if __name__ == "__main__":
     )
 
     # Load trainer
-    trainer = MiniTrainer(
+    trainer = EngineTrainer(
         processor=processor,
         dataset=dataset,
         state=state,
