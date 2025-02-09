@@ -84,9 +84,9 @@ class SequenceMask:
         return (input_ids == pad_id).unsqueeze(1).unsqueeze(2)  # Shape: [B, 1, 1, T]
 
     @staticmethod
-    def causal_mask(seqlen: int, device: torch.device) -> torch.Tensor:
+    def causal_mask(l_max: int, device: torch.device) -> torch.Tensor:
         """Create a causal mask to prevent attending to future tokens."""
-        mask = torch.full((seqlen, seqlen), float("-inf"), device=device)
+        mask = torch.full((l_max, l_max), float("-inf"), device=device)
         return torch.triu(mask, diagonal=1)  # Upper triangular causal mask
 
     @staticmethod
@@ -98,8 +98,33 @@ class SequenceMask:
 
 
 class CausalAttention(nn.Module):
-    def __init__(self, d_k: int, d_v: int, d_e: int, dropout: float = 0.1):
+    def __init__(self, params: Parameters):
         super().__init__()
+        self.num_heads = params.num_heads
+        self.head_dim = params.head_dim
+        self.scale = params.scale
+        self.wq = nn.Linear(params.embed_dim, params.embed_dim, bias=params.bias)
+        self.wk = nn.Linear(params.embed_dim, params.embed_dim, bias=params.bias)
+        self.wv = nn.Linear(params.embed_dim, params.embed_dim, bias=params.bias)
+        self.wo = nn.Linear(params.embed_dim, params.embed_dim, bias=params.bias)
+        nn.init.xavier_normal_(self.wq.weight.data)
+        nn.init.xavier_normal_(self.wk.weight.data)
+        nn.init.xavier_normal_(self.wv.weight.data)
+        nn.init.xavier_normal_(self.wo.weight.data)
+
+    def forward(self, x: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+        B, T, C = x.shape
+        q, k, v = self.wq(x), self.wk(x), self.wv(x)
+        q, k, v = [
+            t.view(B, T, self.num_heads, self.head_dim).transpose(1, 2)
+            for t in (q, k, v)
+        ]
+        attn_weights = (q @ k.transpose(-2, -1)) * self.scale
+        attn_weights = attn_weights.masked_fill(mask == float("-inf"), float("-inf"))
+        attn_weights = F.softmax(attn_weights, dim=-1)
+        attn_out = (attn_weights @ v).transpose(1, 2).contiguous().view(B, T, C)
+        print(f"Attention Output Shape: {attn_out.shape}")
+        return self.wo(attn_out)
 
 
 def main():
@@ -137,30 +162,6 @@ def main():
     # Expected: [batch_size, seq_len, embed_dim]
     print(f"Embedded: {d_model.shape}")
 
-    # Create query, key, value, and projection matrices for attention mechanism
-    wq = nn.Linear(params.embed_dim, params.embed_dim, bias=params.bias)
-    wk = nn.Linear(params.embed_dim, params.embed_dim, bias=params.bias)
-    wv = nn.Linear(params.embed_dim, params.embed_dim, bias=params.bias)
-    wo = nn.Linear(params.embed_dim, params.embed_dim, bias=params.bias)
-
-    # Initialize weights
-    nn.init.xavier_normal_(wq.weight.data)
-    nn.init.xavier_normal_(wk.weight.data)
-    nn.init.xavier_normal_(wv.weight.data)
-    nn.init.xavier_normal_(wo.weight.data)
-
-    # Compute query, key, and value matrices
-    B, T, C = d_model.shape
-    # Compute Q, K, V matrices
-    q, k, v = wq(d_model), wk(d_model), wv(d_model)
-    # Reshape to multiple heads: [B, T, H, D] -> [B, H, T, D]
-    q, k, v = [
-        x.view(B, T, params.num_heads, params.head_dim).transpose(1, 2)
-        for x in [q, k, v]
-    ]
-    # Compute scaled dot product attention [B, H, T, T]
-    attn_weights = (q @ k.transpose(-2, -1)) * params.scale
-
     # Padding mask, Shape [B, 1, 1, T]
     pad_mask = SequenceMask.pad_id_mask(input_ids, params.pad_id)
 
@@ -169,19 +170,16 @@ def main():
         params.max_seq_len, input_ids.device
     ).unsqueeze(0)
     # Combine padding and causal mask
-    combined_mask = pad_mask + causal_mask
-    if combined_mask is not None:
-        attn_weights = attn_weights.masked_fill(
-            combined_mask == float("-inf"), float("-inf")
-        )
+    combined_mask = SequenceMask.combined_mask(pad_mask, causal_mask)
 
     print(f"Pad Mask Shape: {pad_mask.shape}")
     print(f"Causal Mask Shape: {causal_mask.shape}")
     print(f"Combined Mask Shape: {combined_mask.shape}")
 
-    attn_weights = F.softmax(attn_weights, dim=-1)
-    attn_out = (attn_weights @ v).transpose(1, 2).contiguous().view(B, T, C)
-    print(f"Attention Output Shape: {attn_out.shape}")
+    # Apply attention mechanism
+    attention = CausalAttention(params=params)
+    projection = attention(d_model, combined_mask)
+    print(f"Attention projection Shape: {projection.shape}")
 
 
 if __name__ == "__main__":
