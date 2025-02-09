@@ -114,33 +114,32 @@ class SequenceMask:
     ) -> torch.Tensor:
         """Combine padding and causal masks."""
         pad_mask = self._pad_mask(input_ids)
-        if mask_type == "causal":
-            mask = self._causal_mask()
-        elif mask_type == "bidirectional":
-            mask = self._bidirectional_mask()
-        else:
-            raise ValueError(f"Unknown mask type: {mask_type}")
+        mask = self._get_mask(mask_type)
         return pad_mask + mask  # Add masks together
 
     def _pad_mask(self, input_ids: torch.Tensor) -> torch.Tensor:
         """Create a padding mask of shape [B, 1, 1, T] from input IDs before they are embedded."""
         return (input_ids == self.pad_id).unsqueeze(1).unsqueeze(2)
 
+    def _get_mask(self, mask_type: str) -> torch.Tensor:
+        """Retrieve the appropriate attention mask."""
+        if mask_type == "causal":
+            return self._causal_mask()
+        elif mask_type == "bidirectional":
+            return self._bidirectional_mask()
+        else:
+            raise ValueError(f"Unknown mask type: {mask_type}")
+
     def _bidirectional_mask(self) -> torch.Tensor:
-        """Create a bidirectional mask of shape [1, T, T] to prevent attending to future tokens."""
-        # Square matrix for bidirectional mask
-        size = (self.max_seq_len, self.max_seq_len)
-        mask = torch.full(size, float("-inf"), device=self.device)
-        # Upper triangular bidirectional mask
-        return torch.triu(mask, diagonal=1)
+        """Create a bidirectional mask that only ignores pad tokens."""
+        # No upper triangular mask, only ignore pad tokens
+        return torch.ones((self.max_seq_len, self.max_seq_len), device=self.device)
 
     def _causal_mask(self) -> torch.Tensor:
-        """Create a causal mask of shape [1, T, T] to prevent attending to future tokens."""
-        # Square matrix for causal mask
-        size = (self.max_seq_len, self.max_seq_len)
-        mask = torch.full(size, float("-inf"), device=self.device)
-        # Upper triangular causal mask
-        return torch.triu(mask, diagonal=1)
+        """Create a causal mask to prevent attending to future tokens."""
+        size = (self.max_seq_len, self.max_seq_len)  # Square matrix of shape [T, T]
+        mask = torch.full(size, float("-inf"), device=self.device)  # Add -inf values
+        return torch.triu(mask, diagonal=1)  # Upper triangular matrix of shape [T, T]
 
 
 class CausalAttention(nn.Module):
