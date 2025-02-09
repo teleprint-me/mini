@@ -15,13 +15,14 @@ from sentencepiece import SentencePieceProcessor
 class Parameters:
     vocab_size: int = 32000  # V
     pad_id: int = -1  # -1 is reserved for padding
-    batch_size: int = 3  # Batch size
     max_seq_len: int = 8  # Adjusted to match tokenized input
     seq_len: int = 6  # Sequence length
     embed_dim: int = 10  # Must be even for sin/cos encoding
     dropout: float = 0.1  # Dropout rate
-    bias: bool = False  #
+    bias: bool = False  # Learn an additive bias
     num_heads: int = 2  # Number of attention heads
+    dtype: torch.dtype = None  # Tensor data type
+    device: torch.device = None  # Model device
 
     def __post_init__(self):
         ERROR_MSG = "Embedding dimension must be even for sin/cos encoding"
@@ -31,14 +32,15 @@ class Parameters:
 
 
 # Generate sinusoidal encoding
-def _generate_sinusoidal_encoding(l_max: int, d_e: int) -> torch.Tensor:
+def _generate_sinusoidal_encoding(params: Parameters) -> torch.Tensor:
     """Creates sinusoidal positional encodings as described in Vaswani et al. (2017)."""
-    assert d_e % 2 == 0, "Embedding dimension must be even for sin/cos encoding"
-    pe = torch.zeros(l_max, d_e)
-    position = torch.arange(l_max, dtype=torch.float32).unsqueeze(1)
+    ERROR_MSG = "Embedding dimension must be even for sin/cos encoding"
+    assert params.embed_dim % 2 == 0, ERROR_MSG
+    pe = torch.zeros(params.max_seq_len, params.embed_dim)
+    position = torch.arange(params.max_seq_len, dtype=params.dtype).unsqueeze(1)
     div_term = torch.exp(
-        torch.arange(0, d_e, 2, dtype=torch.float32)
-        * (-torch.log(torch.tensor(10000.0)) / d_e)
+        torch.arange(0, params.embed_dim, 2, dtype=params.dtype)
+        * (-torch.log(torch.tensor(10000.0)) / params.embed_dim)
     )
     pe[:, 0::2] = torch.sin(position * div_term)
     pe[:, 1::2] = torch.cos(position * div_term)
@@ -48,53 +50,97 @@ def _generate_sinusoidal_encoding(l_max: int, d_e: int) -> torch.Tensor:
 class PositionalEncoding(nn.Module):
     """Standard fixed sinusoidal positional encoding for transformer models."""
 
-    def __init__(self, d_e: int, l_max: int, p: float = 0.1):
+    def __init__(self, params: Parameters):
         super().__init__()
-        self.register_buffer("pe", _generate_sinusoidal_encoding(l_max, d_e))
-        self.dropout = nn.Dropout(p)
+        frequency = _generate_sinusoidal_encoding(params)
+        self.register_buffer("frequency", frequency)
+        self.dropout = nn.Dropout(params.dropout)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.dropout(x + self.pe[:, : x.size(1), :])
+    def forward(self, tokens: torch.Tensor) -> torch.Tensor:
+        max_seq_len = tokens.size(1)
+        return self.dropout(tokens + self.frequency[:, :max_seq_len, :])
 
 
 class PositionalEmbedding(nn.Module):
-    def __init__(self, V: int, d_e: int, l_max: int, p: float = 0.1):
+    def __init__(self, params: Parameters):
         super().__init__()
-        self.tokens = nn.Embedding(V, d_e)
-        nn.init.xavier_uniform_(self.tokens.weight)
-        self.positions = PositionalEncoding(d_e, l_max, p)
-        self.dropout = nn.Dropout(p)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # Expected: [B, T]
-        print(f"PositionalEmbedding Input: {x.shape}")
-        x = self.tokens(x)  # Shape: [B, T, d_e]
-        # Expected: [batch_size, seq_len, embed_dim]
-        print(f"PositionalEmbedding.tokens: {x.shape}")
-        x = self.positions(x)  # Shape: [B, T, d_e]
-        # Expected: [batch_size, seq_len, embed_dim]
-        print(f"PositionalEmbedding.positions: {x.shape}")
-        return self.dropout(x)
+        # Initialize the token embedding layer
+        self.tokens = nn.Embedding(params.vocab_size, params.embed_dim)
+        nn.init.xavier_uniform_(self.tokens.weight)
+
+        # Initialize the positional encoding layer
+        self.encodings = PositionalEncoding(params)
+
+        # Initialize the dropout layer
+        self.dropout_layer = nn.Dropout(params.dropout)
+
+    def forward(self, input_ids: torch.Tensor) -> torch.Tensor:
+        """
+        Forward pass through the PositionalEmbedding module.
+
+        Args:
+            input_ids (torch.Tensor): Input tensor of shape [batch_size, max_seq_len]
+
+        Returns:
+            torch.Tensor: Output tensor of shape [batch_size, max_seq_len, embed_dim]
+        """
+        # Embed the input tokens into token embeddings
+        tokens = self.tokens(input_ids)
+        # Shape: [batch_size, max_seq_len, embed_dim]
+        print(f"Token embeddings shape: {tokens.shape}")
+
+        # Apply positional encoding to the token embeddings
+        encodings = self.encodings(tokens)
+        # Shape: [batch_size, max_seq_len, embed_dim]
+        print(f"Positional encodings shape: {encodings.shape}")
+
+        # Apply dropout to the combined embeddings
+        d_model = self.dropout_layer(encodings)
+        # Shape: [batch_size, max_seq_len, embed_dim]
+        print(f"Output embeddings shape: {d_model.shape}")
+
+        return d_model
 
 
 class SequenceMask:
-    @staticmethod
-    def pad_id_mask(input_ids: torch.Tensor, pad_id: int) -> torch.Tensor:
-        """Create a padding mask from input IDs before they are embedded."""
-        return (input_ids == pad_id).unsqueeze(1).unsqueeze(2)  # Shape: [B, 1, 1, T]
+    def __init__(self, params: Parameters):
+        self.pad_id = params.pad_id
+        self.max_seq_len = params.max_seq_len
+        self.device = params.device
 
-    @staticmethod
-    def causal_mask(l_max: int, device: torch.device) -> torch.Tensor:
-        """Create a causal mask to prevent attending to future tokens."""
-        mask = torch.full((l_max, l_max), float("-inf"), device=device)
-        return torch.triu(mask, diagonal=1)  # Upper triangular causal mask
-
-    @staticmethod
-    def combined_mask(
-        pad_mask: torch.Tensor, causal_mask: torch.Tensor
+    def __call__(
+        self, input_ids: torch.Tensor, mask_type: str = "causal"
     ) -> torch.Tensor:
         """Combine padding and causal masks."""
-        return pad_mask + causal_mask
+        pad_mask = self._pad_mask(input_ids)
+        if mask_type == "causal":
+            mask = self._causal_mask()
+        elif mask_type == "bidirectional":
+            mask = self._bidirectional_mask()
+        else:
+            raise ValueError(f"Unknown mask type: {mask_type}")
+        return pad_mask + mask  # Add masks together
+
+    def _pad_mask(self, input_ids: torch.Tensor) -> torch.Tensor:
+        """Create a padding mask of shape [B, 1, 1, T] from input IDs before they are embedded."""
+        return (input_ids == self.pad_id).unsqueeze(1).unsqueeze(2)
+
+    def _bidirectional_mask(self) -> torch.Tensor:
+        """Create a bidirectional mask of shape [1, T, T] to prevent attending to future tokens."""
+        # Square matrix for bidirectional mask
+        size = (self.max_seq_len, self.max_seq_len)
+        mask = torch.full(size, float("-inf"), device=self.device)
+        # Upper triangular bidirectional mask
+        return torch.triu(mask, diagonal=1)
+
+    def _causal_mask(self) -> torch.Tensor:
+        """Create a causal mask of shape [1, T, T] to prevent attending to future tokens."""
+        # Square matrix for causal mask
+        size = (self.max_seq_len, self.max_seq_len)
+        mask = torch.full(size, float("-inf"), device=self.device)
+        # Upper triangular causal mask
+        return torch.triu(mask, diagonal=1)
 
 
 class CausalAttention(nn.Module):
@@ -103,28 +149,46 @@ class CausalAttention(nn.Module):
         self.num_heads = params.num_heads
         self.head_dim = params.head_dim
         self.scale = params.scale
+
+        # Linear layers for Q, K, V
         self.wq = nn.Linear(params.embed_dim, params.embed_dim, bias=params.bias)
         self.wk = nn.Linear(params.embed_dim, params.embed_dim, bias=params.bias)
         self.wv = nn.Linear(params.embed_dim, params.embed_dim, bias=params.bias)
-        self.wo = nn.Linear(params.embed_dim, params.embed_dim, bias=params.bias)
-        nn.init.xavier_normal_(self.wq.weight.data)
-        nn.init.xavier_normal_(self.wk.weight.data)
-        nn.init.xavier_normal_(self.wv.weight.data)
-        nn.init.xavier_normal_(self.wo.weight.data)
 
-    def forward(self, x: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
-        B, T, C = x.shape
-        q, k, v = self.wq(x), self.wk(x), self.wv(x)
+        # Output projection
+        self.wo = nn.Linear(params.embed_dim, params.embed_dim, bias=params.bias)
+
+        # Initialize weights
+        nn.init.xavier_normal_(self.wq.weight)
+        nn.init.xavier_normal_(self.wk.weight)
+        nn.init.xavier_normal_(self.wv.weight)
+        nn.init.xavier_normal_(self.wo.weight)
+
+    def forward(self, d_in: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+        B, T, C = d_in.shape
+
+        # Compute Q, K, V projections
+        q, k, v = self.wq(d_in), self.wk(d_in), self.wv(d_in)
+
+        # Reshape to multiple heads: [B, T, d_model] → [B, num_heads, T, head_dim]
         q, k, v = [
             t.view(B, T, self.num_heads, self.head_dim).transpose(1, 2)
             for t in (q, k, v)
         ]
-        attn_weights = (q @ k.transpose(-2, -1)) * self.scale
-        attn_weights = attn_weights.masked_fill(mask == float("-inf"), float("-inf"))
-        attn_weights = F.softmax(attn_weights, dim=-1)
-        attn_out = (attn_weights @ v).transpose(1, 2).contiguous().view(B, T, C)
-        print(f"Attention Output Shape: {attn_out.shape}")
-        return self.wo(attn_out)
+
+        # Compute scaled dot-product attention
+        d_attn = (q @ k.transpose(-2, -1)) * self.scale
+        d_attn = d_attn.masked_fill(mask == float("-inf"), float("-inf"))
+        d_attn = F.softmax(d_attn, dim=-1)
+
+        # Apply multi-head attention weights to values
+        d_out = d_attn @ v  # [B, num_heads, T, head_dim]
+
+        # Reshape: concatenate heads → [B, T, d_model]
+        d_out = d_out.transpose(1, 2).contiguous().view(B, T, C)
+
+        # Final linear projection
+        return self.wo(d_out)
 
 
 def main():
@@ -138,12 +202,7 @@ def main():
     print(f"Parameters: {params}")
 
     # Simulate embedding layer
-    embedding = PositionalEmbedding(
-        V=params.vocab_size,
-        d_e=params.embed_dim,
-        l_max=params.max_seq_len,
-        p=params.dropout,
-    )
+    embedding = PositionalEmbedding(params)
 
     # Dummy input sequences
     sentences = ["The quick brown fox", "jumps over the lazy", "dog"]
@@ -160,26 +219,17 @@ def main():
     d_model = embedding(input_ids)
 
     # Expected: [batch_size, seq_len, embed_dim]
-    print(f"Embedded: {d_model.shape}")
+    print(f"d_model: {d_model.shape}")
 
     # Padding mask, Shape [B, 1, 1, T]
-    pad_mask = SequenceMask.pad_id_mask(input_ids, params.pad_id)
-
-    # Causal mask, Shape [1, T, T]
-    causal_mask = SequenceMask.causal_mask(
-        params.max_seq_len, input_ids.device
-    ).unsqueeze(0)
-    # Combine padding and causal mask
-    combined_mask = SequenceMask.combined_mask(pad_mask, causal_mask)
-
-    print(f"Pad Mask Shape: {pad_mask.shape}")
-    print(f"Causal Mask Shape: {causal_mask.shape}")
-    print(f"Combined Mask Shape: {combined_mask.shape}")
+    sequence_mask = SequenceMask(params=params)
+    mask = sequence_mask(input_ids)  # Pad mask, Shape [B, 1, 1, T]
+    print(f"Mask Shape: {mask.shape}")  # Causal mask, Shape [B, 1, T, T]
 
     # Apply attention mechanism
     attention = CausalAttention(params=params)
-    projection = attention(d_model, combined_mask)
-    print(f"Attention projection Shape: {projection.shape}")
+    projection = attention(d_model, mask=mask)
+    print(f"Attention projection Shape: {projection.shape}")  # [B, seq_len, embed_dim]
 
 
 if __name__ == "__main__":
