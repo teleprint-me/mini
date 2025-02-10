@@ -3,7 +3,8 @@ File: mini.models.valerie
 Description: Scratchpad for experimenting with transformer concepts.
 """
 
-from dataclasses import dataclass
+import random
+from dataclasses import dataclass, field
 
 import torch
 import torch.nn as nn
@@ -21,21 +22,55 @@ class Parameters:
     dropout: float = 0.1  # Dropout rate
     bias: bool = False  # Learn an additive bias
     num_heads: int = 2  # Number of attention heads
-    dtype: torch.dtype = None  # Tensor data type
-    device: torch.device = None  # Model device
+    # Tensor data type for computations
+    dtype: torch.dtype = field(init=False, default=torch.float32)
+    # Device name for computations
+    dname: str = field(init=False, default="cpu")
+    seed: int = 42  # Random seed for reproducibility
 
     def __post_init__(self):
-        ERROR_MSG = "Embedding dimension must be even for sin/cos encoding"
-        assert self.embed_dim % self.num_heads == 0, ERROR_MSG
+        """Initializes the model parameters and sets the device for computations."""
+        # Set the pad id to the initial index if it is not set
+        self.pad_id = max(self.pad_id, 0)
+        # Set the head dimension and scale for attention
         self.head_dim = self.embed_dim // self.num_heads
         self.scale = self.head_dim**-0.5
+        # Assert that the model parameters are initialized correctly
+        self.__assert_init()
+        # Set the device for computations
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            self.dname = "cuda"
+
+    def __assert_init(self):
+        """Asserts that the model parameters are initialized correctly."""
+        ERROR_MSG = "Pad id must be 0 or greater"
+        assert self.pad_id >= 0, ERROR_MSG
+        ERROR_MSG = "Embedding dimension must be even for sin/cos encoding"
+        assert self.embed_dim % 2 == 0, ERROR_MSG
+        ERROR_MSG = "Embedding dimension must be divisible by the number of heads"
+        assert self.embed_dim % self.num_heads == 0, ERROR_MSG
+        ERROR_MSG = "Head dimension must be equal to embedding dimension divided by the number of heads"
+        assert self.head_dim == self.embed_dim // self.num_heads, ERROR_MSG
+        ERROR_MSG = "Scale must be equal to the square root of the head dimension"
+        assert self.scale == self.head_dim**-0.5, ERROR_MSG
+
+    @property
+    def device(self) -> torch.device:
+        """Returns the best available device as a `torch.device` object."""
+        return torch.device(self.dname)
+
+    def set_seed(self) -> None:
+        """Sets the random seed for reproducibility."""
+        random.seed(self.seed)
+        torch.manual_seed(self.seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(self.seed)
 
 
 # Generate sinusoidal encoding
 def _generate_sinusoidal_encoding(params: Parameters) -> torch.Tensor:
     """Creates sinusoidal positional encodings as described in Vaswani et al. (2017)."""
-    ERROR_MSG = "Embedding dimension must be even for sin/cos encoding"
-    assert params.embed_dim % 2 == 0, ERROR_MSG
     pe = torch.zeros(params.max_seq_len, params.embed_dim)
     position = torch.arange(params.max_seq_len, dtype=params.dtype).unsqueeze(1)
     div_term = torch.exp(
@@ -86,21 +121,16 @@ class PositionalEmbedding(nn.Module):
             torch.Tensor: Output tensor of shape [batch_size, max_seq_len, embed_dim]
         """
         # Embed the input tokens into token embeddings
-        tokens = self.tokens(input_ids)
         # Shape: [batch_size, max_seq_len, embed_dim]
-        print(f"Token embeddings shape: {tokens.shape}")
+        tokens = self.tokens(input_ids)
 
         # Apply positional encoding to the token embeddings
-        encodings = self.encodings(tokens)
         # Shape: [batch_size, max_seq_len, embed_dim]
-        print(f"Positional encodings shape: {encodings.shape}")
+        encodings = self.encodings(tokens)
 
         # Apply dropout to the combined embeddings
-        d_model = self.dropout_layer(encodings)
         # Shape: [batch_size, max_seq_len, embed_dim]
-        print(f"Output embeddings shape: {d_model.shape}")
-
-        return d_model
+        return self.dropout_layer(encodings)  # d_model
 
 
 class SequenceMask:
@@ -190,6 +220,24 @@ class CausalAttention(nn.Module):
         return self.wo(d_out)
 
 
+class FeedForward(nn.Module):
+    """Position-wise Feed-Forward Network (FFN) used in transformer layers."""
+
+    def __init__(self, params: Parameters):
+        super().__init__()
+        self.fc1 = nn.Linear(params.embed_dim, params.embed_dim * 4)
+        self.fc2 = nn.Linear(params.embed_dim * 4, params.embed_dim)
+        self.activation = F.gelu  # Common choice (SiLU also works)
+        self.dropout = nn.Dropout(params.dropout)
+
+        # Initialize weights
+        nn.init.xavier_uniform_(self.fc1.weight)
+        nn.init.xavier_uniform_(self.fc2.weight)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.dropout(self.fc2(self.activation(self.fc1(x))))
+
+
 def main():
     # Tokenizer setup
     model_file = "models/tokenizer.model"
@@ -201,7 +249,7 @@ def main():
     print(f"Parameters: {params}")
 
     # Simulate embedding layer
-    embedding = PositionalEmbedding(params)
+    embedding = PositionalEmbedding(params).to(params.device)
 
     # Dummy input sequences
     sentences = ["The quick brown fox", "jumps over the lazy", "dog"]
@@ -210,7 +258,7 @@ def main():
     # Pad or truncate to match seq_len
     input_ids = torch.tensor(
         [ids + [params.pad_id] * (params.max_seq_len - len(ids)) for ids in input_ids]
-    )
+    ).to(params.device)
     # Expected: [batch_size, seq_len]
     print(f"Input IDs: {input_ids.shape}")
 
@@ -220,13 +268,13 @@ def main():
     # Expected: [batch_size, seq_len, embed_dim]
     print(f"d_model: {d_model.shape}")
 
-    # Padding mask, Shape [B, 1, 1, T]
+    # Padding mask, Shape [B, 1, 1, T], Causal mask, Shape [B, 1, T, T]
     sequence_mask = SequenceMask(params=params)
-    mask = sequence_mask(input_ids)  # Pad mask, Shape [B, 1, 1, T]
-    print(f"Mask Shape: {mask.shape}")  # Causal mask, Shape [B, 1, T, T]
+    # Expected: [batch_size, 1, seq_len, seq_len] for causal mask
+    mask = sequence_mask(input_ids, mask_type="causal")
 
     # Apply attention mechanism
-    attention = CausalAttention(params=params)
+    attention = CausalAttention(params=params).to(params.device)
     projection = attention(d_model, mask=mask)
     print(f"Attention projection Shape: {projection.shape}")  # [B, seq_len, embed_dim]
 
