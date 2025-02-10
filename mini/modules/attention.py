@@ -81,6 +81,21 @@ class BaseAttention(nn.Module):
             nn.init.uniform_(self.wv.bias)
             nn.init.uniform_(self.wo.bias)
 
+    def _split_heads(
+        self, d_in: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Compute Q, K, V projections."""
+        return self.wq(d_in), self.wk(d_in), self.wv(d_in)
+
+    def _reshape_heads(
+        self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, B: int, T: int
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Reshape heads for multi-head attention."""
+        return [
+            t.view(B, T, self.num_heads, self.head_dim).transpose(1, 2)
+            for t in (q, k, v)
+        ]
+
     def _scaled_dot_product_attention(
         self,
         q: torch.Tensor,
@@ -99,7 +114,13 @@ class BaseAttention(nn.Module):
         # Apply multi-head attention weights to values
         return d_attn @ v  # [B, num_heads, T, head_dim]
 
-    def forward(self, x: torch.Tensor, mask: torch.Tensor = None) -> torch.Tensor:
+    def _merge_heads(
+        self, d_attn: torch.Tensor, B: int, T: int, C: int
+    ) -> torch.Tensor:
+        """Reshape concatenated multi-head output back to [B, T, C]."""
+        return d_attn.transpose(1, 2).contiguous().view(B, T, C)
+
+    def forward(self, d_in: torch.Tensor, mask: torch.Tensor = None) -> torch.Tensor:
         """Forward pass of the attention mechanism. Input shape is [B, T, C]."""
         raise NotImplementedError("Forward method must be implemented by subclasses.")
 
@@ -112,16 +133,13 @@ class SelfAttention(BaseAttention):
         # Get batch size, sequence length, and embedding dimension
         B, T, C = d_in.shape
         # Compute Q, K, V projections
-        q, k, v = self.wq(d_in), self.wk(d_in), self.wv(d_in)
+        q, k, v = self._split_heads(d_in)
         # Reshape to multiple heads: [B, T, d_model] → [B, num_heads, T, head_dim]
-        q, k, v = [
-            t.view(B, T, self.num_heads, self.head_dim).transpose(1, 2)
-            for t in (q, k, v)
-        ]
+        q, k, v = self._reshape_heads(q, k, v, B, T)
         # Compute scaled dot-product attention
         d_attn = self._scaled_dot_product_attention(q, k, v, mask)
         # Reshape: concatenate heads → [B, T, d_model]
-        d_out = d_attn.transpose(1, 2).contiguous().view(B, T, C)
+        d_out = self._merge_heads(d_attn, B, T, C)
         # Final linear projection
         return self.wo(d_out)
 
@@ -134,21 +152,18 @@ class RotaryAttention(BaseAttention):
         # Initialize rotary encoding
         self.rope = RotaryEncoding(config)
 
-    def forward(self, x: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+    def forward(self, d_in: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
         # Get batch size, sequence length, and embedding dimension
-        B, T, C = x.shape
+        B, T, C = d_in.shape
         # Compute Q, K, V matrices
-        q, k, v = self.wq(x), self.wk(x), self.wv(x)
+        q, k, v = self._split_heads(d_in)
         # Apply RoPE encoding to Q and K before reshaping heads
         q, k = self.rope(q, k)
-        # Reshape to multiple heads: [B, T, H, D] -> [B, H, T, D]
-        q, k, v = [
-            t.view(B, T, self.num_heads, self.head_dim).transpose(1, 2)
-            for t in (q, k, v)
-        ]
+        # Reshape to multiple heads: [B, T, d_model] → [B, num_heads, T, head_dim]
+        q, k, v = self._reshape_heads(q, k, v, B, T)
         # Compute scaled dot-product attention
         d_attn = self._scaled_dot_product_attention(q, k, v, mask)
         # Reshape: concatenate heads → [B, T, d_model]
-        d_out = d_attn.transpose(1, 2).contiguous().view(B, T, C)
+        d_out = self._merge_heads(d_attn, B, T, C)
         # Final linear projection
         return self.wo(d_out)

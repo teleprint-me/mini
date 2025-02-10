@@ -115,13 +115,10 @@ class RotaryEncoding(nn.Module):
 
     def _rotate(self, x: torch.Tensor) -> torch.Tensor:
         """Rotates tensor according to RoPE formulation."""
+        seq_len = x.size(1)
         x_even, x_odd = x[..., 0::2], x[..., 1::2]
-        x_rotated_even = (
-            x_even * self.cos[: x.size(1), :] - x_odd * self.sin[: x.size(1), :]
-        )
-        x_rotated_odd = (
-            x_odd * self.cos[: x.size(1), :] + x_even * self.sin[: x.size(1), :]
-        )
+        x_rotated_even = x_even * self.cos[:seq_len, :] - x_odd * self.sin[:seq_len, :]
+        x_rotated_odd = x_odd * self.cos[:seq_len, :] + x_even * self.sin[:seq_len, :]
         return torch.stack([x_rotated_even, x_rotated_odd], dim=-1).flatten(-2)
 
     def forward(
