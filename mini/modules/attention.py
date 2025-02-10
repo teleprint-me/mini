@@ -12,6 +12,48 @@ from mini.config import ConfigTransformer
 from mini.modules.encoding import RotaryEncoding
 
 
+class AttentionMask:
+    """Generates attention masks for input sequences."""
+
+    def __init__(self, config: ConfigTransformer):
+        self.config = config
+        self.pad_id = config.pad_id
+        self.max_seq_len = config.max_seq_len
+        self.device = config.device
+
+    def __call__(
+        self, input_ids: torch.Tensor, mask_type: str = "causal"
+    ) -> torch.Tensor:
+        """Combine padding and attention masks."""
+        pad_mask = self._get_pad_mask(input_ids)
+        attn_mask = self._get_attention_mask(mask_type)
+        return pad_mask + attn_mask  # Add masks together
+
+    def _get_pad_mask(self, input_ids: torch.Tensor) -> torch.Tensor:
+        """Create a padding mask of shape [B, 1, 1, T] from input IDs before they are embedded."""
+        return (input_ids == self.pad_id).unsqueeze(1).unsqueeze(2)
+
+    def _get_attention_mask(self, mask_type: str) -> torch.Tensor:
+        """Retrieve the appropriate attention mask."""
+        if mask_type == "causal":
+            return self._causal_mask()
+        elif mask_type == "bidirectional":
+            return self._bidirectional_mask()
+        else:
+            raise ValueError(f"Unknown mask type: {mask_type}")
+
+    def _bidirectional_mask(self) -> torch.Tensor:
+        """Create a bidirectional mask that only ignores pad tokens."""
+        # No upper triangular mask, only ignore pad tokens
+        return torch.ones((self.max_seq_len, self.max_seq_len), device=self.device)
+
+    def _causal_mask(self) -> torch.Tensor:
+        """Create a causal mask to prevent attending to future tokens."""
+        size = (self.max_seq_len, self.max_seq_len)  # Square matrix of shape [T, T]
+        mask = torch.full(size, float("-inf"), device=self.device)  # Add -inf values
+        return torch.triu(mask, diagonal=1)  # Upper triangular matrix of shape [T, T]
+
+
 class BaseAttention(nn.Module):
     def __init__(self, config: ConfigTransformer):
         super().__init__()
@@ -39,37 +81,26 @@ class BaseAttention(nn.Module):
             nn.init.uniform_(self.wv.bias)
             nn.init.uniform_(self.wo.bias)
 
-    def _pad_id_mask(self, x: torch.Tensor) -> torch.Tensor:
-        """Creates an attention mask of shape [B, 1, T, T] to ignore pad tokens."""
-        return (x[:, :, 0] != self.pad_id).unsqueeze(1).unsqueeze(2)
-
-    def _attention_mask(
-        self, x: torch.Tensor, mask_type: str = "causal"
+    def _scaled_dot_product_attention(
+        self,
+        q: torch.Tensor,
+        k: torch.Tensor,
+        v: torch.Tensor,
+        mask: torch.Tensor = None,
     ) -> torch.Tensor:
-        """Creates an attention mask for padding and sequence constraints.
+        """Computes scaled dot-product attention with optional masking."""
+        # Compute scaled dot-product attention
+        d_attn = (q @ k.transpose(-2, -1)) * self.scale
+        # Apply mask if provided
+        if mask is not None:
+            d_attn = d_attn.masked_fill(mask == float("-inf"), float("-inf"))
+        # Apply softmax to get attention weights
+        d_attn = F.softmax(d_attn, dim=-1)
+        # Apply multi-head attention weights to values
+        return d_attn @ v  # [B, num_heads, T, head_dim]
 
-        mask_type:
-            - "bidirectional": All tokens can attend to each other.
-            - "causal": Each token can only attend to past and current tokens.
-        """
-        B, T, _ = x.shape  # Extract batch size and sequence length
-
-        # Padding mask (ensures pad tokens are ignored)
-        pad_mask = self._pad_id_mask(x)  # [B, 1, 1, T]
-
-        # Mask selection with shape [T, T]
-        if mask_type == "bidirectional":
-            seq_mask = torch.ones(T, T, dtype=torch.bool, device=x.device)
-        elif mask_type == "causal":
-            seq_mask = torch.tril(torch.ones(T, T, dtype=torch.bool, device=x.device))
-        else:
-            raise ValueError(f"Invalid mask_type: {mask_type}")
-
-        # Combine padding and sequence masks
-        return pad_mask & seq_mask  # [B, 1, T, T]
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """Forward pass of the attention mechanism."""
+    def forward(self, x: torch.Tensor, mask: torch.Tensor = None) -> torch.Tensor:
+        """Forward pass of the attention mechanism. Input shape is [B, T, C]."""
         raise NotImplementedError("Forward method must be implemented by subclasses.")
 
 
@@ -77,60 +108,28 @@ class SelfAttention(BaseAttention):
     def __init__(self, config: ConfigTransformer):
         super().__init__(config)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        B, T, C = x.shape  # Batch size, sequence length, embedding dimension
-
-        # Compute Q, K, V matrices
-        q, k, v = self.wq(x), self.wk(x), self.wv(x)
-
-        # Reshape to multiple heads: [B, T, H, D] -> [B, H, T, D]
+    def forward(self, d_in: torch.Tensor, mask: torch.Tensor = None) -> torch.Tensor:
+        # Get batch size, sequence length, and embedding dimension
+        B, T, C = d_in.shape
+        # Compute Q, K, V projections
+        q, k, v = self.wq(d_in), self.wk(d_in), self.wv(d_in)
+        # Reshape to multiple heads: [B, T, d_model] → [B, num_heads, T, head_dim]
         q, k, v = [
             t.view(B, T, self.num_heads, self.head_dim).transpose(1, 2)
             for t in (q, k, v)
         ]
-
-        # Compute scaled dot product attention
-        attn_weights = (q @ k.transpose(-2, -1)) * self.scale  # [B, H, T, T]
-
-        # Mask pad id
-        mask = self._attention_mask(x, mask_type="bidirectional")  # [B, 1, T, T]
+        # Compute scaled dot-product attention
+        d_attn = (q @ k.transpose(-2, -1)) * self.scale
         if mask is not None:
-            attn_weights = attn_weights.masked_fill(mask == 0, float("-inf"))
-
-        # Apply softmax and compute output
-        attn_weights = F.softmax(attn_weights, dim=-1)
-        out = (attn_weights @ v).transpose(1, 2).contiguous().view(B, T, C)
-        return self.wo(out)
-
-
-class CausalAttention(BaseAttention):
-    def __init__(self, config: ConfigTransformer):
-        super().__init__(config)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        B, T, C = x.shape  # Batch size, sequence length, embedding dimension
-
-        # Compute Q, K, V matrices
-        q, k, v = self.wq(x), self.wk(x), self.wv(x)
-
-        # Reshape to multiple heads: [B, T, H, D] -> [B, H, T, D]
-        q, k, v = [
-            t.view(B, T, self.num_heads, self.head_dim).transpose(1, 2)
-            for t in (q, k, v)
-        ]
-
-        # Compute scaled dot product attention
-        attn_weights = (q @ k.transpose(-2, -1)) * self.scale  # [B, H, T, T]
-
-        # Compute and apply causal mask with shape [B, 1, T, T]
-        mask = self._attention_mask(x, mask_type="causal")
-        if mask is not None:
-            attn_weights = attn_weights.masked_fill(mask == 0, float("-inf"))
-
-        # Apply softmax and compute output
-        attn_weights = F.softmax(attn_weights, dim=-1)
-        out = (attn_weights @ v).transpose(1, 2).contiguous().view(B, T, C)
-        return self.wo(out)
+            d_attn = d_attn.masked_fill(mask == float("-inf"), float("-inf"))
+        # Apply softmax to get attention weights
+        d_attn = F.softmax(d_attn, dim=-1)
+        # Apply multi-head attention weights to values
+        d_attn = d_attn @ v  # [B, num_heads, T, head_dim]
+        # Reshape: concatenate heads → [B, T, d_model]
+        d_out = d_attn.transpose(1, 2).contiguous().view(B, T, C)
+        # Final linear projection
+        return self.wo(d_out)
 
 
 class RotaryAttention(BaseAttention):
@@ -138,34 +137,30 @@ class RotaryAttention(BaseAttention):
 
     def __init__(self, config: ConfigTransformer):
         super().__init__(config)
-
         # Initialize rotary encoding
         self.rope = RotaryEncoding(config)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        B, T, C = x.shape  # Batch size, sequence length, embedding dimension
-
+    def forward(self, x: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+        # Get batch size, sequence length, and embedding dimension
+        B, T, C = x.shape
         # Compute Q, K, V matrices
         q, k, v = self.wq(x), self.wk(x), self.wv(x)
-
+        # Apply RoPE encoding to Q and K before reshaping heads
+        q, k = self.rope(q, k)
         # Reshape to multiple heads: [B, T, H, D] -> [B, H, T, D]
         q, k, v = [
             t.view(B, T, self.num_heads, self.head_dim).transpose(1, 2)
             for t in (q, k, v)
         ]
-
-        # Apply RoPE to Q and K
-        q, k = self.rope(q, k)
-
-        # Compute scaled dot product attention
-        attn_weights = (q @ k.transpose(-2, -1)) * self.scale  # [B, H, T, T]
-
-        # Compute and apply causal mask with shape [B, 1, T, T]
-        mask = self._attention_mask(x, mask_type="causal")
+        # Compute scaled dot-product attention
+        d_attn = (q @ k.transpose(-2, -1)) * self.scale
         if mask is not None:
-            attn_weights = attn_weights.masked_fill(mask == 0, float("-inf"))
-
-        # Apply softmax and compute output
-        attn_weights = F.softmax(attn_weights, dim=-1)
-        out = (attn_weights @ v).transpose(1, 2).contiguous().view(B, T, C)
-        return self.wo(out)
+            d_attn = d_attn.masked_fill(mask == float("-inf"), float("-inf"))
+        # Apply softmax to get attention weights
+        d_attn = F.softmax(d_attn, dim=-1)
+        # Apply multi-head attention weights to values
+        d_attn = d_attn @ v  # [B, num_heads, T, head_dim]
+        # Reshape: concatenate heads → [B, T, d_model]
+        d_out = d_attn.transpose(1, 2).contiguous().view(B, T, C)
+        # Final linear projection
+        return self.wo(d_out)
