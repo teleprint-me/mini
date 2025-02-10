@@ -119,13 +119,7 @@ class SelfAttention(BaseAttention):
             for t in (q, k, v)
         ]
         # Compute scaled dot-product attention
-        d_attn = (q @ k.transpose(-2, -1)) * self.scale
-        if mask is not None:
-            d_attn = d_attn.masked_fill(mask == float("-inf"), float("-inf"))
-        # Apply softmax to get attention weights
-        d_attn = F.softmax(d_attn, dim=-1)
-        # Apply multi-head attention weights to values
-        d_attn = d_attn @ v  # [B, num_heads, T, head_dim]
+        d_attn = self._scaled_dot_product_attention(q, k, v, mask)
         # Reshape: concatenate heads → [B, T, d_model]
         d_out = d_attn.transpose(1, 2).contiguous().view(B, T, C)
         # Final linear projection
@@ -153,13 +147,7 @@ class RotaryAttention(BaseAttention):
             for t in (q, k, v)
         ]
         # Compute scaled dot-product attention
-        d_attn = (q @ k.transpose(-2, -1)) * self.scale
-        if mask is not None:
-            d_attn = d_attn.masked_fill(mask == float("-inf"), float("-inf"))
-        # Apply softmax to get attention weights
-        d_attn = F.softmax(d_attn, dim=-1)
-        # Apply multi-head attention weights to values
-        d_attn = d_attn @ v  # [B, num_heads, T, head_dim]
+        d_attn = self._scaled_dot_product_attention(q, k, v, mask)
         # Reshape: concatenate heads → [B, T, d_model]
         d_out = d_attn.transpose(1, 2).contiguous().view(B, T, C)
         # Final linear projection
