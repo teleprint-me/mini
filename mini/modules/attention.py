@@ -20,6 +20,7 @@ class AttentionMask:
         self.pad_id = config.pad_id
         self.max_seq_len = config.max_seq_len
         self.device = config.device
+        self.dtype = config.dtype
 
     def __call__(
         self, input_ids: torch.Tensor, mask_type: str = "causal"
@@ -45,13 +46,16 @@ class AttentionMask:
     def _bidirectional_mask(self) -> torch.Tensor:
         """Create a bidirectional mask that only ignores pad tokens."""
         # No upper triangular mask, only ignore pad tokens
-        return torch.ones((self.max_seq_len, self.max_seq_len), device=self.device)
+        size = (self.max_seq_len, self.max_seq_len)
+        return torch.ones(size, device=self.device, dtype=self.dtype)
 
     def _causal_mask(self) -> torch.Tensor:
         """Create a causal mask to prevent attending to future tokens."""
-        size = (self.max_seq_len, self.max_seq_len)  # Square matrix of shape [T, T]
-        mask = torch.full(size, float("-inf"), device=self.device)  # Add -inf values
-        return torch.triu(mask, diagonal=1)  # Upper triangular matrix of shape [T, T]
+        dtype = self.dtype  # Get dtype from config
+        min_value = torch.finfo(dtype).min  # Get smallest representable value
+        size = (self.config.max_seq_len, self.config.max_seq_len)  # [T, T] matrix
+        mask = torch.full(size, min_value, device=self.device, dtype=dtype)
+        return torch.triu(mask, diagonal=1)  # Keep upper triangle for causal mask
 
 
 class BaseAttention(nn.Module):
@@ -108,7 +112,7 @@ class BaseAttention(nn.Module):
         d_attn = (q @ k.transpose(-2, -1)) * self.scale
         # Apply mask if provided
         if mask is not None:
-            d_attn = d_attn.masked_fill(mask == float("-inf"), float("-inf"))
+            d_attn = d_attn.masked_fill(mask == 0, torch.finfo(d_attn.dtype).min)
         # Apply softmax to get attention weights
         d_attn = F.softmax(d_attn, dim=-1)
         # Apply multi-head attention weights to values

@@ -106,7 +106,7 @@ class RotaryEncoding(nn.Module):
         super().__init__()
         # Precompute the rotation angles for RoPE
         theta = config.rope_theta ** (
-            -torch.arange(0, config.embed_dim, 2).float() / config.embed_dim
+            -torch.arange(0, config.embed_dim, 2, dtype=config.dtype) / config.embed_dim
         )
         position = torch.arange(config.max_seq_len, dtype=config.dtype).unsqueeze(1)
         angles = position * theta.unsqueeze(0)
