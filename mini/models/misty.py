@@ -21,6 +21,7 @@ from mini.modules.embedding import PositionalEmbedding
 from mini.modules.transformer import PositionWiseBlock
 
 
+# Attention is All You Need: https://arxiv.org/abs/1706.03762
 class MistyModel(nn.Module):
     """Minimal positional transformer model with self-attention and FFN layers."""
 
