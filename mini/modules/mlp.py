@@ -21,7 +21,7 @@ from mini.config import ConfigTransformer
 # to variations in input sequence length. A negative consequence is that the model might lose some positional
 # information when the sequence length is shorter than the `max_seq_length`. However, this trade-off
 # might be acceptable if the model's performance is still satisfactory.
-class MLP(nn.Module):
+class MLPEmbedding(nn.Module):
     """A simple multi-layer perceptron for embedding transformation."""
 
     def __init__(self, config: ConfigTransformer):
