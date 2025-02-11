@@ -12,6 +12,7 @@ from mini.config import ConfigTransformer
 from mini.modules.encoding import RotaryEncoding
 
 
+# Formal Algorithms for Transformers: https://arxiv.org/abs/2207.09238
 class AttentionMask:
     """Generates attention masks for input sequences."""
 
@@ -57,6 +58,7 @@ class AttentionMask:
         return torch.triu(mask, diagonal=1)  # Keep upper triangle for causal mask
 
 
+# Formal Algorithms for Transformers: https://arxiv.org/abs/2207.09238
 class BaseAttention(nn.Module):
     def __init__(self, config: ConfigTransformer):
         super().__init__()
@@ -149,7 +151,8 @@ class SelfAttention(BaseAttention):
         return self.wo(d_out)
 
 
-# RoFormer: Enhanced Transformer with Rotary Position Embeddings https://arxiv.org/abs/2104.09864
+# RoFormer: Enhanced Transformer with Rotary Position Embeddings
+# https://arxiv.org/abs/2104.09864
 class RotaryAttention(BaseAttention):
     """Rotary attention mechanism for transformers."""
 

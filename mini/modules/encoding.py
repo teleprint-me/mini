@@ -12,6 +12,8 @@ from torch import nn
 from mini.config import ConfigTransformer
 
 
+# Self-Attention with Relative Position Representations
+# https://arxiv.org/abs/1803.02155
 class BaseEncoding(nn.Module):
     """Base class for encoding blocks."""
 
@@ -42,7 +44,8 @@ class BaseEncoding(nn.Module):
         raise NotImplementedError("Forward method must be implemented by subclasses.")
 
 
-# arxiv: arXiv:1803.02155
+# Self-Attention with Relative Position Representations
+# https://arxiv.org/abs/1803.02155
 class PositionalEncoding(BaseEncoding):
     """Standard fixed sinusoidal positional encoding for transformer models."""
 
@@ -57,7 +60,8 @@ class PositionalEncoding(BaseEncoding):
         return self.dropout(x + self.pe[:, :seq_len, :])
 
 
-# arxiv:1810.04805
+# BERT: Pre-training of Bidirectional Encoder Representations from Transformers
+# https://arxiv.org/abs/1810.04805
 class BertEncoding(BaseEncoding):
     """Bert-style positional encoding."""
 
@@ -98,8 +102,9 @@ class LinearEncoding(BaseEncoding):
         return self.dropout(projected_pe) + x
 
 
-# arXiv:2104.09864
 # NOTE: This must be applied to the query and key tensors before the attention mechanism.
+# RoFormer: Enhanced Transformer with Rotary Position Embeddings
+# https://arxiv.org/abs/2104.09864
 class RotaryEncoding(nn.Module):
     """Rotary Positional Encoding (RoPE) for transformer models."""
 
