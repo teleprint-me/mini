@@ -29,8 +29,8 @@ class MistyModel(nn.Module):
         super().__init__()
         self.bias = config.bias
 
-        # Mask is programmatically moved to the correct device and dtype defined by the config
-        self.mask = AttentionMask(config)
+        # Programmatic mask type selection, e.g. causal or bidirectional
+        self.mask = AttentionMask(config)  # Config-driven mask type
         self.embedding = PositionalEmbedding(config)
         self.blocks = nn.ModuleList(
             [PositionWiseBlock(config) for _ in range(config.num_layers)]
@@ -47,11 +47,10 @@ class MistyModel(nn.Module):
         if self.bias:
             nn.init.uniform_(self.head.bias, a=-0.1, b=0.1)
 
-    def forward(self, x: torch.Tensor, mask_type: str = "causal") -> torch.Tensor:
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass through Misty transformer."""
-        # Combine padding and attention masks
-        # NOTE: # This must happen before the embeddings layer
-        mask = self.mask(x, mask_type=mask_type)
+        # NOTE: Apply padding and attention masks before the embeddings layer
+        mask = self.mask(x)  # Config-driven device and data type
         x = self.embedding(x)
         for block in self.blocks:
             x = block(x, mask)

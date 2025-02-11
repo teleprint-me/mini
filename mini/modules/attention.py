@@ -19,29 +19,28 @@ class AttentionMask:
         self.config = config
         self.pad_id = config.pad_id
         self.max_seq_len = config.max_seq_len
+        self.mask_type = config.mask_type
         self.device = config.device
         self.dtype = config.dtype
 
-    def __call__(
-        self, input_ids: torch.Tensor, mask_type: str = "causal"
-    ) -> torch.Tensor:
+    def __call__(self, input_ids: torch.Tensor) -> torch.Tensor:
         """Combine padding and attention masks."""
         pad_mask = self._get_pad_mask(input_ids)
-        attn_mask = self._get_attention_mask(mask_type)
+        attn_mask = self._get_attention_mask(self.mask_type)
         return pad_mask + attn_mask  # Add masks together
 
     def _get_pad_mask(self, input_ids: torch.Tensor) -> torch.Tensor:
         """Create a padding mask of shape [B, 1, 1, T] from input IDs before they are embedded."""
         return (input_ids == self.pad_id).unsqueeze(1).unsqueeze(2)
 
-    def _get_attention_mask(self, mask_type: str) -> torch.Tensor:
+    def _get_attention_mask(self) -> torch.Tensor:
         """Retrieve the appropriate attention mask."""
-        if mask_type == "causal":
+        if self.mask_type == "causal":
             return self._causal_mask()
-        elif mask_type == "bidirectional":
+        elif self.mask_type == "bidirectional":
             return self._bidirectional_mask()
         else:
-            raise ValueError(f"Unknown mask type: {mask_type}")
+            raise ValueError(f"Unknown mask type: {self.mask_type}")
 
     def _bidirectional_mask(self) -> torch.Tensor:
         """Create a bidirectional mask that only ignores pad tokens."""
@@ -53,7 +52,7 @@ class AttentionMask:
         """Create a causal mask to prevent attending to future tokens."""
         dtype = self.dtype  # Get dtype from config
         min_value = torch.finfo(dtype).min  # Get smallest representable value
-        size = (self.config.max_seq_len, self.config.max_seq_len)  # [T, T] matrix
+        size = (self.max_seq_len, self.max_seq_len)  # [T, T] matrix
         mask = torch.full(size, min_value, device=self.device, dtype=dtype)
         return torch.triu(mask, diagonal=1)  # Keep upper triangle for causal mask
 

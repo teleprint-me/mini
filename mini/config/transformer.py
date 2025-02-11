@@ -27,6 +27,7 @@ class ConfigTransformer(ConfigDevice):
     num_heads: int = 8  # Number of attention heads per block
     ff_dim: int = 512  # Hidden dim for feed-forward network
     ff_mult: float = 4.0  # FFN multiplier (default 4.0, standard for transformers)
+    mask_type: str = "causal"  # Mask type for attention (causal, bidirectional)
 
     # Shared Layer Normalization
     eps: float = 1e-8
