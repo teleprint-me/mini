@@ -1,15 +1,19 @@
 """
 Copyright © 2023 Austin Berrio
+
 Module: mini.models.misty
 Author: Austin Berrio
 Date: 2025-02-07
 Version: 0.1.0
 License: AGPL License
 URL: https://github.com/teleprint-me/mini
+
 Description:
-Misty is a minimal transformer model designed for educational purposes.
-It is a simplified version of the transformer architecture, suitable for beginners
-to understand the basics of neural network design and training.
+Misty is a minimal positional transformer model with positional embeddings and
+position-wise feed-forward networks (FFN) designed for educational purposes.
+It is a simplified version of the original transformer architecture using basic
+self-attention, suitable for beginners to understand the basics of neural network
+design and training.
 """
 
 import torch

@@ -1,17 +1,22 @@
 """
 Copyright © 2023 Austin Berrio
+
 Module: mini.models.valerie
 Author: Austin Berrio
 Date: 2025-02-11
 Version: 0.1.0
 License: AGPL License
 URL: https://github.com/teleprint-me/mini
-Description: 
-Valerie is a minimal gated transformer model with rotary attention and FFN layers designed for educational purposes.
-It is a simplified version of the BERT, GPT, Llama, and Mistral models, suitable for beginners
-to understand the basics of rotary positional encodings, learnable embeddings, and gated feed forward networks.
+
+Description:
+Valerie is a minimal gated transformer model with rotary attention and
+feed-forward networks (FFN) layers designed for educational purposes.
+It is a simplified version of the BERT, GPT, Llama, and Mistral models,
+suitable for beginners to understand the basics of rotary positional encodings,
+learnable embeddings, and gated feed forward networks.
 """
 
+# Your module code here
 import torch.nn as nn
 
 from mini.config.transformer import ConfigTransformer
