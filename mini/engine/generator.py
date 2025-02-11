@@ -4,58 +4,47 @@ Script: mini.engine.generator
 Description: Simple completions for text-to-text generation with streaming output.
 """
 
-import functools
 from typing import List, Optional, Union
 
 import regex as re  # Use `regex`, not `re`
 import torch
 
-from mini.config import ConfigGenerator
+from mini.config.generator import ConfigGenerator
 
 
 class EngineGenerator:
     def __init__(self, config: ConfigGenerator):
         self.config = config
-
-    def __post_init__(self):
+        self.processor = config.processor
+        self.pad_id = config.pad_id
+        self.bos_id = config.bos_id
+        self.eos_id = config.eos_id
+        self.max_seq_len = config.max_seq_len
+        self.state = config.state
+        self.sampler = config.sampler
+        self.device = config.device
         self.load()
-
-    @functools.cached_property
-    def pad_id(self) -> int:
-        return max(self.config.processor.pad_id(), 0)
-
-    @functools.cached_property
-    def eos_id(self) -> int:
-        return self.config.processor.eos_id()
-
-    @functools.cached_property
-    def max_seq_len(self) -> int:
-        return self.config.state.model.max_seq_len
-
-    @functools.cached_property
-    def device(self) -> torch.device:
-        return self.config.runtime.device_type
 
     def load(self) -> None:
         """Load the model state and set to evaluation mode."""
-        self.config.state.load(train=False)
-        self.config.state.model.to(self.device)
-        self.config.state.model.eval()
+        self.state.load(train=False)
+        self.state.model.to(self.device)
+        self.state.model.eval()
 
     def encode(self, prompt: str) -> List[int]:
-        return self.config.processor.encode(prompt, add_bos=True, add_eos=False)
+        return self.processor.encode(prompt, add_bos=True, add_eos=False)
 
     def decode(self, encodings: Union[int, List[int]]) -> str:
-        return self.config.processor.decode(encodings)
+        return self.processor.decode(encodings)
 
     def batch(self, encodings: List[int]) -> torch.Tensor:
         return torch.tensor([encodings], dtype=torch.long, device=self.device)
 
     def predict(self, x: torch.Tensor) -> torch.Tensor:
-        return self.config.state.model(x)[:, -1, :]
+        return self.state.model(x)[:, -1, :]
 
     def sample(self, x: torch.Tensor, past_tokens: List[int]) -> int:
-        return self.config.sampler.sample(x, past_tokens=past_tokens)
+        return self.sampler.sample(x, past_tokens=past_tokens)
 
     def cat(self, x: torch.Tensor, token: int) -> torch.Tensor:
         return torch.cat([x, torch.tensor([[token]], device=self.device)], dim=1)
