@@ -10,17 +10,6 @@ import torch.nn as nn
 from mini.config import ConfigTransformer
 
 
-# The choice of embedding dimension (`embed_dim`) and maximum sequence length (`max_seq_length`)
-# is based on the following rationale:
-# - The sequence length (`max_seq_length`) dictates the positional encodings for the input sequence.
-#   - Positional encodings help the model understand the order of elements in the sequence.
-# - The embedding dimension (`embed_dim`) determines the dimensionality of the token embeddings.
-#   - Higher dimensions can capture more complex patterns but require more computational resources.
-# Ideally, these two dimensions work harmoniously to preserve positional information while enabling the
-# model to learn intricate patterns in the data. Additionally, this setup might make the model more robust
-# to variations in input sequence length. A negative consequence is that the model might lose some positional
-# information when the sequence length is shorter than the `max_seq_length`. However, this trade-off
-# might be acceptable if the model's performance is still satisfactory.
 class MLPEmbedding(nn.Module):
     """A simple multi-layer perceptron for embedding transformation."""
 
@@ -42,11 +31,11 @@ class MLPEmbedding(nn.Module):
             [
                 nn.Sequential(
                     nn.Linear(
-                        self.config.embed_dim if i == 0 else self.config.max_seq_len,
-                        self.config.max_seq_len,
+                        self.config.embed_dim if i == 0 else self.config.hidden_dim,
+                        self.config.hidden_dim,
                     ),
                     nn.SiLU(),
-                    nn.LayerNorm(self.config.max_seq_len),
+                    nn.LayerNorm(self.config.hidden_dim),
                     nn.Dropout(self.config.dropout),
                 )
                 for i in range(self.config.num_mlp_layers)

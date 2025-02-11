@@ -21,7 +21,7 @@ class PositionWiseFeedForward(nn.Module):
         super().__init__()
         self.bias = config.bias
         embed_dim = config.embed_dim  # Input and output size = d_model
-        hidden_dim = int(config.ff_dim * config.ff_mult)  # Expand via multiplier
+        hidden_dim = config.hidden_dim
 
         # Linear layers for the feed-forward network
         self.fc1 = nn.Linear(embed_dim, hidden_dim, bias=config.bias)
@@ -56,7 +56,7 @@ class GatedFeedForward(nn.Module):
         super().__init__()
         self.bias = config.bias
         embed_dim = config.embed_dim
-        hidden_dim = int(config.ff_dim * config.ff_mult)  # Ensure integer
+        hidden_dim = config.hidden_dim
 
         # Linear layers for the feed-forward network
         self.w1 = nn.Linear(embed_dim, hidden_dim, bias=config.bias)

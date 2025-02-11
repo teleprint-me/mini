@@ -18,7 +18,6 @@ class ConfigTransformer(ConfigDevice):
     pad_id: int = -1  # Handle padding in embeddings
     vocab_size: int = 32000  # Number of unique tokens in the vocabulary
     max_seq_len: int = 128  # Max positional encodings
-    seq_len: int = 6  # Sequence length
     embed_dim: int = 256  # Size of embedding matrix
     rope_theta: float = 10000.0  # RoPE scaling factor
 
@@ -36,13 +35,13 @@ class ConfigTransformer(ConfigDevice):
 
     def __post_init__(self):
         """Initializes model parameters and ensures correctness."""
-        # Set the pad id to 0 if it's unset
+        # Ensure pad_id is non-negative.
         self.pad_id = max(self.pad_id, 0)
 
         # Compute derived parameters
-        self.head_dim = self.embed_dim // self.num_heads
-        self.scale = 1 / (self.head_dim**0.5)  # Corrected scale calculation
-        self.ff_dim = int(self.embed_dim * self.ff_mult)  # Compute FFN hidden size
+        self.head_dim = self.embed_dim // self.num_heads  # Attention head dimension
+        self.scale = self.head_dim**-0.5  # Scale factor for attention
+        self.hidden_dim = int(self.ff_dim * self.ff_mult)  # Compute FFN hidden size
 
         # Validate parameter correctness
         self.__assert_init__()
@@ -54,13 +53,16 @@ class ConfigTransformer(ConfigDevice):
         """Ensures model parameters are correctly initialized."""
         assert (
             self.embed_dim % 2 == 0
-        ), f"Embedding dim must be even for sin/cos. Given: {self.embed_dim}"
+        ), f"Embedding dim must be even for sin/cos encoding. Given: {self.embed_dim}"
+
         assert (
             self.embed_dim % self.num_heads == 0
-        ), f"Embedding dim must be divisible by num_heads. Given: {self.embed_dim}, num_heads: {self.num_heads}"
+        ), f"Embedding dim ({self.embed_dim}) must be divisible by num_heads ({self.num_heads})."
+
         assert (
             self.head_dim == self.embed_dim // self.num_heads
         ), f"Head dim mismatch: {self.head_dim} != {self.embed_dim // self.num_heads}"
-        assert self.scale == 1 / (
-            self.head_dim**0.5
-        ), f"Scale mismatch: {self.scale} != 1 / sqrt({self.head_dim})"
+
+        assert (
+            self.scale == self.head_dim**-0.5
+        ), f"Scale mismatch: {self.scale} != {self.head_dim**-0.5}"

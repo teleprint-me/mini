@@ -61,11 +61,12 @@ class AttentionMask:
 class BaseAttention(nn.Module):
     def __init__(self, config: ConfigTransformer):
         super().__init__()
-        self.pad_id = max(config.pad_id, 0)
+        self.pad_id = config.pad_id
         self.bias = config.bias
         self.num_heads = config.num_heads
-        self.head_dim = config.embed_dim // config.num_heads
-        self.scale = self.head_dim**-0.5
+        self.head_dim = config.head_dim
+        self.scale = config.scale
+        self.dtype = config.dtype
 
         self.wq = nn.Linear(config.embed_dim, config.embed_dim, bias=config.bias)
         self.wk = nn.Linear(config.embed_dim, config.embed_dim, bias=config.bias)
@@ -105,14 +106,14 @@ class BaseAttention(nn.Module):
         q: torch.Tensor,
         k: torch.Tensor,
         v: torch.Tensor,
-        mask: torch.Tensor = None,
+        mask: torch.Tensor,
     ) -> torch.Tensor:
         """Computes scaled dot-product attention with optional masking."""
         # Compute scaled dot-product attention
         d_attn = (q @ k.transpose(-2, -1)) * self.scale
         # Apply mask if provided
         if mask is not None:
-            d_attn = d_attn.masked_fill(mask == 0, torch.finfo(d_attn.dtype).min)
+            d_attn = d_attn.masked_fill(mask == 0, torch.finfo(self.dtype).min)
         # Apply softmax to get attention weights
         d_attn = F.softmax(d_attn, dim=-1)
         # Apply multi-head attention weights to values
@@ -124,7 +125,7 @@ class BaseAttention(nn.Module):
         """Reshape concatenated multi-head output back to [B, T, C]."""
         return d_attn.transpose(1, 2).contiguous().view(B, T, C)
 
-    def forward(self, d_in: torch.Tensor, mask: torch.Tensor = None) -> torch.Tensor:
+    def forward(self, d_in: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
         """Forward pass of the attention mechanism. Input shape is [B, T, C]."""
         raise NotImplementedError("Forward method must be implemented by subclasses.")
 
@@ -133,7 +134,7 @@ class SelfAttention(BaseAttention):
     def __init__(self, config: ConfigTransformer):
         super().__init__(config)
 
-    def forward(self, d_in: torch.Tensor, mask: torch.Tensor = None) -> torch.Tensor:
+    def forward(self, d_in: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
         # Get batch size, sequence length, and embedding dimension
         B, T, C = d_in.shape
         # Compute Q, K, V projections
