@@ -129,6 +129,7 @@ class BaseAttention(nn.Module):
         raise NotImplementedError("Forward method must be implemented by subclasses.")
 
 
+# Attention is All You Need: https://arxiv.org/abs/1706.03762
 class SelfAttention(BaseAttention):
     def __init__(self, config: ConfigTransformer):
         super().__init__(config)
@@ -148,6 +149,7 @@ class SelfAttention(BaseAttention):
         return self.wo(d_out)
 
 
+# RoFormer: Enhanced Transformer with Rotary Position Embeddings https://arxiv.org/abs/2104.09864
 class RotaryAttention(BaseAttention):
     """Rotary attention mechanism for transformers."""
 

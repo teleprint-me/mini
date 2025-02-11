@@ -26,6 +26,7 @@ from mini.modules.normalization import RMSNorm
 from mini.modules.transformer import GatedBlock
 
 
+# RoFormer: Enhanced Transformer with Rotary Position Embeddings https://arxiv.org/abs/2104.09864
 class ValerieModel(nn.Module):
     """Minimal gated transformer model with rotary attention and FFN layers."""
 
