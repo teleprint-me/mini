@@ -32,7 +32,7 @@ class MistyModel(nn.Module):
         # Programmatic mask type selection, e.g. causal or bidirectional
         self.mask = AttentionMask(config)  # Config-driven mask type
         self.embedding = PositionalEmbedding(config)
-        self.blocks = nn.ModuleList(
+        self.transformer = nn.ModuleList(
             [PositionWiseBlock(config) for _ in range(config.num_layers)]
         )
         self.norm = nn.LayerNorm(normalized_shape=config.embed_dim)
@@ -52,7 +52,7 @@ class MistyModel(nn.Module):
         # NOTE: Apply padding and attention masks before the embeddings layer
         mask = self.mask(x)  # Config-driven device and data type
         x = self.embedding(x)
-        for block in self.blocks:
+        for block in self.transformer:
             x = block(x, mask)
         x = self.norm(x)
         return self.head(x)
