@@ -8,22 +8,34 @@ from typing import List, Optional, Union
 
 import regex as re  # Use `regex`, not `re`
 import torch
+from sentencepiece import SentencePieceProcessor
 
 from mini.config.generator import ConfigGenerator
+from mini.engine.sampler import EngineSampler
+from mini.engine.state import EngineState
 
 
 class EngineGenerator:
     def __init__(self, config: ConfigGenerator):
         self.config = config
-        self.processor = config.processor
         self.pad_id = config.pad_id
         self.bos_id = config.bos_id
         self.eos_id = config.eos_id
         self.max_seq_len = config.max_seq_len
-        self.state = config.state
-        self.sampler = config.sampler
         self.device = config.device
         self.load()
+
+    @property
+    def processor(self) -> SentencePieceProcessor:
+        return self.config.processor
+
+    @property
+    def state(self) -> EngineState:
+        return self.config.state
+
+    @property
+    def sampler(self) -> EngineSampler:
+        return self.config.sampler
 
     def load(self) -> None:
         """Load the model state and set to evaluation mode."""
