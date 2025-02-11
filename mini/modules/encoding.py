@@ -18,19 +18,20 @@ class BaseEncoding(nn.Module):
     def __init__(self, config: ConfigTransformer):
         super().__init__()
         self.config = config
+        self.embed_dim = self.config.embed_dim
+        self.max_seq_len = self.config.max_seq_len
+        self.dtype = self.config.dtype
         self.dropout = nn.Dropout(self.config.dropout)
 
     # Generate sinusoidal encoding
     def _generate_sinusoidal_encoding(self) -> torch.Tensor:
         """Creates sinusoidal positional encodings as described in Vaswani et al. (2017)."""
-        pe = torch.zeros(self.config.max_seq_len, self.config.embed_dim)
-        position = torch.arange(
-            self.config.max_seq_len, dtype=self.config.dtype
-        ).unsqueeze(1)
+        pe = torch.zeros(self.max_seq_len, self.embed_dim)
+        position = torch.arange(self.max_seq_len, dtype=self.dtype).unsqueeze(1)
         position = position.unsqueeze(1)
         div_term = torch.exp(
-            torch.arange(0, self.config.embed_dim, 2, dtype=self.config.dtype)
-            * (-torch.log(torch.tensor(10000.0)) / self.config.embed_dim)
+            torch.arange(0, self.embed_dim, 2, dtype=self.dtype)
+            * (-torch.log(torch.tensor(10000.0)) / self.embed_dim)
         )
         pe[:, 0::2] = torch.sin(position * div_term)
         pe[:, 1::2] = torch.cos(position * div_term)
@@ -85,9 +86,9 @@ class LinearEncoding(BaseEncoding):
 
         # TODO: Evaluate the effectiveness of this approach.
         self.projection = nn.Sequential(
-            nn.Linear(config.embed_dim, config.head_dim),
+            nn.Linear(config.embed_dim, config.hidden_dim),
             nn.SiLU(),
-            nn.Linear(config.head_dim, config.embed_dim),
+            nn.Linear(config.hidden_dim, config.embed_dim),
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
