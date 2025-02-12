@@ -24,6 +24,8 @@ if __name__ == "__main__":
 
     # Load model tokenizer
     processor = SentencePieceProcessor(model_file=args.processor)
+    # Define shared pad_id
+    pad_id = max(processor.pad_id(), 0)
 
     # Dynamically load Dataset & DataLoader
     dataset = None
@@ -33,7 +35,7 @@ if __name__ == "__main__":
             processor=processor,
             max_seq_len=args.max_seq_len,
             batch_size=args.batch_size,
-            schema_path=args.schema_path,
+            schema_path=args.schema,
             verbose=args.verbose,
         )
     else:  # Assume plaintext file
@@ -50,7 +52,7 @@ if __name__ == "__main__":
     config = ConfigTransformer(
         seed=args.seed,
         architecture=args.architecture,
-        pad_id=max(processor.pad_id(), 0),
+        pad_id=pad_id,
         vocab_size=processor.vocab_size(),
         max_seq_len=args.max_seq_len,
         embed_dim=args.embed_dim,
@@ -94,7 +96,7 @@ if __name__ == "__main__":
     # Load criterion config
     config_criterion = ConfigCriterion(
         type=args.criterion,
-        ignore_index=max(processor.pad_id(), 0),
+        ignore_index=pad_id,
         reduction=args.reduction,
     )
 
