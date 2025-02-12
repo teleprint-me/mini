@@ -6,7 +6,7 @@ NOTE: ConfigDevice inherits from ConfigBase.
 
 import functools
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 import regex as re
 from sentencepiece import SentencePieceProcessor
@@ -59,9 +59,9 @@ class ConfigSampler(ConfigDevice):
 class ConfigGenerator(ConfigDevice):
     """Configuration for text generation."""
 
-    state: "EngineState"
-    sampler: "EngineSampler"
-    processor: SentencePieceProcessor
+    state: Optional["EngineState"] = None
+    sampler: Optional["EngineSampler"] = None
+    processor: Optional[SentencePieceProcessor] = None
     pre_tokenizer: re.Pattern = DEFAULT_PRETOKENIZER  # Directly set default
 
     @functools.cached_property
