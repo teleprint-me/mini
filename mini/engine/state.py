@@ -14,9 +14,9 @@ from torch import nn, optim
 from torch.optim.lr_scheduler import LRScheduler
 
 from mini.common.logger import get_logger
-from mini.config import ConfigRuntime, ConfigTransformer
+from mini.config.transformer import ConfigTransformer
 from mini.engine.optimizer_manager import EngineOptimizerManager
-from mini.models.valerie import ModelValerie
+from mini.models.factory import ModelFactory
 
 
 @dataclass
@@ -26,7 +26,6 @@ class EngineState:
     path: str
     config: ConfigTransformer
     manager: EngineOptimizerManager
-    runtime: ConfigRuntime
     verbose: bool = False
 
     checkpoint: Dict[str, Any] = field(default_factory=dict)
@@ -37,6 +36,7 @@ class EngineState:
 
     def __post_init__(self):
         """Initializes state by loading from checkpoint (if exists) or setting up new components."""
+        self.factory = ModelFactory(self.config)
         self.logger = get_logger(
             name=self.__class__.__name__,
             level=logging.DEBUG if self.verbose else logging.INFO,
@@ -60,15 +60,16 @@ class EngineState:
         if "model_config" in self.checkpoint:
             self.config = ConfigTransformer(**self.checkpoint["model_config"])
 
-        self.model = ModelValerie(self.config)
+        self.model = self.factory.create_model()
+        self.logger.info(f"Model created: {self.config.architecture}")
 
         if "model_state" in self.checkpoint:
             self.model.load_state_dict(self.checkpoint["model_state"])
             self.logger.info("Model state loaded from checkpoint.")
 
-        # Move model to the correct device using runtime information
-        self.model.to(self.runtime.device_type)
-        self.logger.info(f"Model moved to device: {self.runtime.device_name}")
+        # Move model to the correct device using device information
+        self.model.to(self.config.device)
+        self.logger.info(f"Model moved to device: {self.config.dname}")
 
     def _load_optimizer(self) -> None:
         """Loads optimizer and restores state if available."""
