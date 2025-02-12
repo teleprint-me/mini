@@ -48,12 +48,6 @@ class TransformerArgs:
             "--model", required=True, help="Path to save or load the model."
         )
         self.parser.add_argument("--seed", type=int, default=42, help="Random seed.")
-        self.parser.add_argument(
-            "--eps",
-            type=float,
-            default=1e-8,
-            help="Epsilon for numerical stability (Default: 1e-8).",
-        )
 
     def add_required_for_train(self) -> None:
         """Required arguments for training mode."""
@@ -107,34 +101,11 @@ class TransformerArgs:
     def add_model_config(self) -> None:
         """Model architecture and configuration."""
         self.parser.add_argument(
-            "--embed-dim",
-            type=int,
-            default=512,
-            help="Embedding dimension size (Default: 512).",
-        )
-        self.parser.add_argument(
-            "--num-heads",
-            type=int,
-            default=4,
-            help="Number of attention heads (Default: 4).",
-        )
-        self.parser.add_argument(
-            "--head-dim",
-            type=int,
-            default=32,
-            help="Head dimension size (Default: 32).",
-        )
-        self.parser.add_argument(
-            "--num-layers",
-            type=int,
-            default=8,
-            help="Number of transformer layers (Default: 8).",
-        )
-        self.parser.add_argument(
-            "--ff-dim",
-            type=int,
-            default=128,
-            help="Feed-forward network dimension (Default: 128).",
+            "--architecture",
+            type=str,
+            choices=["misty", "valerie"],
+            default="misty",
+            help="Model architecture (Default: misty).",
         )
         self.parser.add_argument(
             "--max-seq-len",
@@ -143,10 +114,65 @@ class TransformerArgs:
             help="Maximum sequence length (Default: 256).",
         )
         self.parser.add_argument(
+            "--embed-dim",
+            type=int,
+            default=512,
+            help="Embedding dimension size (Default: 512).",
+        )
+        self.parser.add_argument(
             "--rope-theta",
             type=float,
             default=10000.0,
-            help="Theta for RoPE encoding (Deprecated; Default: 10000.0).",
+            help="Scale factor for RoPE encoding (Default: 10000.0).",
+        )
+        self.parser.add_argument(
+            "--num-mlp-layers",
+            type=int,
+            default=3,
+            help="Number of MLP layers (Default: 3).",
+        )
+        self.parser.add_argument(
+            "--num-layers",
+            type=int,
+            default=8,
+            help="Number of transformer layers (Default: 8).",
+        )
+        self.parser.add_argument(
+            "--num-heads",
+            type=int,
+            default=4,
+            help="Number of attention heads (Default: 4).",
+        )
+        self.parser.add_argument(
+            "--ff-dim",
+            type=int,
+            default=128,
+            help="Feed-forward network dimension (Default: 128).",
+        )
+        self.parser.add_argument(
+            "--ff-mult",
+            type=float,
+            default=4.0,
+            help="Feed-forward network expansion factor (Default: 4.0).",
+        )
+        self.parser.add_argument(
+            "--mask-type",
+            type=str,
+            default="causal",
+            choices=["causal", "bidirectional"],
+            help="Mask type for transformer (Default: causal).",
+        )
+        self.parser.add_argument(
+            "--eps",
+            type=float,
+            default=1e-8,
+            help="Epsilon for numerical stability (Default: 1e-8).",
+        )
+        self.parser.add_argument(
+            "--dropout",
+            type=float,
+            default=0.1,
+            help="Dropout rate (Default: 0.1).",
         )
         self.parser.add_argument(
             "--bias", action="store_true", help="Use bias in FFN (Default: False)."
