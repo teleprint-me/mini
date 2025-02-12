@@ -7,12 +7,12 @@ Description: Simple pre-training loop for text-to-text generation.
 from sentencepiece import SentencePieceProcessor
 
 from mini.common.args import TransformerArgs
-from mini.config import (
+from mini.config.optimizer_manager import (
     ConfigCriterion,
     ConfigOptimizer,
     ConfigScheduler,
-    ConfigTransformer,
 )
+from mini.config.transformer import ConfigTransformer
 from mini.data.loader import JsonDatasetLoader, TextDatasetLoader
 from mini.engine.optimizer_manager import EngineOptimizerManager
 from mini.engine.state import EngineState
