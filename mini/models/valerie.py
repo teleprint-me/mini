@@ -16,7 +16,6 @@ suitable for beginners to understand the basics of rotary positional encodings,
 learnable embeddings, and gated feed forward networks.
 """
 
-# Your module code here
 import torch.nn as nn
 
 from mini.config.transformer import ConfigTransformer
@@ -61,5 +60,4 @@ class ValerieModel(nn.Module):
             x = block(x, mask)
         # Final normalization and linear layer
         x = self.norm(x)
-        x = self.head(x)
-        return x
+        return self.head(x)

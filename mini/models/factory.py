@@ -1,4 +1,5 @@
 """
+Copyright © 2023 Austin Berrio
 Module: mini.models.factory
 Description: Factory module for creating model instances.
 """

@@ -14,7 +14,7 @@ from mini.config import (
     ConfigScheduler,
     ConfigTransformer,
 )
-from mini.data.loader import JsonDatasetLoader, TestDatasetLoader
+from mini.data.loader import JsonDatasetLoader, TextDatasetLoader
 from mini.engine.optimizer_manager import EngineOptimizerManager
 from mini.engine.state import EngineState
 from mini.engine.trainer import EngineTrainer
@@ -42,7 +42,7 @@ if __name__ == "__main__":
             verbose=args.verbose,
         )
     else:  # Assume plaintext file
-        dataset = TestDatasetLoader(
+        dataset = TextDatasetLoader(
             file_path=args.dataset,
             processor=processor,
             max_seq_len=args.max_seq_len,
@@ -60,7 +60,7 @@ if __name__ == "__main__":
         theta=args.rope_theta,
         num_blocks=args.num_layers,
         num_heads=args.num_heads,
-        hidden_dim=args.hidden_dim,
+        ff_dim=args.ff_dim,
         eps=args.eps,
         dropout=args.dropout,
         bias=args.bias,
