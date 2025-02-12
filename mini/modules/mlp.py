@@ -22,7 +22,7 @@ class MultiLayerPerceptron(nn.Module):
         self._init_weights()  # Initialize weights
 
     def _init_layers(self):
-        """Defines MLP layers for embedding transformation."""
+        """Defines MLP layers for encoded transformations."""
         self.layers = nn.ModuleList(
             [
                 nn.Sequential(
@@ -37,7 +37,7 @@ class MultiLayerPerceptron(nn.Module):
                 for i in range(self.config.num_mlp_layers)
             ]
         )
-        # Final projection to match token embedding space
+        # Final projection to match token encoded space
         self.projection = nn.Linear(self.config.hidden_dim, self.config.embed_dim)
         # Dropout & LayerNorm for regularization
         self.norm = nn.LayerNorm(self.config.embed_dim)
