@@ -4,9 +4,12 @@ Script: mini.cli.train
 Description: Simple pre-training loop for text-to-text generation.
 """
 
+import logging
+
 from sentencepiece import SentencePieceProcessor
 
 from mini.common.args import TransformerArgs
+from mini.common.logger import get_logger
 from mini.config.optimizer_manager import (
     ConfigCriterion,
     ConfigOptimizer,
@@ -22,8 +25,12 @@ if __name__ == "__main__":
     # Parse arguments
     args = TransformerArgs("Mini Training Tool").parse_args("train")
 
+    # Initialize logging
+    logger = get_logger(__name__, level=logging.DEBUG if args.verbose else logging.INFO)
+
     # Load model tokenizer
     processor = SentencePieceProcessor(model_file=args.processor)
+
     # Define shared pad_id
     pad_id = max(processor.pad_id(), 0)
 
@@ -38,7 +45,7 @@ if __name__ == "__main__":
             schema_path=args.schema,
             verbose=args.verbose,
         )
-    else:  # Assume plaintext file
+    else:
         dataset = TextDatasetLoader(
             file_path=args.dataset,
             processor=processor,
@@ -99,6 +106,17 @@ if __name__ == "__main__":
         ignore_index=pad_id,
         reduction=args.reduction,
     )
+
+    # Log training configuration
+    logger.info("User Training Configuration:")
+    logger.info(f"Model Architecture: {args.architecture}")
+    logger.info(f"Number of Layers: {args.num_layers}")
+    logger.info(f"Embedding Dim: {args.embed_dim}")
+    logger.info(f"Feed Forward Dim: {args.ff_dim}, Expansion: {args.ff_mult}")
+    logger.info(f"Optimizer: {args.optimizer}, LR: {args.lr}")
+    logger.info(f"Scheduler: {args.scheduler}, Step Size: {args.step_size}")
+    logger.info(f"Criterion: {args.criterion}, Reduction: {args.reduction}")
+    logger.info(f"Training for {args.num_epochs} epochs...")
 
     # Load optimization manager
     manager = EngineOptimizerManager(
