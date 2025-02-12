@@ -10,7 +10,6 @@ from mini.common.args import TransformerArgs
 from mini.config import (
     ConfigCriterion,
     ConfigOptimizer,
-    ConfigRuntime,
     ConfigScheduler,
     ConfigTransformer,
 )
@@ -22,10 +21,6 @@ from mini.engine.trainer import EngineTrainer
 if __name__ == "__main__":
     # Parse arguments
     args = TransformerArgs("Mini Training Tool").parse_args("train")
-
-    # Load runtime configuration
-    runtime = ConfigRuntime(seed=args.seed)
-    runtime.seed_all()
 
     # Load model tokenizer
     processor = SentencePieceProcessor(model_file=args.processor)
@@ -53,22 +48,29 @@ if __name__ == "__main__":
 
     # Load Transformer Config
     config = ConfigTransformer(
+        seed=args.seed,
+        architecture=args.architecture,
         pad_id=max(processor.pad_id(), 0),
         vocab_size=processor.vocab_size(),
         max_seq_len=args.max_seq_len,
         embed_dim=args.embed_dim,
-        theta=args.rope_theta,
-        num_blocks=args.num_layers,
+        rope_theta=args.rope_theta,
+        num_mlp_layers=args.num_mlp_layers,
+        num_layers=args.num_layers,
         num_heads=args.num_heads,
         ff_dim=args.ff_dim,
+        ff_mult=args.ff_mult,
+        mask_type=args.mask_type,
         eps=args.eps,
         dropout=args.dropout,
         bias=args.bias,
     )
+    config.set_seed()
 
     # Load optimizer config
     config_optimizer = ConfigOptimizer(
         type=args.optimizer,
+        recurse=args.recurse,
         lr=args.lr,
         eps=args.eps,
         amsgrad=args.amsgrad,
@@ -109,7 +111,6 @@ if __name__ == "__main__":
         path=args.model,
         config=config,
         manager=manager,
-        runtime=runtime,
         verbose=args.verbose,
     )
 
