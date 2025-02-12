@@ -10,20 +10,16 @@ import torch.nn as nn
 from mini.config import ConfigTransformer
 
 
-class MLPEmbedding(nn.Module):
-    """A simple multi-layer perceptron for embedding transformation."""
+# Multilayer feedforward networks are universal approximators:
+# https://dl.acm.org/doi/abs/10.5555/70405.70408
+class MultiLayerPerceptron(nn.Module):
+    """A simple multi-layer perceptron for encoded transformations."""
 
     def __init__(self, config: ConfigTransformer):
         super().__init__()
         self.config = config  # Ensure config is assigned before calling _init_layers
         self._init_layers()  # Initialize layers
-        # Final projection to match token embedding space
-        self.projection = nn.Linear(config.max_seq_len, config.embed_dim)
-        # Dropout & LayerNorm for regularization
-        self.norm = nn.LayerNorm(config.embed_dim)
-        self.dropout = nn.Dropout(config.dropout)
-        # Initialize weights
-        self._init_weights()
+        self._init_weights()  # Initialize weights
 
     def _init_layers(self):
         """Defines MLP layers for embedding transformation."""
@@ -41,6 +37,11 @@ class MLPEmbedding(nn.Module):
                 for i in range(self.config.num_mlp_layers)
             ]
         )
+        # Final projection to match token embedding space
+        self.projection = nn.Linear(self.config.hidden_dim, self.config.embed_dim)
+        # Dropout & LayerNorm for regularization
+        self.norm = nn.LayerNorm(self.config.embed_dim)
+        self.dropout = nn.Dropout(self.config.dropout)
 
     def _init_weights(self):
         """Initializes all weights using Xavier uniform distribution."""
@@ -51,6 +52,7 @@ class MLPEmbedding(nn.Module):
                     if module.bias is not None:
                         nn.init.uniform_(module.bias, a=-0.1, b=0.1)
                 elif isinstance(module, nn.LayerNorm):
+                    nn.init.xavier_uniform_(module.weight)
                     if module.bias is not None:
                         nn.init.uniform_(module.bias, a=-0.1, b=0.1)
 
@@ -60,9 +62,10 @@ class MLPEmbedding(nn.Module):
             nn.init.uniform_(self.projection.bias, a=-0.1, b=0.1)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """Forward pass through the embedding layer."""
+        """Forward pass through the perceptron model layers."""
         for layer in self.layers:
             x = layer(x)
-        x = self.norm(x)  # Normalize before dropout
-        x = self.dropout(x)
-        return self.projection(x)  # (B, T, C) output
+        # Project output with shape (B, T, C)
+        x = self.projection(x)
+        # Residual connection and layer normalization
+        return self.dropout(self.norm(x)) + x
