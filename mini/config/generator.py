@@ -5,10 +5,10 @@ NOTE: ConfigDevice inherits from ConfigBase.
 """
 
 import functools
-import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+import regex as re
 from sentencepiece import SentencePieceProcessor
 
 from mini.config.device import ConfigDevice
