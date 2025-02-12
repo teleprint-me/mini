@@ -4,6 +4,8 @@ Module: mini.models.factory
 Description: Factory module for creating model instances.
 """
 
+import torch.nn as nn
+
 from mini.config.transformer import ConfigTransformer
 from mini.models.misty import MistyModel
 from mini.models.valerie import ValerieModel
@@ -23,7 +25,7 @@ class ModelFactory:
     def __init__(self, config: ConfigTransformer):
         self.config = config
 
-    def create_model(self):
+    def create_model(self) -> nn.Module:
         """
         Create a model instance based on the configuration.
         """
