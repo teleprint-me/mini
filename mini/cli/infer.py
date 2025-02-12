@@ -9,83 +9,81 @@ import sys
 from sentencepiece import SentencePieceProcessor
 
 from mini.common.args import TransformerArgs
-from mini.transformer.generator import (
-    DEFAULT_PRETOKENIZER,
-    GeneratorConfig,
-    MiniGenerator,
-)
-from mini.transformer.manager import MiniManager
-from mini.transformer.model import MiniConfig, MiniRuntime
-from mini.transformer.sampler import MiniSampler, SamplerConfig
-from mini.transformer.state import MiniState
+from mini.config.generator import DEFAULT_PRETOKENIZER, ConfigGenerator, ConfigSampler
+from mini.config.transformer import ConfigTransformer
+from mini.engine.generator import EngineGenerator
+from mini.engine.optimizer_manager import EngineOptimizerManager
+from mini.engine.sampler import EngineSampler
+from mini.engine.state import EngineState
 
 if __name__ == "__main__":
     args = TransformerArgs("Mini Inference Tool").parse_args("infer")
-
-    # Load runtime configuration
-    runtime = MiniRuntime(seed=args.seed)
-    runtime.seed_all()
 
     # Load model tokenizer
     processor = SentencePieceProcessor(model_file=args.processor)
 
     # Load Transformer Config
-    config = MiniConfig(
-        vocab_size=processor.vocab_size(),
-        embed_dim=args.embed_dim,
-        num_heads=args.num_heads,
-        head_dim=args.head_dim,
-        num_layers=args.num_layers,
-        ff_dim=args.ff_dim,
-        max_seq_len=args.max_seq_len,
+    config = ConfigTransformer(
+        seed=args.seed,
+        architecture=args.architecture,
         pad_id=max(processor.pad_id(), 0),
+        vocab_size=processor.vocab_size(),
+        max_seq_len=args.max_seq_len,
+        embed_dim=args.embed_dim,
+        rope_theta=args.rope_theta,
+        num_mlp_layers=args.num_mlp_layers,
+        num_layers=args.num_layers,
+        num_heads=args.num_heads,
+        ff_dim=args.ff_dim,
+        ff_mult=args.ff_mult,
+        mask_type=args.mask_type,
         eps=args.eps,
-        theta=args.rope_theta,
+        dropout=args.dropout,
         bias=args.bias,
     )
+    config.set_seed()
 
     # Load optimization manager
-    manager = MiniManager(
-        optimizer=None,
-        scheduler=None,
-        criterion=None,
+    manager = EngineOptimizerManager(
+        config_optimizer=None,
+        config_scheduler=None,
+        config_criterion=None,
         verbose=args.verbose,
     )
 
     # Load state manager
-    state = MiniState(
+    state = EngineState(
         path=args.model,
         config=config,
         manager=manager,
-        runtime=runtime,
         verbose=args.verbose,
     )
 
     # Load sampler config
-    sampler_config = SamplerConfig(
+    config_sampler = ConfigSampler(
+        seed=args.seed,
+        pad_id=max(processor.pad_id(), 0),
         top_k=args.top_k,
         top_p=args.top_p,
         temperature=args.temperature,
         repetition_penalty=args.repetition_penalty,
         greedy=args.greedy,
-        pad_id=max(processor.pad_id(), 0),
         verbose=args.verbose,
     )
-
     # Load sampler state
-    sampler = MiniSampler(config=sampler_config)
+    sampler = EngineSampler(config=config_sampler)
 
     # Load generator config
-    generator_config = GeneratorConfig(
+    config_generator = ConfigGenerator(
+        seed=args.seed,
         state=state,
         sampler=sampler,
-        runtime=runtime,
         processor=processor,
         pre_tokenizer=DEFAULT_PRETOKENIZER,
     )
 
     # Load generator
-    generator = MiniGenerator(config=generator_config)
+    generator = EngineGenerator(config=config_generator)
 
     # Run inference
     print(f"\033[32;1;1m{args.prompt}\033[0m", end="", flush=True)  # Output prompt
