@@ -36,7 +36,6 @@ class EngineState:
 
     def __post_init__(self):
         """Initializes state by loading from checkpoint (if exists) or setting up new components."""
-        self.factory = ModelFactory(self.config)
         self.logger = get_logger(
             name=self.__class__.__name__,
             level=logging.DEBUG if self.verbose else logging.INFO,
@@ -57,17 +56,20 @@ class EngineState:
 
     def _load_model(self) -> None:
         """Loads model from checkpoint if available, otherwise initializes a new model."""
+        # Override config if checkpoint contains model configuration
         if "model_config" in self.checkpoint:
             self.config = ConfigTransformer(**self.checkpoint["model_config"])
 
-        self.model = self.factory.create_model()
+        # Dynamically create a model with the updated configuration
+        self.model = ModelFactory(self.config).create_model()
         self.logger.info(f"Model created: {self.config.architecture}")
 
+        # Load model state from checkpoint if available
         if "model_state" in self.checkpoint:
             self.model.load_state_dict(self.checkpoint["model_state"])
             self.logger.info("Model state loaded from checkpoint.")
 
-        # Move model to the correct device using device information
+        # Move model to the appropriate device
         self.model.to(self.config.device)
         self.logger.info(f"Model moved to device: {self.config.dname}")
 
