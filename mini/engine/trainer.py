@@ -10,6 +10,8 @@ from typing import Optional, Union
 
 import torch
 from sentencepiece import SentencePieceProcessor
+from torch.optim import Optimizer
+from torch.optim.lr_scheduler import LRScheduler
 
 from mini.common.logger import get_logger
 from mini.data.loader import DatasetLoader
@@ -35,28 +37,27 @@ class EngineTrainer:
     # === 🔥 Convenience Properties === #
     @property
     def device(self) -> torch.device:
-        return self.state.runtime.device_type
+        return self.state.config.device
 
     @property
     def model(self) -> torch.nn.Module:
         return self.state.model
 
     @property
-    def optimizer(self) -> torch.optim.Optimizer:
+    def optimizer(self) -> Optimizer:
         return self.state.optimizer
 
     @property
-    def scheduler(self) -> Optional[torch.optim.lr_scheduler.LRScheduler]:
-        return self.state.scheduler  # Returns None if no scheduler is used
+    def scheduler(self) -> Optional[LRScheduler]:
+        return self.state.scheduler
 
     @property
     def loss(self) -> torch.nn.Module:
         return self.state.criterion
 
     def load(self) -> None:
-        """Loads state, moves model to device, and sets it to training mode."""
+        """Loads state and sets model to training mode."""
         self.state.load(training_mode=True)
-        self.model.to(self.device)
         self.model.train()
 
     def save(self) -> None:
@@ -78,15 +79,17 @@ class EngineTrainer:
         for epoch in range(num_epochs):
             total_loss = 0
             for batch, (x, y) in enumerate(self.dataset):
-                self.optimizer.zero_grad()
                 x, y = x.to(self.device), y.to(self.device)
-
                 logits = self.model(x)
                 loss = self.loss(logits.view(-1, logits.size(-1)), y.view(-1))
-                loss = loss / grad_accum_steps  # Normalize loss for accumulation
+                loss = loss / grad_accum_steps  # Normalize loss per step
 
                 loss.backward()
-                self.optimizer.step()  # Apply optimizer updates
+
+                if (batch + 1) % grad_accum_steps == 0:
+                    self.optimizer.step()
+                    self.optimizer.zero_grad()
+
                 total_loss += loss.item() * grad_accum_steps
 
                 self.log_batch(epoch, num_epochs, batch, loss)
@@ -106,13 +109,7 @@ class EngineTrainer:
         num_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
         self.logger.info(f"Model has {num_params:,} learnable parameters.")
 
-    def log_batch(
-        self,
-        epoch: int,
-        num_epochs: int,
-        batch: int,
-        loss: torch.Tensor,
-    ):
+    def log_batch(self, epoch: int, num_epochs: int, batch: int, loss: torch.Tensor):
         """Logs loss & perplexity for each batch."""
         self.logger.debug(
             f"[Epoch: {epoch+1}/{num_epochs}] "
@@ -124,11 +121,7 @@ class EngineTrainer:
     def log_epoch(self, epoch: int, num_epochs: int, total_loss: float):
         """Logs total epoch loss, learning rate, and perplexity."""
         average_loss = self.average_loss(total_loss)
-        lr = (
-            self.scheduler.get_last_lr()[0]
-            if self.scheduler is not None
-            else self.optimizer.defaults["lr"]
-        )
+        lr = self.optimizer.param_groups[0]["lr"]
 
         self.logger.info(
             f"[Epoch: {epoch+1}/{num_epochs}] "
@@ -144,6 +137,8 @@ class EngineTrainer:
         return x / len(self.dataset)
 
     def perplexity(self, x: Union[float, torch.Tensor]) -> float:
+        """Computes perplexity, ensuring loss is non-negative."""
         if isinstance(x, float):
             x = torch.tensor(x)
+        x = torch.clamp(x, min=0)
         return torch.exp(x).item()
