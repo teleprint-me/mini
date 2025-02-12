@@ -14,6 +14,9 @@ from mini.config.device import ConfigDevice
 class ConfigTransformer(ConfigDevice):
     """Configuration for transformer model architecture."""
 
+    # Model Architecture
+    architecture: str = "misty"  # Default architecture is "misty"
+
     # Encoder and Embedding
     pad_id: int = -1  # Handle padding in embeddings
     vocab_size: int = 32000  # Number of unique tokens in the vocabulary
