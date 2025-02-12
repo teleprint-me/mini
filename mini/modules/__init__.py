@@ -13,7 +13,7 @@ from mini.modules.encoding import (
     RotaryEncoding,
 )
 from mini.modules.feed_forward import GatedFeedForward, PositionWiseFeedForward
-from mini.modules.mlp import MLPEmbedding
+from mini.modules.mlp import MultiLayerPerceptron
 from mini.modules.normalization import RMSNorm
 from mini.modules.transformer import GatedBlock, PositionWiseBlock
 
@@ -30,7 +30,7 @@ __all__ = [
     "RotaryEncoding",
     "GatedFeedForward",
     "PositionWiseFeedForward",
-    "MLPEmbedding",
+    "MultiLayerPerceptron",
     "RMSNorm",
     "GatedBlock",
     "PositionWiseBlock",

@@ -9,7 +9,7 @@ import torch.nn as nn
 
 from mini.config import ConfigTransformer
 from mini.modules.encoding import BertEncoding, LinearEncoding, PositionalEncoding
-from mini.modules.mlp import MLPEmbedding
+from mini.modules.mlp import MultiLayerPerceptron
 
 
 class BaseEmbedding(nn.Module):
@@ -76,7 +76,7 @@ class LinearEmbedding(BaseEmbedding):
         # LayerNorm to stabilize positional encodings
         self.norm = nn.LayerNorm(config.embed_dim)
         # MLP learns **positional encodings** (avoids distorting tokens)
-        self.mlp = MLPEmbedding(config)
+        self.mlp = MultiLayerPerceptron(config)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Computes token + positional embeddings and applies MLP layers."""
