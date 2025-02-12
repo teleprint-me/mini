@@ -10,7 +10,7 @@ import torch.nn as nn
 from mini.config import ConfigTransformer
 
 
-# Root Mean Square Normalization Layer: https://arxiv.org/abs/1910.07467
+# Root Mean Square Layer Normalization: https://arxiv.org/abs/1910.07467
 class RMSNorm(nn.Module):
     """RMSNorm layer for transformer models."""
 
