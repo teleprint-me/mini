@@ -208,13 +208,21 @@ class TransformerArgs:
             help="Optimizer to use (Default: adamw).",
         )
         self.parser.add_argument(
-            "--lr", type=float, default=1e-4, help="Learning rate (Default: 1e-4)."
+            "--recurse",
+            action="store_true",
+            help="Optimizer will yield model parameters recursively (Default: False).",
+        )
+        self.parser.add_argument(
+            "--lr",
+            type=float,
+            default=1e-4,
+            help="Optimizer learning rate (Default: 1e-4).",
         )
         self.parser.add_argument(
             "--weight-decay",
             type=float,
             default=0,
-            help="Weight decay (Default: 0).",
+            help="Optimizer weight decay (Default: 0).",
         )
         self.parser.add_argument(
             "--amsgrad",
