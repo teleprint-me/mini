@@ -11,7 +11,7 @@ from mini.config.base import ConfigBase
 
 
 @dataclass
-class ConfigTrainer(ConfigBase):
+class ConfigOptimizerManager(ConfigBase):
     """Base class for optimizer, scheduler, and criterion configs."""
 
     type: str
@@ -31,7 +31,7 @@ class ConfigTrainer(ConfigBase):
 
 
 @dataclass
-class ConfigOptimizer(ConfigTrainer):
+class ConfigOptimizer(ConfigOptimizerManager):
     """Configuration for optimizers like Adam, AdamW, and SGD."""
 
     type: str = "adamw"  # Default optimizer
@@ -54,7 +54,7 @@ class ConfigOptimizer(ConfigTrainer):
 
 
 @dataclass
-class ConfigScheduler(ConfigTrainer):
+class ConfigScheduler(ConfigOptimizerManager):
     """Configuration for learning rate schedulers."""
 
     type: str = "step"  # Default scheduler
@@ -75,7 +75,7 @@ class ConfigScheduler(ConfigTrainer):
 
 
 @dataclass
-class ConfigCriterion(ConfigTrainer):
+class ConfigCriterion(ConfigOptimizerManager):
     """Configuration for loss functions."""
 
     type: str = "cross_entropy"  # Default loss function

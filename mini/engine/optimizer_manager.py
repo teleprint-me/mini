@@ -13,7 +13,11 @@ from torch import nn, optim
 from torch.optim.lr_scheduler import LRScheduler
 
 from mini.common.logger import get_logger
-from mini.config import ConfigCriterion, ConfigOptimizer, ConfigScheduler
+from mini.config.optimizer_manager import (
+    ConfigCriterion,
+    ConfigOptimizer,
+    ConfigScheduler,
+)
 
 
 @dataclass
