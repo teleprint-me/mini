@@ -59,14 +59,17 @@ class ConfigTransformer(ConfigDevice):
             self.embed_dim % 2 == 0
         ), f"Embedding dim must be even for sin/cos encoding. Given: {self.embed_dim}"
 
-        assert (
-            self.embed_dim % self.num_heads == 0
-        ), f"Embedding dim ({self.embed_dim}) must be divisible by num_heads ({self.num_heads})."
+        assert self.embed_dim % self.num_heads == 0, (
+            f"Embedding dim ({self.embed_dim}) must be divisible by num_heads ({self.num_heads}). "
+            f"Suggested: Set embed_dim to a multiple of num_heads."
+        )
 
-        assert (
-            self.head_dim == self.embed_dim // self.num_heads
-        ), f"Head dim mismatch: {self.head_dim} != {self.embed_dim // self.num_heads}"
+        assert self.head_dim == self.embed_dim // self.num_heads, (
+            f"Head dim mismatch: {self.head_dim} != {self.embed_dim // self.num_heads}. "
+            f"Check num_heads and embed_dim configuration."
+        )
 
-        assert (
-            self.scale == self.head_dim**-0.5
-        ), f"Scale mismatch: {self.scale} != {self.head_dim**-0.5}"
+        assert self.scale == self.head_dim**-0.5, (
+            f"Scale mismatch: {self.scale} != {self.head_dim**-0.5}. "
+            f"Ensure self.head_dim = embed_dim / num_heads is correct."
+        )
