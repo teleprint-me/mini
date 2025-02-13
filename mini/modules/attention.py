@@ -27,7 +27,7 @@ class AttentionMask:
     def __call__(self, input_ids: torch.Tensor) -> torch.Tensor:
         """Combine padding and attention masks."""
         pad_mask = self._get_pad_mask(input_ids)
-        attn_mask = self._get_attention_mask(self.mask_type)
+        attn_mask = self._get_attention_mask()
         return pad_mask + attn_mask  # Add masks together
 
     def _get_pad_mask(self, input_ids: torch.Tensor) -> torch.Tensor:
