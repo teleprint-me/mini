@@ -6,6 +6,7 @@ NOTE: ConfigDevice inherits from ConfigBase.
 """
 
 from dataclasses import dataclass
+from typing import Any, Dict
 
 from mini.config.device import ConfigDevice
 
@@ -73,3 +74,20 @@ class ConfigTransformer(ConfigDevice):
             f"Scale mismatch: {self.scale} != {self.head_dim**-0.5}. "
             f"Ensure self.head_dim = embed_dim / num_heads is correct."
         )
+
+    def as_dict(self) -> Dict[str, Any]:
+        """Returns a dictionary representation of the config."""
+        ignore_keys = {
+            "head_dim",
+            "hidden_dim",
+            "scale",  # Computed at runtime
+            "seed",
+            "dname",
+            "dtype",
+            "device",  # Runtime-specific properties
+        }
+        return {
+            k: v
+            for k, v in self.__dict__.items()
+            if k not in ignore_keys and not k.startswith("_")
+        }
