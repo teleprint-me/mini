@@ -39,7 +39,11 @@ class DatasetLoader(Dataset):
             level=logging.DEBUG if self.verbose else logging.INFO,
         )
         self.logger.info(f"Initializing dataset from {self.file_path}")
+
+    def __post_init__(self):
+        """Load and process the dataset."""
         self.load_data()
+        self.logger.debug(f"Dataset loaded with {len(self.batches)} batches")
 
     def __getitem__(self, idx) -> tuple[torch.Tensor, torch.Tensor]:
         """Return a tokenized input-target pair as torch tensors."""
@@ -76,7 +80,7 @@ class TextDatasetLoader(DatasetLoader):
         # Use TextDatasetProcessor for tokenization and batching
         self.text_processor = TextDatasetProcessor(self.processor, self.verbose)
         self.encoded = self.text_processor.tokenize(
-            raw_text, max_seq_len=self.max_seq_len, batch_stride=self.batch_stride
+            raw_text, self.max_seq_len, batch_stride=self.batch_stride
         )
         self.batches = self.text_processor.batch(self.encoded, self.batch_size)
         self.logger.debug(f"Generated {len(self.batches)} training batches")
