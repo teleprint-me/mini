@@ -1,9 +1,9 @@
 # **Mini**
 
-_A lightweight toolkit for training language models in PyTorch._
+_A lightweight modular framework for language modeling in PyTorch._
 
-Mini is a modular framework for pre-training, fine-tuning, and evaluating
-transformer-based language models. It is designed to support
+Mini is a lightweight modular framework for pre-training, fine-tuning, and
+evaluating transformer-based language models. It is designed to support
 sequence-to-sequence learning tasks such as **next-word prediction**,
 **instruction tuning**, and **text generation**.
 
@@ -14,23 +14,53 @@ sequence-to-sequence learning tasks such as **next-word prediction**,
 - **Evaluation with perplexity and future metric support** _(BLEU, ROUGE, etc.)_
 - **Easy CLI interface for training, inference, and evaluation**
 - **Support for model checkpointing & resuming**
-- **Optimized training with RMSNorm, SiLU activation, and learnable embeddings**
+- **Optimized training with RMSNorm, SiLU activation, and RoPE Attention**
 
 ## **Architecture**
 
-Mini follows a transformer-based architecture with a simplified and efficient
-design:
+Mini follows both classical and state-of-the-art transformer-based architectures
+with a simplified and efficient design:
 
-- **`MiniEmbedding`** – Learns both token and positional embeddings.
-- **`MiniAttention`** – Implements scaled dot-product self-attention.
-- **`MiniBlock`** – Stacks self-attention and feedforward layers.
-- **`MiniTransformer`** – A lightweight sequence-to-sequence model.
-- **`RMSNorm`** – Stabilizes training by normalizing activations.
-- **`FeedForward`** – Non-linear transformations with SiLU activation.
+### **Encoding**
 
-The current implementation focuses on **pre-training** with a learnable
-embedding block. Future iterations may include **RoPE (Rotary Positional
-Encoding)** and **adaptive attention mechanisms**.
+- **PositionalEncoding** - Adds positional information to input tokens.
+- **BertEncoding** - Uses residual learning to improve positional encoding.
+- **LinearEncoding** - Uses linear transformations for positional encoding.
+- **RotaryEncoding** - Uses rotary positional encoding for efficient
+  computation.
+
+### **Embedding**
+
+- **PositionalEmbedding** - Embeds input tokens with positional information.
+- **BertEmbedding** - Uses residual learning to improve embedding.
+- **LinearEmbedding** - Uses linear transformations for embedding.
+
+### **Attention**
+
+- **SelfAttention** - Computes self-attention between tokens.
+- **RotaryAttention** - Uses rotary positional encoding for efficient
+  computation.
+
+### **Normalization**
+
+- **LayerNorm** - Normalizes across the last dimension.
+- **RMSNorm** - Normalizes activations using the root mean square.
+
+### **Feed-Forward**
+
+- **PositionWiseFeedForward** - Applies feed-forward transformations to each
+  token.
+- **GatedFeedForward** - Applies feed-forward transformations with gating.
+
+### **Transformer**
+
+- **PositionWiseBlock** - Combines self-attention and feed-forward layers.
+- **GatedBlock** - Combines self-attention and feed-forward layers with gating.
+
+Current implementations focus on **position-wise** and **gated architectures**.
+The goal is to provide a flexible and efficient framework for building
+transformer-based models. Mini includes a variety of components and modules that
+allow for easy experimentation and customization.
 
 ## **Installation & Setup**
 
@@ -96,10 +126,6 @@ Check the dataset character count.
 wc -c data/mini-owl.md # ~1053 characters
 ```
 
-**NOTE:** Any plaintext file will work. `mini-owl.md` is used for isolated and
-controlled experimentation. See [training.md](docs/training.md) for more
-information.
-
 ## **Usage**
 
 ### **Pre-training**
@@ -108,22 +134,37 @@ Train a model from scratch on a dataset:
 
 ```sh
 python -m mini.cli.train \
-    --dataset data/mini-owl.md \
     --processor models/tokenizer.model \
-    --model models/mini.pt \
+    --model models/misty-owl.pth \
+    --dataset data/mini-owl.md \
+    --architecture misty \
+    --num-epochs 10 \
     --batch-size 2 \
     --batch-stride 8 \
-    --num-epochs 100 \
-    --save-every 10 \
-    --num-layers 4 \
-    --num-heads 8 \
-    --head-dim 16 \
-    --embed-dim 256 \
     --lr 1e-4 \
+    --optimizer adamw \
     --scheduler none \
-    --bias \
+    --criterion cross_entropy \
     --verbose
 ```
+
+- **Parameters:**
+  - `--processor models/tokenizer.model`: Path to the tokenizer model.
+  - `--model models/misty-owl.pth`: Path to the model state.
+  - `--dataset data/mini-owl.md`: Path to the dataset.
+  - `--architecture misty`: Model architecture.
+  - `--num-epochs 10`: Number of training epochs.
+  - `--batch-size 2`: Batch size.
+  - `--batch-stride 8`: Sequence length per sub-batch.
+  - `--lr 1e-4`: Learning rate.
+  - `--optimizer adamw`: Optimizer algorithm.
+  - `--scheduler none`: Learning rate scheduler.
+  - `--criterion cross_entropy`: Loss function.
+  - `--verbose`: Enable verbosity for debugging.
+
+**NOTE:** Any plaintext file will work. `mini-owl.md` is used for isolated and
+controlled experimentation. See [training.md](docs/training.md) for more
+information.
 
 ### **Inference**
 
@@ -132,9 +173,17 @@ Run inference on a trained model:
 ```sh
 python -m mini.cli.infer \
     --processor models/tokenizer.model \
-    --model models/mini.pt \
+    --model models/misty-owl.pth \
+    --temperature 0.5 \
     --prompt "The young bird listened"
 ```
+
+- **Parameters:**
+  - `--processor models/tokenizer.model`: Path to the tokenizer model.
+  - `--model models/misty-owl.pth`: Path to the model state.
+  - `--temperature 0.5`: Temperature for sampling. Lower values make the output
+    more deterministic, and higher values make it more diverse.
+  - `--prompt "The young bird listened"`: Input sequence for inference.
 
 ### **Fine-tuning** _(coming soon)_
 
