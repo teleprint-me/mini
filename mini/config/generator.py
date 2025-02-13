@@ -4,7 +4,6 @@ Description: Configuration classes for text generation.
 NOTE: ConfigDevice inherits from ConfigBase.
 """
 
-import functools
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Optional
 
@@ -63,19 +62,3 @@ class ConfigGenerator(ConfigDevice):
     sampler: Optional["EngineSampler"] = None
     processor: Optional[SentencePieceProcessor] = None
     pre_tokenizer: re.Pattern = DEFAULT_PRETOKENIZER  # Directly set default
-
-    @functools.cached_property
-    def pad_id(self) -> int:
-        return max(self.processor.pad_id(), 0)
-
-    @functools.cached_property
-    def bos_id(self) -> int:
-        return self.config.processor.bos_id()
-
-    @functools.cached_property
-    def eos_id(self) -> int:
-        return self.config.processor.eos_id()
-
-    @property
-    def max_seq_len(self) -> int:
-        return self.state.model.max_seq_len

@@ -4,6 +4,7 @@ Script: mini.engine.generator
 Description: Simple completions for text-to-text generation with streaming output.
 """
 
+import functools
 from typing import List, Optional, Union
 
 import regex as re  # Use `regex`, not `re`
@@ -18,10 +19,6 @@ from mini.engine.state import EngineState
 class EngineGenerator:
     def __init__(self, config: ConfigGenerator):
         self.config = config
-        self.pad_id = config.pad_id
-        self.bos_id = config.bos_id
-        self.eos_id = config.eos_id
-        self.max_seq_len = config.max_seq_len
         self.device = config.device
         self.load()
 
@@ -37,9 +34,25 @@ class EngineGenerator:
     def sampler(self) -> EngineSampler:
         return self.config.sampler
 
+    @functools.cached_property
+    def pad_id(self) -> int:
+        return max(self.processor.pad_id(), 0) if self.processor else 0
+
+    @functools.cached_property
+    def bos_id(self) -> int:
+        return self.processor.bos_id() if self.processor else 0  # Safe fallback
+
+    @functools.cached_property
+    def eos_id(self) -> int:
+        return self.processor.eos_id() if self.processor else 0  # Safe fallback
+
+    @property
+    def max_seq_len(self) -> int:
+        return self.state.model.max_seq_len
+
     def load(self) -> None:
         """Load the model state and set to evaluation mode."""
-        self.state.load(train=False)
+        self.state.load(training_mode=False)
         self.state.model.to(self.device)
         self.state.model.eval()
 
