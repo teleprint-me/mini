@@ -125,7 +125,7 @@ class EngineState:
             "model_state": self.model.state_dict(),
             "optimizer_state": self.optimizer.state_dict(),
             "scheduler_state": self.scheduler.state_dict() if self.scheduler else None,
-            "criterion_type": self.manager.criterion_config.type,
+            "criterion_type": self.manager.config_criterion.type,
         }
 
         try:
