@@ -209,8 +209,8 @@ class TransformerArgs:
         )
         self.parser.add_argument(
             "--recurse",
-            action="store_true",
-            help="Optimizer will yield model parameters recursively (Default: False).",
+            action="store_false",
+            help="Optimizer will yield model parameters recursively (Default: True).",
         )
         self.parser.add_argument(
             "--lr",
