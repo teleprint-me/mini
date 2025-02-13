@@ -20,20 +20,24 @@ from mini.config.optimizer_manager import (
 )
 
 
-@dataclass
 class EngineOptimizerManager:
-    config_optimizer: Optional[ConfigOptimizer] = field(
-        default_factory=lambda: ConfigOptimizer()
-    )
-    config_scheduler: Optional[ConfigScheduler] = field(
-        default_factory=lambda: ConfigScheduler()
-    )
-    config_criterion: Optional[ConfigCriterion] = field(
-        default_factory=lambda: ConfigCriterion()
-    )
-    verbose: bool = False
-
-    def __post_init__(self):
+    def __init__(
+        self,
+        config_optimizer: Optional[ConfigOptimizer] = None,
+        config_scheduler: Optional[ConfigScheduler] = None,
+        config_criterion: Optional[ConfigCriterion] = None,
+        verbose: bool = False,
+    ):
+        self.config_optimizer = (
+            config_optimizer if config_optimizer else ConfigOptimizer()
+        )
+        self.config_scheduler = (
+            config_scheduler if config_scheduler else ConfigScheduler()
+        )
+        self.config_criterion = (
+            config_criterion if config_criterion else ConfigCriterion()
+        )
+        self.verbose = verbose
         self.logger = get_logger(
             name=self.__class__.__name__,
             level=logging.DEBUG if self.verbose else logging.INFO,
@@ -45,13 +49,19 @@ class EngineOptimizerManager:
         self.logger.info(f"Using optimizer: {optimizer_type}")
 
         optimizer_params = self.config_optimizer.get_params(optimizer_type)
-        model_params = model.parameters(self.config_optimizer.recurse)
+        self.logger.debug(f"Optimizer parameters: {optimizer_params}")
         if optimizer_type == "adam":
-            return optim.Adam(model_params, **optimizer_params)
+            return optim.Adam(
+                model.parameters(self.config_optimizer.recurse), **optimizer_params
+            )
         elif optimizer_type == "adamw":
-            return optim.AdamW(model_params, **optimizer_params)
+            return optim.AdamW(
+                model.parameters(self.config_optimizer.recurse), **optimizer_params
+            )
         elif optimizer_type == "sgd":
-            return optim.SGD(model_params, **optimizer_params)
+            return optim.SGD(
+                model.parameters(self.config_optimizer.recurse), **optimizer_params
+            )
         else:
             raise ValueError(f"Unsupported optimizer: {optimizer_type}")
 
