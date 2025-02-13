@@ -63,7 +63,15 @@ class EngineGenerator:
         return self.processor.decode(encodings)
 
     def batch(self, encodings: List[int]) -> torch.Tensor:
-        return torch.tensor([encodings], dtype=torch.long, device=self.device)
+        """Converts tokenized input to a batch tensor and pads to max_seq_len."""
+        seq_len = len(encodings)
+        pad_length = max(0, self.max_seq_len - seq_len)  # Compute padding length
+
+        # Pad input to `max_seq_len` with `pad_id`
+        padded = encodings + [self.pad_id] * pad_length
+
+        # Convert to tensor
+        return torch.tensor([padded], dtype=torch.long, device=self.device)
 
     def predict(self, x: torch.Tensor) -> torch.Tensor:
         return self.state.model(x)[:, -1, :]
@@ -72,7 +80,23 @@ class EngineGenerator:
         return self.sampler.sample(x, past_tokens=past_tokens)
 
     def cat(self, x: torch.Tensor, token: int) -> torch.Tensor:
-        return torch.cat([x, torch.tensor([[token]], device=self.device)], dim=1)
+        """Replaces the first PAD token or appends if sequence is full."""
+        pad_mask = (x == self.pad_id).nonzero(as_tuple=True)
+
+        if pad_mask[1].numel() > 0:  # If there's a PAD token
+            first_pad_idx = pad_mask[1][0].item()  # Get first PAD index
+            x[:, first_pad_idx] = token  # Replace it with new token
+        else:
+            if x.shape[1] >= self.max_seq_len:
+                x = torch.cat(
+                    [x[:, 1:], torch.tensor([[token]], device=self.device)], dim=1
+                )  # Shift left and append a new token
+            else:
+                x = torch.cat(
+                    [x, torch.tensor([[token]], device=self.device)], dim=1
+                )  # Append a new token
+
+        return x
 
     def pre_tokenize(self, text: str) -> List[str]:
         # Fallback to returning text as-is if no tokenizer is provided
