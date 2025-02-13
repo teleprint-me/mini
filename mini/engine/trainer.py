@@ -28,6 +28,7 @@ class EngineTrainer:
     verbose: bool = False
 
     def __post_init__(self):
+        assert len(self.dataset) > 0, "Dataset must not be empty"
         self.pad_id = max(self.processor.pad_id(), 0)  # Ensure pad_id is non-negative
         self.logger = get_logger(
             name=self.__class__.__name__,
