@@ -25,7 +25,6 @@ class BaseEncoding(nn.Module):
         self.dtype = self.config.dtype
         self.dropout = nn.Dropout(self.config.dropout)
 
-    # NOTE: Not sure if this is mathematically sound. Need to revisit this if issues arise.
     def _generate_sinusoidal_encoding(self) -> torch.Tensor:
         """Creates sinusoidal positional encodings as described in Vaswani et al. (2017)."""
         # Create a tensor of shape (max_seq_len, embed_dim) to store the positional encodings.
