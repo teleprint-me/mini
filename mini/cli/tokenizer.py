@@ -55,6 +55,11 @@ def parse_args() -> Namespace:
         help="Output the vocab size (Default: False)",
     )
     parser.add_argument(
+        "--length",
+        action="store_true",
+        help="Output the length of the tokenized text (Default: False).",
+    )
+    parser.add_argument(
         "--clip",
         type=int,
         default=0,
@@ -80,11 +85,16 @@ def main():
     processor = SentencePieceProcessor(model_file=args.model)
     if args.vocab_size:
         print("Vocab size:", processor.vocab_size())
+        exit(0)
 
     if args.encode:
         tokens = processor.encode(text, out_type=str)
     else:
         tokens = processor.encode(text, out_type=None)
+
+    if args.length:
+        print("Length:", len(tokens))
+        exit(0)
 
     if args.clip > 0:
         print("Encoded:", tokens[: args.clip])
