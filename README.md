@@ -124,7 +124,13 @@ data/mini-owl-fairy.md: OK
 Check the dataset character count.
 
 ```sh
-wc -c data/mini-owl.md # ~1053 characters
+wc -c data/mini-owl.md
+```
+
+Expected output:
+
+```sh
+1078 data/mini-owl.md
 ```
 
 ## **Usage**
