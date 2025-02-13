@@ -1,12 +1,15 @@
 """
-Module: mini.data.tokenizer
-Description: This module provides a tokenizer class for tokenizing text data.
+Copyright © 2023 Austin Berrio
+Script: mini.cli.tokenizer
+Description: This script provides utilities for encoding, decoding, and saving tokenized text data.
 """
 
 import os
 from argparse import ArgumentParser, Namespace
 
 from sentencepiece import SentencePieceProcessor
+
+from mini.data.loader import TextDatasetLoader
 
 
 def open_text(file_path) -> str:
@@ -55,9 +58,9 @@ def parse_args() -> Namespace:
         help="Output the vocab size (Default: False)",
     )
     parser.add_argument(
-        "--length",
+        "--seq-length",
         action="store_true",
-        help="Output the length of the tokenized text (Default: False).",
+        help="Output the sequence length of the tokenized text (Default: False).",
     )
     parser.add_argument(
         "--clip",
@@ -65,19 +68,48 @@ def parse_args() -> Namespace:
         default=0,
         help="Clip output size (Default: 0).",
     )
+    parser.add_argument(
+        "--loader",
+        action="store_true",
+        help="Use a custom dataset loader (Default: False).",
+    )
+    parser.add_argument(
+        "--max-seq-len",
+        type=int,
+        default=128,
+        help="Maximum sequence length (Default: 128).",
+    )
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=8,
+        help="Number of batches to process at once (Default: 8).",
+    )
+    parser.add_argument(
+        "--batch-stride",
+        type=int,
+        default=32,
+        help="The sequence window step size for batching (Default: 32).",
+    )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Enable verbose output (Default: False).",
+    )
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
 
-    if args.input == args.output:
-        raise ValueError("Do **not** output to input file!")
+    assert args.input != args.output, "Input and output files must be different!"
+    assert os.path.exists(args.model), "Model file does not exist!"
+    assert args.clip >= 0, "Clip must be 0 or greater."
 
-    if args.clip < 0:
-        raise ValueError("Clip must be 0 or greater.")
-
-    if os.path.exists(args.input):
+    # NOTE: This introduces a from time-of-check to time-of-use race condition.
+    # This is just a quick and isolated hack to enable testing and should not be used in production.
+    input_is_file = os.path.isfile(args.input)
+    if input_is_file:
         text = clean_text(open_text(args.input))
     else:
         text = args.input
@@ -87,13 +119,37 @@ def main():
         print("Vocab size:", processor.vocab_size())
         exit(0)
 
+    if args.loader and not input_is_file:
+        raise ValueError("Loader can only be used with file input.")
+    if args.loader and input_is_file:
+        loader = TextDatasetLoader(
+            file_path=args.input,
+            processor=processor,
+            max_seq_len=args.max_seq_len,
+            batch_size=args.batch_size,
+            batch_stride=args.batch_stride,
+            verbose=args.verbose,
+        )
+        print(
+            f"Generated {len(loader.encoded)} sequences with stride {loader.batch_stride}"
+        )
+        if args.verbose:
+            print("Encoded sequences:")
+            for seq in loader.encoded:
+                # NOTE: Input and target sequence lengths are equal.
+                print("Input:", len(seq["input"]), seq["input"])
+                print("Target:", len(seq["target"]), seq["target"])
+                print()
+
+        exit(0)
+
     if args.encode:
         tokens = processor.encode(text, out_type=str)
     else:
         tokens = processor.encode(text, out_type=None)
 
-    if args.length:
-        print("Length:", len(tokens))
+    if args.seq_length:
+        print("Sequence Length:", len(tokens))
         exit(0)
 
     if args.clip > 0:
