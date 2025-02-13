@@ -137,8 +137,8 @@ def main():
             print("Encoded sequences:")
             for seq in loader.encoded:
                 # NOTE: Input and target sequence lengths are equal.
-                print("Input:", len(seq["input"]), seq["input"])
-                print("Target:", len(seq["target"]), seq["target"])
+                print(f"Input: len={len(seq['input'])}, input={seq['input']}")
+                print(f"Target: len={len(seq['target'])}, target={seq['target']}")
                 print()
 
         exit(0)
