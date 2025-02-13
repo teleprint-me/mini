@@ -40,11 +40,6 @@ class DatasetLoader(Dataset):
         )
         self.logger.info(f"Initializing dataset from {self.file_path}")
 
-    def __post_init__(self):
-        """Load and process the dataset."""
-        self.load_data()
-        self.logger.debug(f"Dataset loaded with {len(self.batches)} batches")
-
     def __getitem__(self, idx) -> tuple[torch.Tensor, torch.Tensor]:
         """Return a tokenized input-target pair as torch tensors."""
         batch = self.batches[idx]
@@ -53,6 +48,15 @@ class DatasetLoader(Dataset):
     def __len__(self) -> int:
         """Return the number of batches in the dataset."""
         return len(self.batches)
+
+    def __iter__(self) -> tuple[torch.Tensor, torch.Tensor]:
+        """Make Dataset an iterator by returning an iterable."""
+        for batch in self.batches:
+            yield batch["input"], batch["target"]
+
+    def load_data(self):
+        """Load and process data into batches."""
+        raise NotImplementedError("This method must be implemented by subclasses.")
 
 
 class TextDatasetLoader(DatasetLoader):
@@ -69,12 +73,16 @@ class TextDatasetLoader(DatasetLoader):
     ):
         super().__init__(file_path, processor, max_seq_len, batch_size, verbose)
         self.batch_stride = batch_stride
+        self.load_data()
+        assert len(self.batches) > 0, "Dataset is empty"
+        self.logger.debug(f"Dataset loaded with {len(self.batches)} batches")
 
     def load_data(self):
         """Load and process the text data into batches."""
         self.logger.info(f"Loading text data from {self.file_path}")
         with open(self.file_path, "r", encoding="utf-8") as f:
             raw_text = f.read()
+        self.logger.debug(f"Raw text: {raw_text[:100]}...")
         self.logger.debug(f"Loaded text file with {len(raw_text)} characters")
 
         # Use TextDatasetProcessor for tokenization and batching
@@ -84,11 +92,6 @@ class TextDatasetLoader(DatasetLoader):
         )
         self.batches = self.text_processor.batch(self.encoded, self.batch_size)
         self.logger.debug(f"Generated {len(self.batches)} training batches")
-
-    def __iter__(self) -> tuple[torch.Tensor, torch.Tensor]:
-        """Make Dataset an iterator by returning an iterable."""
-        for batch in self.batches:
-            yield batch["input"], batch["target"]
 
 
 class JsonDatasetLoader(DatasetLoader):
@@ -105,6 +108,9 @@ class JsonDatasetLoader(DatasetLoader):
     ):
         super().__init__(file_path, processor, max_seq_len, batch_size, verbose)
         self.schema_path = schema_path
+        self.load_data()
+        assert len(self.batches) > 0, "Dataset is empty"
+        self.logger.debug(f"Dataset loaded with {len(self.batches)} batches")
 
     def load_data(self):
         """Load and preprocess JSON data."""
@@ -129,8 +135,3 @@ class JsonDatasetLoader(DatasetLoader):
         self.encoded = self.json_processor.tokenize(raw_dataset, self.max_seq_len)
         self.batches = self.json_processor.batch(self.encoded, self.batch_size)
         self.logger.debug(f"Generated {len(self.batches)} training batches")
-
-    def __iter__(self) -> tuple[torch.Tensor, torch.Tensor]:
-        """Make Dataset an iterator by returning an iterable."""
-        for batch in self.batches:
-            yield batch["input"], batch["target"]

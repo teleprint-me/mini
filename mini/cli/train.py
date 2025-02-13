@@ -117,6 +117,7 @@ if __name__ == "__main__":
     logger.info(f"Scheduler: {args.scheduler}, Step Size: {args.step_size}")
     logger.info(f"Criterion: {args.criterion}, Reduction: {args.reduction}")
     logger.info(f"Training for {args.num_epochs} epochs...")
+    logger.info(f"Dataset Size: {len(dataset)}")
 
     # Load optimization manager
     manager = EngineOptimizerManager(
