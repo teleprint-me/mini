@@ -86,7 +86,7 @@ class EngineGenerator:
         if pad_mask[1].numel() > 0:  # If there's a PAD token
             first_pad_idx = pad_mask[1][0].item()  # Get first PAD index
             x[:, first_pad_idx] = token  # Replace it with new token
-        else:
+        else:  # Context full, no padding left
             if x.shape[1] >= self.max_seq_len:
                 x = torch.cat(
                     [x[:, 1:], torch.tensor([[token]], device=self.device)], dim=1
