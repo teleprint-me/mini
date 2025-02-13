@@ -121,6 +121,7 @@ def main():
 
     if args.loader and not input_is_file:
         raise ValueError("Loader can only be used with file input.")
+
     if args.loader and input_is_file:
         loader = TextDatasetLoader(
             file_path=args.input,
@@ -130,16 +131,24 @@ def main():
             batch_stride=args.batch_stride,
             verbose=args.verbose,
         )
-        print(
-            f"Generated {len(loader.encoded)} sequences with stride {loader.batch_stride}"
-        )
+
         if args.verbose:
-            print("Encoded sequences:")
-            for seq in loader.encoded:
-                # NOTE: Input and target sequence lengths are equal.
-                print(f"Input: len={len(seq['input'])}, input={seq['input']}")
-                print(f"Target: len={len(seq['target'])}, target={seq['target']}")
-                print()
+            print("\nEncoded Sequences (Verbose Mode):\n")
+            clip = len(loader.encoded[0]["input"]) if args.clip == 0 else args.clip
+
+            for batch_idx, token_seq in enumerate(loader.encoded, start=1):
+                print(f"Batch {batch_idx}:")
+                print(
+                    f"  Input  | seq_len={len(token_seq['input'])} | {token_seq['input'][: clip]}"
+                )
+                print(
+                    f"  Target | seq_len={len(token_seq['target'])} | {token_seq['target'][: clip]}\n"
+                )
+
+        # Summary
+        print(f"Total Sequences Generated: {len(loader.encoded)}")
+        print(f"Max Sequence Length: {args.max_seq_len}")
+        print(f"Batch Stride Used: {args.batch_stride}")
 
         exit(0)
 
