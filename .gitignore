@@ -6,6 +6,7 @@
 /data/*
 !/data/mini-fairy.md
 !/data/mini-owl.md
+!/data/mini-owl-fairy.md
 
 # Models
 /models/*
