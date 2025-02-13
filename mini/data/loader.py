@@ -75,15 +75,14 @@ class TextDatasetLoader(DatasetLoader):
         self.batch_stride = batch_stride
         self.load_data()
         assert len(self.batches) > 0, "Dataset is empty"
-        self.logger.debug(f"Dataset loaded with {len(self.batches)} batches")
 
     def load_data(self):
         """Load and process the text data into batches."""
-        self.logger.info(f"Loading text data from {self.file_path}")
+        self.logger.info(f"Loading plaintext data from {self.file_path}")
         with open(self.file_path, "r", encoding="utf-8") as f:
             raw_text = f.read()
-        self.logger.debug(f"Raw text: {raw_text[:100]}...")
-        self.logger.debug(f"Loaded text file with {len(raw_text)} characters")
+        self.logger.debug(f"Raw text: {raw_text[:50]}...")
+        self.logger.debug(f"Loaded plaintext data with {len(raw_text)} characters")
 
         # Use TextDatasetProcessor for tokenization and batching
         self.text_processor = TextDatasetProcessor(self.processor, self.verbose)
@@ -91,7 +90,10 @@ class TextDatasetLoader(DatasetLoader):
             raw_text, self.max_seq_len, batch_stride=self.batch_stride
         )
         self.batches = self.text_processor.batch(self.encoded, self.batch_size)
-        self.logger.debug(f"Generated {len(self.batches)} training batches")
+        self.logger.info(f"Generated {len(self.batches)} training batches")
+        x = self.batches[0]["input"].shape
+        y = self.batches[0]["target"].shape
+        self.logger.debug(f"Input shape: {x}, Target shape: {y}")
 
 
 class JsonDatasetLoader(DatasetLoader):
@@ -110,7 +112,6 @@ class JsonDatasetLoader(DatasetLoader):
         self.schema_path = schema_path
         self.load_data()
         assert len(self.batches) > 0, "Dataset is empty"
-        self.logger.debug(f"Dataset loaded with {len(self.batches)} batches")
 
     def load_data(self):
         """Load and preprocess JSON data."""
