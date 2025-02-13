@@ -118,6 +118,7 @@ Expected output:
 models/tokenizer.model: OK
 data/mini-fairy.md: OK
 data/mini-owl.md: OK
+data/mini-owl-fairy.md: OK
 ```
 
 Check the dataset character count.
