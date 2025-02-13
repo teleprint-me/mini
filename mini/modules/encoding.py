@@ -25,19 +25,22 @@ class BaseEncoding(nn.Module):
         self.dtype = self.config.dtype
         self.dropout = nn.Dropout(self.config.dropout)
 
-    # Generate sinusoidal encoding
+    # NOTE: Not sure if this is mathematically sound. Need to revisit this if issues arise.
     def _generate_sinusoidal_encoding(self) -> torch.Tensor:
         """Creates sinusoidal positional encodings as described in Vaswani et al. (2017)."""
+        # Create a tensor of shape (max_seq_len, embed_dim) to store the positional encodings.
         pe = torch.zeros(self.max_seq_len, self.embed_dim)
+        # Create a tensor of shape (max_seq_len, 1) to store the position indices.
         position = torch.arange(self.max_seq_len, dtype=self.dtype).unsqueeze(1)
-        position = position.unsqueeze(1)
+        # Calculate the division term for the sinusoidal encoding of shape (D/2,) to avoid division by zero.
         div_term = torch.exp(
             torch.arange(0, self.embed_dim, 2, dtype=self.dtype)
             * (-torch.log(torch.tensor(10000.0)) / self.embed_dim)
         )
+        # Compute the positional encoding for even and odd indices separately.
         pe[:, 0::2] = torch.sin(position * div_term)
         pe[:, 1::2] = torch.cos(position * div_term)
-        return pe.unsqueeze(0)  # (batch_size, seq_len, embed_dim)
+        return pe.unsqueeze(0)  # (1, T, D)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Add positional encoding to input tensor x."""
