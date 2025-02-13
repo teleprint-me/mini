@@ -1,3 +1,12 @@
+---
+title: "ROCm + PyTorch Setup on Arch Linux"
+type: "technical"
+version: 1
+date: "2025-01-30"
+modified: "2025-02-13"
+license: "cc-by-nc-sa-4.0"
+---
+
 # ROCm + PyTorch Setup on Arch Linux
 
 ## **1. Installing ROCm Packages**
