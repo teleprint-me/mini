@@ -42,39 +42,62 @@ custom tokenizer.
 
 ```sh
 # Tokenizing a sample input
-python -m mini.cli.tokenizer --model-file models/tokenizer.model --input-file data/mini-owl.md
+python -m mini.cli.tokenizer --model models/tokenizer.model --input data/mini-owl.md
 ```
 
 This command will generate a tokenized version of the dataset, which is required
 for training.
 
-The tokenizer impacts **sequence length, vocabulary size, and overall model
-efficiency**, making it a crucial step in training.
+### **How Tokenization Affects Training**
+
+The tokenizer determines **vocabulary size**, **token distribution**, and
+**sequence length**, all of which impact model efficiency and learning
+stability. The **max sequence length (`--max-seq-len`)** should be set
+appropriately for the dataset to ensure that tokenized sequences fit within the
+model's attention window.
 
 ## **4. Understanding Batching and Stride**
 
-Mini's training pipeline processes data in batched input-target pairs. Several
-key parameters control how text is structured before training:
+Mini's training pipeline processes data in **batched input-target pairs**,
+structured as follows:
 
-- **`--max-seq-len`**: Defines the length of each encoded sequence. Shorter
+- **`--max-seq-len`**: Defines the length of each tokenized sequence. Shorter
   sequences are padded.
-- **`--batch-size`**: Determines the number of sequences grouped into a single
-  training batch.
-- **`--batch-stride`**: Controls the length of the batch sequence per step. This
-  defines how input-target pairs are grouped and processed.
+- **`--batch-size`**: The number of sequences included in a training batch.
+- **`--batch-stride`**: The step size for shifting sequences in the dataset to
+  form overlapping training examples.
 
-### **Batch Dimensions**
+### **Sliding Window Mechanism**
 
-The shape of the input tensors follows `[B, T]`, where:
+The **batch stride (`--batch-stride`)** determines **how much overlap** exists
+between training examples by shifting the input sequence by a defined number of
+tokens. This is similar to a **sliding window**, where overlapping sequences
+allow for better gradient updates while training.
 
-- `B` is the **batch size** (number of grouped sequences)
-- `T` is the **sequence length** (determined by `--batch-stride`)
+**Example Behavior:** Given a tokenized dataset with **807 tokens**,
+`--max-seq-len 128`, and `--batch-stride 8`:
 
-Example: With `--batch-size 2`, `--batch-stride 8`, and `--max-seq-len 128`, we
-may process **3 or 4 batches per epoch** depending on dataset size.
+- The first batch will take tokens **1 → 128**.
+- The second batch will take tokens **9 → 136**.
+- The third batch will take tokens **17 → 144**.
+- This continues until all tokens are processed.
 
-Since batch settings **depend on the dataset**, there are default values, but no
-universally "sane" defaults. These must be tuned per dataset and model size.
+This setup allows the model to **capture more contextual dependencies** instead
+of treating batches as fully independent sequences.
+
+### **Batch Tensor Dimensions**
+
+The training batches are stored as **PyTorch tensors** in the shape `[B, T]`:
+
+- `B` = **batch size** (number of sequences per batch)
+- `T` = **sequence length** (defined by `--max-seq-len`)
+
+**Example:** With `--batch-size 2`, `--batch-stride 8`, and `--max-seq-len 128`,
+the dataset will generate multiple overlapping sequences for better learning.
+
+Since **batch settings depend on dataset size**, choosing a stride that is **too
+large** may lead to **non-overlapping sequences**, limiting training efficiency.
+A **smaller stride (e.g., `max-seq-len / 2`)** is often a good default.
 
 ## **5. Configuring Training Parameters**
 
