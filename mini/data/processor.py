@@ -70,6 +70,12 @@ class TextDatasetProcessor(DatasetProcessor):
         batch_stride: int = 64,
     ) -> EncodedDataset:
         """Tokenizes and splits raw text into overlapping input-target pairs."""
+        assert max_seq_len > 0, "max_seq_len must be greater than 0"
+        assert batch_stride > 0, "batch_stride must be greater than 0"
+        assert (
+            batch_stride <= max_seq_len
+        ), "batch_stride must be less than or equal to max_seq_len"
+
         pad_id = self.processor.pad_id()
         if pad_id < 0:
             pad_id = 0  # Ensure a valid pad token
@@ -85,6 +91,7 @@ class TextDatasetProcessor(DatasetProcessor):
                 }
             )
         else:
+            # num_sequences = (len(tokens) - max_seq_len) // batch_stride + 1
             for i in range(0, len(tokens) - max_seq_len, batch_stride):
                 input_tokens = tokens[i : i + max_seq_len]
                 target_tokens = tokens[i + 1 : i + max_seq_len + 1]  # Shifted right
