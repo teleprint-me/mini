@@ -119,6 +119,15 @@ def main():
         print("Vocab size:", processor.vocab_size())
         exit(0)
 
+    if args.encode:
+        tokens = processor.encode(text, out_type=str)
+    else:
+        tokens = processor.encode(text, out_type=None)
+
+    if args.seq_length:
+        print("Sequence Length:", len(tokens))
+        exit(0)
+
     if args.loader and not input_is_file:
         raise ValueError("Loader can only be used with file input.")
 
@@ -145,20 +154,11 @@ def main():
                     f"  Target | seq_len={len(token_seq['target'])} | {token_seq['target'][: clip]}\n"
                 )
 
-        # Summary
+        # Summarize the results.
         print(f"Total Sequences Generated: {len(loader.encoded)}")
         print(f"Max Sequence Length: {args.max_seq_len}")
         print(f"Batch Stride Used: {args.batch_stride}")
 
-        exit(0)
-
-    if args.encode:
-        tokens = processor.encode(text, out_type=str)
-    else:
-        tokens = processor.encode(text, out_type=None)
-
-    if args.seq_length:
-        print("Sequence Length:", len(tokens))
         exit(0)
 
     if args.clip > 0:
