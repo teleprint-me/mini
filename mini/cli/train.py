@@ -113,6 +113,8 @@ if __name__ == "__main__":
     logger.info(f"Number of Layers: {args.num_layers}")
     logger.info(f"Embedding Dim: {args.embed_dim}")
     logger.info(f"Feed Forward Dim: {args.ff_dim}, Expansion: {args.ff_mult}")
+    logger.info(f"Number of Heads: {args.num_heads}, Head Dim: {config.head_dim}")
+    logger.info(f"Hidden Dim: {config.hidden_dim}, Attention Scale: {config.scale}")
     logger.info(f"Optimizer: {args.optimizer}, LR: {args.lr}")
     logger.info(f"Scheduler: {args.scheduler}, Step Size: {args.step_size}")
     logger.info(f"Criterion: {args.criterion}, Reduction: {args.reduction}")
