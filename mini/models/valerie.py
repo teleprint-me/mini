@@ -45,11 +45,6 @@ class ValerieModel(nn.Module):
 
         self._init_weights()
 
-    def _init_weights(self):
-        nn.init.xavier_normal_(self.head.weight)
-        if self.bias:
-            nn.init.uniform_(self.head.bias, a=-0.1, b=0.1)
-
     def forward(self, input_ids):
         # Attention mask
         mask = self.mask(input_ids)

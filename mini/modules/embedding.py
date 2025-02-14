@@ -4,6 +4,8 @@ Module: mini.modules.embedding
 Description: Embedding blocks for transformer models.
 """
 
+import math
+
 import torch
 import torch.nn as nn
 
@@ -27,7 +29,10 @@ class BaseEmbedding(nn.Module):
 
     def _init_weights(self) -> None:
         """Initializes token embedding weights using Xavier uniform initialization."""
-        nn.init.xavier_uniform_(self.tokens.weight)
+        # ref: https://github.dev/karpathy/minGPT
+        nn.init.normal_(
+            self.tokens.weight, std=0.02 / math.sqrt(2 * self.config.num_layers)
+        )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Computes embeddings for the input tokens.

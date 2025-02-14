@@ -31,15 +31,6 @@ class PositionWiseFeedForward(nn.Module):
 
         self._init_weights()
 
-    def _init_weights(self):
-        """Initialize weights using Xavier uniform initialization."""
-        nn.init.xavier_uniform_(self.fc1.weight)
-        nn.init.xavier_uniform_(self.fc2.weight)
-        # When bias is False, model will not learn an additive bias
-        if self.bias:
-            torch.nn.init.uniform_(self.fc1.bias, a=-0.1, b=0.1)
-            torch.nn.init.uniform_(self.fc2.bias, a=-0.1, b=0.1)
-
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass through the feed-forward network."""
         return self.dropout(self.fc2(F.gelu(self.fc1(x))))
@@ -64,17 +55,6 @@ class GatedFeedForward(nn.Module):
         self.w3 = nn.Linear(embed_dim, hidden_dim, bias=config.bias)
 
         self._init_weights()
-
-    def _init_weights(self):
-        """Initialize weights using Xavier uniform distribution."""
-        nn.init.xavier_uniform_(self.w1.weight)
-        nn.init.xavier_uniform_(self.w2.weight)
-        nn.init.xavier_uniform_(self.w3.weight)
-        # When bias is False, model will not learn an additive bias
-        if self.bias:
-            nn.init.uniform_(self.w1.bias, a=-0.1, b=0.1)
-            nn.init.uniform_(self.w2.bias, a=-0.1, b=0.1)
-            nn.init.uniform_(self.w3.bias, a=-0.1, b=0.1)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass through the feed-forward network."""

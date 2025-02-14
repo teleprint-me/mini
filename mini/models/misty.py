@@ -45,12 +45,6 @@ class MistyModel(nn.Module):
         self.max_seq_len = config.max_seq_len
         self._init_weights()
 
-    def _init_weights(self):
-        """Initialize model weights."""
-        nn.init.xavier_uniform_(self.head.weight)
-        if self.bias:
-            nn.init.uniform_(self.head.bias, a=-0.1, b=0.1)
-
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass through Misty transformer."""
         # NOTE: Apply padding and attention masks before the embeddings layer

@@ -76,17 +76,6 @@ class BaseAttention(nn.Module):
 
         self._init_weights()
 
-    def _init_weights(self) -> None:
-        nn.init.xavier_uniform_(self.wq.weight)
-        nn.init.xavier_uniform_(self.wk.weight)
-        nn.init.xavier_uniform_(self.wv.weight)
-        nn.init.xavier_uniform_(self.wo.weight)
-        if self.bias:
-            nn.init.uniform_(self.wq.bias)
-            nn.init.uniform_(self.wk.bias)
-            nn.init.uniform_(self.wv.bias)
-            nn.init.uniform_(self.wo.bias)
-
     def _split_heads(
         self, d_in: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
