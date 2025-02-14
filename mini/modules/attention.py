@@ -2,6 +2,7 @@
 Copyright © 2023 Austin Berrio
 Module: mini.modules.attention
 Description: Modular attention mechanisms for neural networks.
+TODO: Research Grouped Query Attention: https://arxiv.org/abs/2305.13245
 """
 
 import torch
