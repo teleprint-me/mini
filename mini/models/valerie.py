@@ -43,8 +43,6 @@ class ValerieModel(nn.Module):
         self.norm = RMSNorm(config)
         self.head = nn.Linear(config.embed_dim, config.vocab_size)
 
-        self._init_weights()
-
     def forward(self, input_ids):
         # Attention mask
         mask = self.mask(input_ids)

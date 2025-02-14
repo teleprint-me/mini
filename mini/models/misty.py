@@ -43,7 +43,6 @@ class MistyModel(nn.Module):
         self.head = nn.Linear(config.embed_dim, config.vocab_size)
 
         self.max_seq_len = config.max_seq_len
-        self._init_weights()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass through Misty transformer."""

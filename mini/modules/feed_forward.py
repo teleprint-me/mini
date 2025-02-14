@@ -29,8 +29,6 @@ class PositionWiseFeedForward(nn.Module):
 
         self.dropout = nn.Dropout(config.dropout)
 
-        self._init_weights()
-
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass through the feed-forward network."""
         return self.dropout(self.fc2(F.gelu(self.fc1(x))))
@@ -53,8 +51,6 @@ class GatedFeedForward(nn.Module):
         self.w1 = nn.Linear(embed_dim, hidden_dim, bias=config.bias)
         self.w2 = nn.Linear(hidden_dim, embed_dim, bias=config.bias)
         self.w3 = nn.Linear(embed_dim, hidden_dim, bias=config.bias)
-
-        self._init_weights()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass through the feed-forward network."""

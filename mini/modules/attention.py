@@ -74,8 +74,6 @@ class BaseAttention(nn.Module):
         self.wv = nn.Linear(config.embed_dim, config.embed_dim, bias=config.bias)
         self.wo = nn.Linear(config.embed_dim, config.embed_dim, bias=config.bias)
 
-        self._init_weights()
-
     def _split_heads(
         self, d_in: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
