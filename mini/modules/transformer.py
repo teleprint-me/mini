@@ -26,8 +26,9 @@ class PositionWiseBlock(nn.Module):
 
     def forward(self, x, mask=None):
         """Forward pass through the transformer block."""
-        x = self.norm1(x + self.dropout(self.attn(x, mask)))
-        x = self.norm2(x + self.dropout(self.ff(x)))
+        # GPT-2 style pre-normalization with residual learning
+        x = x + self.dropout(self.attn(self.norm1(x), mask))  # Pre-Norm Attention
+        x = x + self.dropout(self.ff(self.norm2(x)))  # Pre-Norm FFN
         return x
 
 
