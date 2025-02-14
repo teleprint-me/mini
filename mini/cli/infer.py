@@ -8,7 +8,7 @@ import sys
 
 from sentencepiece import SentencePieceProcessor
 
-from mini.common.args import TransformerArgs
+from mini.args.transformer import TransformerArgs
 from mini.config.generator import DEFAULT_PRETOKENIZER, ConfigGenerator, ConfigSampler
 from mini.config.transformer import ConfigTransformer
 from mini.engine.generator import EngineGenerator

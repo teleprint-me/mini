@@ -8,7 +8,7 @@ import logging
 
 from sentencepiece import SentencePieceProcessor
 
-from mini.common.args import TransformerArgs
+from mini.args.transformer import TransformerArgs
 from mini.common.logger import get_logger
 from mini.config.optimizer_manager import (
     ConfigCriterion,

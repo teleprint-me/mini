@@ -5,10 +5,10 @@ Description: This script provides utilities for encoding, decoding, and saving t
 """
 
 import os
-from argparse import ArgumentParser, Namespace
 
 from sentencepiece import SentencePieceProcessor
 
+from mini.args.tokenizer import TokenizerArgs
 from mini.data.loader import TextDatasetLoader
 
 
@@ -29,82 +29,21 @@ def clean_text(text: str) -> str:
     return "\n".join([line.strip() for line in text.splitlines() if line.strip()])
 
 
-def parse_args() -> Namespace:
-    parser = ArgumentParser(description="Tokenize text data using SentencePiece.")
-    parser.add_argument(
-        "--model",
-        required=True,
-        help="Path to the SentencePiece model file.",
-    )
-    parser.add_argument(
-        "--input",
-        required=True,
-        help="Path to the input text or file.",
-    )
-    parser.add_argument("--output", help="Path to the tokenized output file.")
-    parser.add_argument(
-        "--decode",
-        action="store_true",
-        help="Output decoded tokens (Default: False).",
-    )
-    parser.add_argument(
-        "--encode",
-        action="store_true",
-        help="Set out_type to str when encoding (Default: False).",
-    )
-    parser.add_argument(
-        "--vocab-size",
-        action="store_true",
-        help="Output the vocab size (Default: False)",
-    )
-    parser.add_argument(
-        "--seq-length",
-        action="store_true",
-        help="Output the sequence length of the tokenized text (Default: False).",
-    )
-    parser.add_argument(
-        "--clip",
-        type=int,
-        default=0,
-        help="Clip output size (Default: 0).",
-    )
-    parser.add_argument(
-        "--loader",
-        action="store_true",
-        help="Use a custom dataset loader (Default: False).",
-    )
-    parser.add_argument(
-        "--max-seq-len",
-        type=int,
-        default=128,
-        help="Maximum sequence length (Default: 128).",
-    )
-    parser.add_argument(
-        "--batch-size",
-        type=int,
-        default=8,
-        help="Number of batches to process at once (Default: 8).",
-    )
-    parser.add_argument(
-        "--batch-stride",
-        type=int,
-        default=32,
-        help="The sequence window step size for batching (Default: 32).",
-    )
-    parser.add_argument(
-        "--verbose",
-        action="store_true",
-        help="Enable verbose output (Default: False).",
-    )
-    return parser.parse_args()
-
-
 def main():
-    args = parse_args()
+    args = TokenizerArgs("Mini Tokenizer CLI").parse_args()
 
-    assert args.input != args.output, "Input and output files must be different!"
     assert os.path.exists(args.model), "Model file does not exist!"
     assert args.clip >= 0, "Clip must be 0 or greater."
+
+    processor = SentencePieceProcessor(model_file=args.model)
+    if args.vocab_size:
+        print("Vocab size:", processor.vocab_size())
+        exit(0)
+
+    # Ensure input text or file is provided.
+    assert args.input, "Input text or file must be provided!"
+    # Ensure input and output files are different.
+    assert args.input != args.output, "Input and output files must be different!"
 
     # NOTE: This introduces a from time-of-check to time-of-use race condition.
     # This is just a quick and isolated hack to enable testing and should not be used in production.
@@ -113,11 +52,6 @@ def main():
         text = clean_text(open_text(args.input))
     else:
         text = args.input
-
-    processor = SentencePieceProcessor(model_file=args.model)
-    if args.vocab_size:
-        print("Vocab size:", processor.vocab_size())
-        exit(0)
 
     if args.encode:
         tokens = processor.encode(text, out_type=str)
