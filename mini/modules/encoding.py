@@ -12,8 +12,8 @@ from torch import nn
 from mini.config import ConfigTransformer
 
 
-# Self-Attention with Relative Position Representations
-# https://arxiv.org/abs/1803.02155
+# Absolute Position Encodings
+# https://paperswithcode.com/method/absolute-position-encodings
 class BaseEncoding(nn.Module):
     """Base class for encoding blocks."""
 
