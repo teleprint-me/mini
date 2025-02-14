@@ -133,4 +133,4 @@ class RotaryEncoding(nn.Module):
         self, q: torch.Tensor, k: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Apply RoPE to query and key tensors."""
-        return self.rotate(q), self.rotate(k)
+        return self._rotate(q), self._rotate(k)
