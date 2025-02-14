@@ -21,7 +21,7 @@ scheduling options.
 For this tutorial, we use the `data/mini-owl.md` dataset—a **tiny, synthetic
 short story** distilled from a larger parent model.
 
-- **Size**: ~1053 characters
+- **Size**: ~1078 characters
 - **Purpose**: Demonstrates model convergence on small datasets
 - **Impact**: Model parameters must align with dataset size to avoid
   underfitting or overfitting.
