@@ -46,8 +46,7 @@ class BaseEncoding(nn.Module):
         raise NotImplementedError("Forward method must be implemented by subclasses.")
 
 
-# Self-Attention with Relative Position Representations
-# https://arxiv.org/abs/1803.02155
+# Attention is all you need: https://arxiv.org/abs/1706.03762
 class PositionalEncoding(BaseEncoding):
     """Standard fixed sinusoidal positional encoding for transformer models."""
 
@@ -82,6 +81,8 @@ class BertEncoding(BaseEncoding):
 # NOTE: This is experimental and can be substituted with other methods.
 # WARN: Training will oscillate if not properly tuned and model will be trapped in a local minimum.
 # This is due to the fact that the positional encodings are distorted by the learned projection.
+# Self-Attention with Relative Position Representations
+# https://arxiv.org/abs/1803.02155
 class LinearEncoding(BaseEncoding):
     """Low-rank learned projection of sinusoidal positional encodings."""
 
