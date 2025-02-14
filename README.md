@@ -55,7 +55,7 @@ with a simplified and efficient design:
 ### **Transformer**
 
 - **PositionWiseBlock** - Combines self-attention and feed-forward layers.
-- **GatedBlock** - Combines self-attention and feed-forward layers with gating.
+- **GatedBlock** - Combines rotary self-attention and feed-forward layers with gating.
 
 Current implementations focus on **position-wise** and **gated architectures**.
 The goal is to provide a flexible and efficient framework for building
