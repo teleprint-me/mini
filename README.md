@@ -55,7 +55,8 @@ with a simplified and efficient design:
 ### **Transformer**
 
 - **PositionWiseBlock** - Combines self-attention and feed-forward layers.
-- **GatedBlock** - Combines rotary self-attention and feed-forward layers with gating.
+- **GatedBlock** - Combines rotary self-attention and feed-forward layers with
+  gating.
 
 Current implementations focus on **position-wise** and **gated architectures**.
 The goal is to provide a flexible and efficient framework for building
@@ -226,3 +227,12 @@ details.
 Contributions are welcome! If you have ideas or improvements, feel free to open
 an issue or submit a pull request. Be sure to follow the
 [Code of Conduct](CODE_OF_CONDUCT.md).
+
+## **Donations**
+
+If you find this project useful and would like to support its continued
+development, consider making a donation. Your support is greatly appreciated!
+
+- [Sponsors](https://github.com/sponsors/teleprint-me)
+- [Patreon](https://www.patreon.com/teleprint_me)
+- [Bitcoin](https://blockstream.info/nojs/address/3E1rEDAoLYJG6fD7B27K394HQxmiYpK68V)
