@@ -7,6 +7,7 @@ import os
 import platform
 import re
 from difflib import get_close_matches
+from itertools import chain
 from pathlib import Path
 from typing import List, Optional
 
@@ -108,7 +109,7 @@ class FontFuzzer:
 
         # Check bundled fonts in mini/gui/assets/
         asset_font_dir = Path(__file__).parent / "assets"
-        assets = asset_font_dir.glob("*.ttf") or asset_font_dir.glob("*.otf")
+        assets = chain(asset_font_dir.glob("*.ttf"), asset_font_dir.glob("*.otf"))
         for font in assets:
             if cls.normalize_font_name(font_name) in cls.normalize_font_name(font.name):
                 return font
