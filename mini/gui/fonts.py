@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import List, Optional
 
 
-class Font:
+class FontFuzzer:
     """Provides font lookup and management functions."""
 
     @classmethod
@@ -101,22 +101,30 @@ class Font:
 
     @classmethod
     def locate_font(
-        cls, font_name: str, n: int = 3, cutoff: float = 0.5
+        cls, font_name: str, n: int = 3, cutoff: float = 0.4
     ) -> Optional[Path]:
-        """Locate the best matching font file using fuzzy searching on available fonts."""
+        """Locate the best matching font file using fuzzy searching and fallback substring matching."""
         normalized_font = cls.normalize_font_name(font_name)
 
         # Get the list of available font files (no filtering)
         available_fonts = cls.list_fonts(filter_common=False)
 
-        # Apply fuzzy matching to find the closest name match
+        # Apply fuzzy matching
         best_matches = get_close_matches(
             normalized_font, available_fonts, n=n, cutoff=cutoff
         )
 
+        # If no fuzzy match found, fallback to substring search
+        if not best_matches:
+            best_matches = [
+                f
+                for f in available_fonts
+                if normalized_font in cls.normalize_font_name(f)
+            ]
+
         # Return the first best match, if found
         if best_matches:
-            return cls.locate_font_directly(best_matches[0])  # Fetch actual file path
+            return cls.locate_font_directly(best_matches[0])
 
         return None  # No good match found
 
@@ -131,7 +139,7 @@ if __name__ == "__main__":
         "--n", type=int, default=3, help="Number of matches to return (default: 3)"
     )
     parser.add_argument(
-        "--cutoff", type=float, default=0.5, help="Fuzzy matching cutoff (default: 0.5)"
+        "--cutoff", type=float, default=0.4, help="Fuzzy matching cutoff (default: 0.4)"
     )
     parser.add_argument(
         "--filter",
@@ -151,7 +159,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.list:
-        available_fonts = Font.list_fonts(
+        available_fonts = FontFuzzer.list_fonts(
             filter_common=args.filter,
             search_query=args.list if args.list is not True else None,
         )
@@ -159,7 +167,7 @@ if __name__ == "__main__":
         for font in available_fonts[: args.clip]:
             print(font)
     elif args.locate:
-        font_path = Font.locate_font(args.locate, n=args.n, cutoff=args.cutoff)
+        font_path = FontFuzzer.locate_font(args.locate, n=args.n, cutoff=args.cutoff)
         print(
             f"Font found: {font_path}"
             if font_path
