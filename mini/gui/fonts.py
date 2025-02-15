@@ -49,7 +49,6 @@ class Font:
         """Return common Windows font directories."""
         return [
             Path("C:\\Windows\\Fonts"),
-            Path("C:\\Windows\\Fonts\\Web"),
             Path(os.path.expandvars("%LOCALAPPDATA%\\Microsoft\\Windows\\Fonts")),
         ]
 
@@ -65,25 +64,42 @@ class Font:
         return None
 
     @classmethod
-    def list_fonts(cls) -> List[str]:
-        """List available font files in common font directories."""
+    def is_font_common(cls, font_name: str, filter_common: bool) -> bool:
+        """Check if the filename contains common font names."""
+        if not filter_common:
+            return True  # Don't filter; accept all fonts.
+        common_fonts = {
+            "noto",
+            "dejavu",
+            "arial",
+            "times",
+            "ubuntu",
+            "liberation",
+            "fira",
+            "roboto",
+        }
+        return any(f in font_name.lower() for f in common_fonts)
+
+    @classmethod
+    def list_fonts(cls, filter_common=True) -> List[str]:
+        """List available font files, optionally filtering for common font families."""
         fonts = []
         for font_dir in cls.font_dirs():
             if font_dir.exists():
                 for root, _, files in os.walk(font_dir):
-                    fonts.extend(
-                        [
-                            file
-                            for file in files
-                            if file.lower().endswith((".ttf", ".otf"))
-                        ]
-                    )
+                    for file in files:
+                        if file.lower().endswith(
+                            (".ttf", ".otf")
+                        ) and cls.is_font_common(file, filter_common):
+                            fonts.append(file)
         return sorted(fonts)  # Sort alphabetically for easier lookup
 
 
 # Example Usage:
-font_path = Font.locate_font("NotoSansMono-Regular")
-print(f"Font found: {font_path}" if font_path else "Font not found")
+if __name__ == "__main__":
+    font_path = Font.locate_font("NotoSansMono-Regular")
+    print(f"Font found: {font_path}" if font_path else "Font not found")
 
-available_fonts = Font.list_fonts()
-print(f"Available Fonts: {available_fonts[:5]}")  # Show first 5 fonts for brevity
+    available_fonts = Font.list_fonts()
+    print(f"Available Fonts: {available_fonts[:5]}")  # Show first 5 fonts
+    print(f"There are {len(available_fonts)} fonts available.")
