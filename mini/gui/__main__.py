@@ -14,32 +14,37 @@ class MiniGUI:
         """Sets up the GUI layout and initializes windows."""
 
         dpg.create_context()
-        dpg.create_viewport(title="Custom Title", width=600, height=300)
+        dpg.create_viewport(title="Mini GUI App", width=640, height=480)
 
         # State with a simple main menu
-        with dpg.window(label="Main Menu", width=200, height=500, pos=(10, 10)):
+        with dpg.window(
+            label="Main Menu",
+            width=100,
+            height=320,
+            pos=(10, 10),
+        ) as main_menu:
+            button_width = dpg.get_item_width(main_menu) - 20
+            button_height = 20
+            menu_items = [
+                "editor",
+                "tokenizer",
+                "trainer",
+                "generator",
+                "graph",
+                "evaluator",
+                "model",
+                "settings",
+            ]
             dpg.add_text("Navigation:")
             dpg.add_separator()
-            dpg.add_button(
-                label="Editor", callback=lambda: self.toggle_window("editor")
-            )
-            dpg.add_button(
-                label="Tokenizer", callback=lambda: self.toggle_window("tokenizer")
-            )
-            dpg.add_button(
-                label="Trainer", callback=lambda: self.toggle_window("trainer")
-            )
-            dpg.add_button(
-                label="Generator", callback=lambda: self.toggle_window("generator")
-            )
-            dpg.add_button(label="Graph", callback=lambda: self.toggle_window("graph"))
-            dpg.add_button(
-                label="Evaluator", callback=lambda: self.toggle_window("evaluator")
-            )
-            dpg.add_button(label="Model", callback=lambda: self.toggle_window("model"))
-            dpg.add_button(
-                label="Settings", callback=lambda: self.toggle_window("settings")
-            )
+            for tag in menu_items:
+                dpg.add_button(
+                    label=tag.capitalize(),
+                    width=button_width,
+                    height=button_height,
+                    callback=self.toggle_window,
+                    user_data=tag,
+                )
 
         # Example UI Windows
         with dpg.window(label="Editor", tag="editor", show=False, pos=(220, 10)):
@@ -65,10 +70,12 @@ class MiniGUI:
         dpg.start_dearpygui()
         dpg.destroy_context()
 
-    def toggle_window(self, tag):
+    def toggle_window(self, sender, app_data, user_data):
         """Toggles the visibility of a window."""
-        is_visible = dpg.get_item_configuration(tag)["show"]
-        dpg.configure_item(tag, show=not is_visible)
+        print(f"Toggling window: {user_data}")
+
+        is_visible = dpg.get_item_configuration(user_data)["show"]
+        dpg.configure_item(user_data, show=not is_visible)
 
 
 if __name__ == "__main__":
