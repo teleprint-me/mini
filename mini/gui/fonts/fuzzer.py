@@ -1,6 +1,6 @@
 """
-Module: mini.gui.fonts
-Description: Provides a data class and utility functions to locate font files on various operating systems.
+Module: mini.gui.fonts.fuzzer
+Description: Utility for fuzzing font files.
 """
 
 import os
@@ -105,6 +105,13 @@ class FontFuzzer:
     ) -> Optional[Path]:
         """Locate the best matching font file using fuzzy searching and fallback substring matching."""
         normalized_font = cls.normalize_font_name(font_name)
+
+        # Check bundled fonts in mini/gui/assets/
+        asset_font_dir = Path(__file__).parent / "assets"
+        assets = asset_font_dir.glob("*.ttf") or asset_font_dir.glob("*.otf")
+        for font in assets:
+            if cls.normalize_font_name(font_name) in cls.normalize_font_name(font.name):
+                return font
 
         # Get the list of available font files (no filtering)
         available_fonts = cls.list_fonts(filter_common=False)
