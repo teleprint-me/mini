@@ -5,12 +5,14 @@ Description: Provides a data class and utility functions to locate font files on
 
 import os
 import platform
+import re
+from difflib import get_close_matches
 from pathlib import Path
 from typing import List, Optional
 
 
 class Font:
-    """Data class to store font information and provide lookup methods."""
+    """Provides font lookup and management functions."""
 
     @classmethod
     def font_dirs(cls) -> List[Path]:
@@ -49,21 +51,35 @@ class Font:
         ]
 
     @classmethod
+    def normalize_font_name(cls, font_name: str) -> str:
+        """Normalize font names by removing spaces, dashes, and converting to lowercase."""
+        return re.sub(r"[\s_-]+", "", font_name).lower()
+
+    @classmethod
     def locate_font(cls, font_name: str) -> Optional[Path]:
-        """Locate the font file in common system directories."""
+        """Locate the font file in system directories with improved matching."""
+        normalized_font = cls.normalize_font_name(font_name)
+        potential_matches = []
+
         for font_dir in cls.font_dirs():
             if font_dir.exists():
                 for root, _, files in os.walk(font_dir):
                     for file in files:
-                        if font_name.lower() in file.lower():
-                            return Path(root) / file
+                        if file.lower().endswith((".ttf", ".otf")):
+                            normalized_file = cls.normalize_font_name(file)
+                            if normalized_font in normalized_file:
+                                potential_matches.append(Path(root) / file)
+
+        # Return the closest match based on similarity
+        if potential_matches:
+            return potential_matches[0]  # Select first best match for now
         return None
 
     @classmethod
-    def is_font_common(cls, font_name: str, filter_common: bool) -> bool:
-        """Check if the filename contains common font names."""
-        if not filter_common:
-            return True  # Don't filter; accept all fonts.
+    def list_fonts(
+        cls, filter_common=True, search_query: Optional[str] = None
+    ) -> List[str]:
+        """List available fonts, optionally filtering by common families or search query."""
         common_fonts = {
             "noto",
             "dejavu",
@@ -74,58 +90,56 @@ class Font:
             "fira",
             "roboto",
         }
-        return any(f in font_name.lower() for f in common_fonts)
-
-    @classmethod
-    def list_fonts(cls, filter_common=True) -> List[str]:
-        """List available font files, optionally filtering for common font families."""
         fonts = []
+        search_query = cls.normalize_font_name(search_query) if search_query else None
+
         for font_dir in cls.font_dirs():
             if font_dir.exists():
                 for root, _, files in os.walk(font_dir):
                     for file in files:
-                        if file.lower().endswith(
-                            (".ttf", ".otf")
-                        ) and cls.is_font_common(file, filter_common):
-                            fonts.append(file)
+                        if file.lower().endswith((".ttf", ".otf")):
+                            normalized_file = cls.normalize_font_name(file)
+                            if search_query and search_query not in normalized_file:
+                                continue  # Skip if query is specified and doesn't match
+
+                            if not filter_common or any(
+                                f in normalized_file for f in common_fonts
+                            ):
+                                fonts.append(file)
+
         return sorted(fonts)  # Sort alphabetically for easier lookup
 
 
-# Example Usage:
+# CLI Interface for Testing
 if __name__ == "__main__":
     from argparse import ArgumentParser
 
-    parser = ArgumentParser(description="Font Management Example")
-    parser.add_argument(
-        "--locate",
-        type=str,
-        default="NotoSansMono-Regular",
-        help="Name of the font to locate",
-    )
+    parser = ArgumentParser(description="Font Management CLI Tool")
+    parser.add_argument("--locate", type=str, help="Name of the font to locate")
     parser.add_argument(
         "--filter", action="store_true", help="Filter fonts for common families"
     )
-    parser.add_argument("--list", action="store_true", help="List all available fonts")
     parser.add_argument(
-        "--clip",
-        type=int,
-        default=5,
-        help="Clip the list of fonts to a certain length (default: 5)",
+        "--list", nargs="?", const=True, help="List available fonts (optional filter)"
     )
+    parser.add_argument(
+        "--clip", type=int, default=5, help="Limit the number of fonts displayed"
+    )
+
     args = parser.parse_args()
 
     if args.list:
-        available_fonts = Font.list_fonts(filter_common=args.filter)
+        available_fonts = Font.list_fonts(
+            filter_common=args.filter,
+            search_query=args.list if args.list is not True else None,
+        )
         print(f"There are {len(available_fonts)} fonts available.")
-        if args.clip:
-            for font in available_fonts[: args.clip]:
-                print(font)
-        else:
-            for font in available_fonts:
-                print(font)
-    else:
-        font_name = "".join(args.locate.lower().split())
-        font_path = Font.locate_font(font_name)
+        for font in available_fonts[: args.clip]:
+            print(font)
+    elif args.locate:
+        font_path = Font.locate_font(args.locate)
         print(
-            f"Font found: {font_path}" if font_path else f"Font not found: {font_name}"
+            f"Font found: {font_path}"
+            if font_path
+            else f"Font not found: {args.locate}"
         )
