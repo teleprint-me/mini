@@ -4,15 +4,14 @@ Module: mini.args.transformer
 Description: Contains the Args class for parsing command-line arguments.
 """
 
-from argparse import ArgumentParser, Namespace
+from argparse import Namespace
+
+from mini.args.base import BaseArgs
 
 
-class TransformerArgs:
+class TransformerArgs(BaseArgs):
     def __init__(self, description: str = "Mini CLI Tool"):
-        self.parser = ArgumentParser(description=description)
-        self.parser.add_argument(
-            "-v", "--verbose", action="store_true", help="Enable verbose mode"
-        )
+        super().__init__(description)
 
     def parse_args(self, mode: str) -> Namespace:
         """

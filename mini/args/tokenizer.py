@@ -4,15 +4,14 @@ Module: mini.args.tokenizer
 Description: Tokenizer-related arguments and configurations.
 """
 
-from argparse import ArgumentParser, Namespace
+from argparse import Namespace
+
+from mini.args.base import BaseArgs
 
 
-class TokenizerArgs:
+class TokenizerArgs(BaseArgs):
     def __init__(self, description: str = "Mini CLI Tool"):
-        self.parser = ArgumentParser(description=description)
-        self.parser.add_argument(
-            "-v", "--verbose", action="store_true", help="Enable verbose mode"
-        )
+        super().__init__(description)
 
     def parse_args(self) -> Namespace:
         self.add_required_args()
@@ -26,14 +25,14 @@ class TokenizerArgs:
             required=True,
             help="Path to the SentencePiece model file.",
         )
+
+    def add_tokenizer_args(self) -> None:
         self.parser.add_argument(
             "--input",
             type=str,
             help="Path to the input text or file.",
         )
         self.parser.add_argument("--output", help="Path to the tokenized output file.")
-
-    def add_tokenizer_args(self) -> None:
         self.parser.add_argument(
             "--decode",
             type=str,
