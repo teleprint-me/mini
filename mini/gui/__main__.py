@@ -34,6 +34,7 @@ class MiniGUI:
             self.logger.info(f"Font loaded: {self.current_font}")
 
         with dpg.window(label="Mini GUI", width=800, height=600):
+            self.create_main_menu()
             self.create_menu_bar()
             self.create_text_area()
             self.create_status_bar()
@@ -52,6 +53,23 @@ class MiniGUI:
                 new_font = dpg.add_font(font_path, 16)
                 dpg.bind_font(new_font)
                 self.current_font = new_font
+
+    def create_main_menu(self):
+        """Creates the main menu for navigation."""
+        with dpg.menu_bar():
+            with dpg.menu(label="Navigation"):
+                dpg.add_menu_item(
+                    label="Text Editor", callback=self.switch_to_text_editor
+                )
+                dpg.add_menu_item(label="Tokenizer", callback=None)
+                dpg.add_menu_item(label="Trainer", callback=None)
+                dpg.add_menu_item(label="Inference", callback=None)
+
+    def switch_to_text_editor(self):
+        dpg.show_item("text_editor_window")
+        dpg.hide_item("tokenizer_window")
+        dpg.hide_item("trainer_window")
+        dpg.hide_item("inference_window")
 
     def create_menu_bar(self):
         """Creates the menu bar with File and Tokenizer options."""
