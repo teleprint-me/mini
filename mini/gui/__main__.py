@@ -8,10 +8,13 @@ import os
 import dearpygui.dearpygui as dpg
 from sentencepiece import SentencePieceProcessor
 
+DEFAULT_FONT_PATH = "/usr/share/fonts/noto/NotoSansMono-Regular.ttf"
+
 
 class MiniGUI:
     def __init__(self):
         self.file_path = None
+        self.font_path = DEFAULT_FONT_PATH
         self.processor = None
         self.processor_path = None
         self.setup_ui()
@@ -21,9 +24,7 @@ class MiniGUI:
         dpg.create_context()
 
         with dpg.font_registry():
-            with dpg.font(
-                "/usr/share/fonts/noto/NotoSansMono-Regular.ttf", 14
-            ) as default_font:
+            with dpg.font(self.font_path, 14) as default_font:
                 dpg.add_font_range_hint(dpg.mvFontRangeHint_Default)
                 dpg.bind_font(default_font)
 
@@ -31,6 +32,7 @@ class MiniGUI:
             self.create_menu_bar()
             self.create_text_area()
             self.create_status_bar()
+            self.create_file_dialogs()
 
         dpg.create_viewport(title="Mini GUI App", width=800, height=600)
         dpg.setup_dearpygui()
@@ -43,13 +45,20 @@ class MiniGUI:
         with dpg.menu_bar():
             with dpg.menu(label="File"):
                 dpg.add_menu_item(label="New", callback=self.new_file)
-                dpg.add_menu_item(label="Open", callback=self.open_file)
+                dpg.add_menu_item(
+                    label="Open", callback=lambda: dpg.show_item("open_file_dialog")
+                )
                 dpg.add_menu_item(label="Save", callback=self.save_file)
-                dpg.add_menu_item(label="Save As", callback=self.save_as_file)
+                dpg.add_menu_item(
+                    label="Save As", callback=lambda: dpg.show_item("save_file_dialog")
+                )
                 dpg.add_menu_item(label="Exit", callback=lambda: dpg.stop_dearpygui())
 
             with dpg.menu(label="Tokenizer"):
-                dpg.add_menu_item(label="Load Model", callback=self.select_model)
+                dpg.add_menu_item(
+                    label="Load Model",
+                    callback=lambda: dpg.show_item("open_model_dialog"),
+                )
                 dpg.add_menu_item(label="Encode Text", callback=self.encode_text)
                 dpg.add_menu_item(label="Decode Text", callback=self.decode_text)
 
@@ -63,6 +72,38 @@ class MiniGUI:
         """Creates a status bar at the bottom of the window."""
         dpg.add_text("Status: Ready", tag="status_bar")
 
+    def create_file_dialogs(self):
+        """Creates file dialogs for opening and saving files."""
+
+        # Open File Dialog
+        with dpg.file_dialog(
+            directory_selector=False,
+            show=False,
+            callback=self.open_file_callback,
+            tag="open_file_dialog",
+            width=480,
+            height=320,
+        ):
+            dpg.add_file_extension(".*")
+
+        # Save File Dialog
+        with dpg.file_dialog(
+            directory_selector=False,
+            show=False,
+            callback=self.save_as_file_callback,
+            tag="save_file_dialog",
+        ):
+            dpg.add_file_extension(".*")
+
+        # Open Model Dialog (for SentencePiece model)
+        with dpg.file_dialog(
+            directory_selector=False,
+            show=False,
+            callback=self.select_model_callback,
+            tag="open_model_dialog",
+        ):
+            dpg.add_file_extension(".model")
+
     def set_status(self, message):
         """Updates the status bar with a message."""
         dpg.set_value("status_bar", f"Status: {message}")
@@ -73,13 +114,14 @@ class MiniGUI:
         self.file_path = None
         self.set_status("New file created.")
 
-    def open_file(self):
-        """Opens a file and loads its contents into the text area."""
-        file_path = dpg.open_file_dialog()
+    def open_file_callback(self, sender, app_data):
+        """Callback when a file is selected in the open dialog."""
+        file_path = app_data["file_path_name"]
+        print(app_data)
         if file_path:
-            with open(file_path[0], "r") as file:
+            with open(file_path, "r") as file:
                 dpg.set_value("text_area", file.read())
-            self.file_path = file_path[0]
+            self.file_path = file_path
             self.set_status(f"Opened file: {self.file_path}")
 
     def save_file(self):
@@ -89,22 +131,22 @@ class MiniGUI:
                 file.write(dpg.get_value("text_area"))
             self.set_status(f"Saved: {self.file_path}")
         else:
-            self.save_as_file()
+            dpg.show_item("save_file_dialog")
 
-    def save_as_file(self):
-        """Saves the file with a new name."""
-        file_path = dpg.save_file_dialog()
+    def save_as_file_callback(self, sender, app_data):
+        """Callback when a file path is selected in the save dialog."""
+        file_path = app_data["file_path_name"]
         if file_path:
-            with open(file_path[0], "w") as file:
+            with open(file_path, "w") as file:
                 file.write(dpg.get_value("text_area"))
-            self.file_path = file_path[0]
+            self.file_path = file_path
             self.set_status(f"Saved as: {self.file_path}")
 
-    def select_model(self):
-        """Loads a SentencePiece model."""
-        file_path = dpg.open_file_dialog()
+    def select_model_callback(self, sender, app_data):
+        """Callback when a SentencePiece model is selected."""
+        file_path = app_data["file_path_name"]
         if file_path:
-            self.processor_path = file_path[0]
+            self.processor_path = file_path
             self.processor = SentencePieceProcessor(model_file=self.processor_path)
             self.set_status(f"Loaded model: {self.processor_path}")
 
