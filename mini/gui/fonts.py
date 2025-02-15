@@ -5,16 +5,12 @@ Description: Provides a data class and utility functions to locate font files on
 
 import os
 import platform
-from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional
 
 
-@dataclass(frozen=True)
 class Font:
     """Data class to store font information and provide lookup methods."""
-
-    name: str
 
     @classmethod
     def font_dirs(cls) -> List[Path]:
@@ -97,9 +93,39 @@ class Font:
 
 # Example Usage:
 if __name__ == "__main__":
-    font_path = Font.locate_font("NotoSansMono-Regular")
-    print(f"Font found: {font_path}" if font_path else "Font not found")
+    from argparse import ArgumentParser
 
-    available_fonts = Font.list_fonts()
-    print(f"Available Fonts: {available_fonts[:5]}")  # Show first 5 fonts
-    print(f"There are {len(available_fonts)} fonts available.")
+    parser = ArgumentParser(description="Font Management Example")
+    parser.add_argument(
+        "--locate",
+        type=str,
+        default="NotoSansMono-Regular",
+        help="Name of the font to locate",
+    )
+    parser.add_argument(
+        "--filter", action="store_true", help="Filter fonts for common families"
+    )
+    parser.add_argument("--list", action="store_true", help="List all available fonts")
+    parser.add_argument(
+        "--clip",
+        type=int,
+        default=5,
+        help="Clip the list of fonts to a certain length (default: 5)",
+    )
+    args = parser.parse_args()
+
+    if args.list:
+        available_fonts = Font.list_fonts(filter_common=args.filter)
+        print(f"There are {len(available_fonts)} fonts available.")
+        if args.clip:
+            for font in available_fonts[: args.clip]:
+                print(font)
+        else:
+            for font in available_fonts:
+                print(font)
+    else:
+        font_name = "".join(args.locate.lower().split())
+        font_path = Font.locate_font(font_name)
+        print(
+            f"Font found: {font_path}" if font_path else f"Font not found: {font_name}"
+        )
