@@ -53,34 +53,42 @@ class MiniGUI:
             self.text_area.insert(tk.END, "No model selected. Please load a model.")
 
     def encode_text(self):
-        if self.processor:
-            text = self.text_area.get(1.0, tk.END).strip()
-            tokens = self.processor.encode(text)
-            # Convert list of token ids to a string of tokens separated by commas
-            token_str = ", ".join([str(token) for token in tokens])
-            self.text_area.delete(1.0, tk.END)
-            self.text_area.insert(tk.END, token_str)
-            self.status_bar.config(text="Encoded text:" + token_str[0:50])
-        else:
+        if not self.processor:
             self.status_bar.config(text="No model selected. Please load a model.")
+            return
+        text = self.text_area.get(1.0, tk.END).strip()
+        if not text:
+            self.status_bar.config(text="No text to encode.")
+            return
+        text = self.text_area.get(1.0, tk.END).strip()
+        tokens = self.processor.encode(text)
+        # Convert list of token ids to a string of tokens separated by commas
+        token_str = ", ".join([str(token) for token in tokens])
+        self.text_area.delete(1.0, tk.END)
+        self.text_area.insert(tk.END, token_str)
+        self.status_bar.config(text=f"Generated {len(token_str)} tokens")
 
     def decode_text(self):
-        if self.processor:
-            text = self.text_area.get(1.0, tk.END).strip()
-            # Convert string of tokens separated by commas to a list of token ids
-            text = [int(token) for token in text.split(",")]
-            decoded_text = self.processor.decode(text)
-            self.text_area.delete(1.0, tk.END)
-            self.text_area.insert(tk.END, decoded_text)
-            self.status_bar.config(text="Decoded text:" + decoded_text[0:50])
-        else:
+        if not self.processor:
             self.status_bar.config(text="No model selected. Please load a model.")
+            return
+        text = self.text_area.get(1.0, tk.END).strip()
+        if not text:
+            self.status_bar.config(text="No text to decode.")
+            return
+        # Convert string of tokens separated by commas to a list of token ids
+        text = [int(token) for token in text.split(",")]
+        decoded_text = self.processor.decode(text)
+        self.text_area.delete(1.0, tk.END)
+        self.text_area.insert(tk.END, decoded_text)
+        self.status_bar.config(text=f"Generated {len(decoded_text)} characters")
 
     def create_tokenizer_menu(self):
         tokenizer_menu = tk.Menu(self.menu, tearoff=0)
-        tokenizer_menu.add_command(label="Model", command=self.select_model)
-        tokenizer_menu.add_command(label="Encode", command=self.encode_text)
-        tokenizer_menu.add_command(label="Decode", command=self.decode_text)
+        tokenizer_menu.add_command(label="Open Model", command=self.select_model)
+        tokenizer_menu.add_separator()
+        tokenizer_menu.add_command(label="Encode Text", command=self.encode_text)
+        tokenizer_menu.add_command(label="Decode Text", command=self.decode_text)
         self.menu.add_cascade(label="Tokenizer", menu=tokenizer_menu)
 
     def create_train_menu(self):
