@@ -12,6 +12,9 @@
 /models/*
 !/models/tokenizer.model
 
+# Files
+mini-*.md
+
 # SQLite
 *.db
 
