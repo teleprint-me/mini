@@ -56,34 +56,6 @@ class Font:
         return re.sub(r"[\s_-]+", "", font_name).lower()
 
     @classmethod
-    def locate_font(cls, font_name: str) -> Optional[Path]:
-        """Locate the best matching font file in system directories using fuzzy searching."""
-        normalized_font = cls.normalize_font_name(font_name)
-        potential_matches = []
-
-        for font_dir in cls.font_dirs():
-            if font_dir.exists():
-                for root, _, files in os.walk(font_dir):
-                    for file in files:
-                        if file.lower().endswith((".ttf", ".otf")):
-                            normalized_file = cls.normalize_font_name(file)
-                            potential_matches.append(
-                                (normalized_file, Path(root) / file)
-                            )
-
-        # Get the best fuzzy matches
-        match_names = [name for name, _ in potential_matches]
-        best_matches = get_close_matches(normalized_font, match_names, n=1, cutoff=0.6)
-
-        if best_matches:
-            # Find the actual file path corresponding to the best match
-            for name, path in potential_matches:
-                if name == best_matches[0]:
-                    return path
-
-        return None  # No good match found
-
-    @classmethod
     def list_fonts(
         cls, filter_common=True, search_query: Optional[str] = None
     ) -> List[str]:
@@ -117,6 +89,37 @@ class Font:
 
         return sorted(fonts)  # Sort alphabetically for easier lookup
 
+    @classmethod
+    def locate_font_directly(cls, font_file: str) -> Optional[Path]:
+        """Find the full path of a font file by name."""
+        for font_dir in cls.font_dirs():
+            if font_dir.exists():
+                for root, _, files in os.walk(font_dir):
+                    if font_file in files:
+                        return Path(root) / font_file
+        return None
+
+    @classmethod
+    def locate_font(
+        cls, font_name: str, n: int = 3, cutoff: float = 0.5
+    ) -> Optional[Path]:
+        """Locate the best matching font file using fuzzy searching on available fonts."""
+        normalized_font = cls.normalize_font_name(font_name)
+
+        # Get the list of available font files (no filtering)
+        available_fonts = cls.list_fonts(filter_common=False)
+
+        # Apply fuzzy matching to find the closest name match
+        best_matches = get_close_matches(
+            normalized_font, available_fonts, n=n, cutoff=cutoff
+        )
+
+        # Return the first best match, if found
+        if best_matches:
+            return cls.locate_font_directly(best_matches[0])  # Fetch actual file path
+
+        return None  # No good match found
+
 
 # CLI Interface for Testing
 if __name__ == "__main__":
@@ -125,13 +128,24 @@ if __name__ == "__main__":
     parser = ArgumentParser(description="Font Management CLI Tool")
     parser.add_argument("--locate", type=str, help="Name of the font to locate")
     parser.add_argument(
-        "--filter", action="store_true", help="Filter fonts for common families"
+        "--n", type=int, default=3, help="Number of matches to return (default: 3)"
+    )
+    parser.add_argument(
+        "--cutoff", type=float, default=0.5, help="Fuzzy matching cutoff (default: 0.5)"
+    )
+    parser.add_argument(
+        "--filter",
+        action="store_true",
+        help="Filter fonts for common families (default: False)",
     )
     parser.add_argument(
         "--list", nargs="?", const=True, help="List available fonts (optional filter)"
     )
     parser.add_argument(
-        "--clip", type=int, default=5, help="Limit the number of fonts displayed"
+        "--clip",
+        type=int,
+        default=5,
+        help="Limit the number of fonts displayed (default: 5)",
     )
 
     args = parser.parse_args()
@@ -145,9 +159,14 @@ if __name__ == "__main__":
         for font in available_fonts[: args.clip]:
             print(font)
     elif args.locate:
-        font_path = Font.locate_font(args.locate)
+        font_path = Font.locate_font(args.locate, n=args.n, cutoff=args.cutoff)
         print(
             f"Font found: {font_path}"
             if font_path
             else f"Font not found: {args.locate}"
         )
+    else:
+        print(
+            "No action specified. Use --list or --locate. Use --help for more information."
+        )
+        exit(1)
