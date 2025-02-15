@@ -10,9 +10,11 @@ from sentencepiece import SentencePieceProcessor
 
 
 class MiniGUI:
-    def __init__(self, root: tk.Tk):
-        self.root = root
-        self.root.title("Mini GUI")
+    def __init__(self, title: str):
+        self.root = tk.Tk()
+        self.root.title(title)
+        self.root.geometry("800x600")
+        self.root.resizable(True, True)
         self.menu = tk.Menu(self.root)
         self.root.config(menu=self.menu)
         self.processor = None
@@ -23,7 +25,7 @@ class MiniGUI:
         self.create_status_bar()
 
     def create_text_area(self):
-        self.text_area = tk.Text(self.root, wrap=tk.WORD)
+        self.text_area = tk.Text(self.root, wrap=tk.WORD, font=("Noto Sans Mono", 10))
         self.text_area.pack(expand=tk.YES, fill=tk.BOTH)
 
     def create_status_bar(self):
@@ -66,7 +68,7 @@ class MiniGUI:
         token_str = ", ".join([str(token) for token in tokens])
         self.text_area.delete(1.0, tk.END)
         self.text_area.insert(tk.END, token_str)
-        self.status_bar.config(text=f"Generated {len(token_str)} tokens")
+        self.status_bar.config(text=f"Encoded {len(tokens)} tokens")
 
     def decode_text(self):
         if not self.processor:
@@ -80,8 +82,8 @@ class MiniGUI:
         text = [int(token) for token in text.split(",")]
         decoded_text = self.processor.decode(text)
         self.text_area.delete(1.0, tk.END)
-        self.text_area.insert(tk.END, decoded_text)
-        self.status_bar.config(text=f"Generated {len(decoded_text)} characters")
+        self.text_area.insert(tk.END, decoded_text + "\n")
+        self.status_bar.config(text=f"Decoded {len(text)} tokens")
 
     def create_tokenizer_menu(self):
         tokenizer_menu = tk.Menu(self.menu, tearoff=0)
@@ -121,6 +123,5 @@ class MiniGUI:
 
 
 if __name__ == "__main__":
-    root = tk.Tk()
-    app = MiniGUI(root)
+    app = MiniGUI("Mini GUI App")
     app.run()
