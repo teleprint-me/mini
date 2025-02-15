@@ -17,12 +17,14 @@ class MiniGUI:
         self.root.resizable(True, True)
         self.menu = tk.Menu(self.root)
         self.root.config(menu=self.menu)
+        self.file_path = None
         self.processor = None
         self.processor_path = None
         self.create_file_menu()
         self.create_text_area()
         self.create_tokenizer_menu()
         self.create_status_bar()
+        self.bind_text_events()
 
     def create_text_area(self):
         self.text_area = tk.Text(self.root, wrap=tk.WORD, font=("Noto Sans Mono", 10))
@@ -37,8 +39,10 @@ class MiniGUI:
 
     def create_file_menu(self):
         file_menu = tk.Menu(self.menu, tearoff=0)
+        file_menu.add_command(label="New", command=self.new_file)
         file_menu.add_command(label="Open", command=self.open_file)
         file_menu.add_command(label="Save", command=self.save_file)
+        file_menu.add_command(label="Save As", command=self.save_as_file)
         file_menu.add_separator()
         file_menu.add_command(label="Exit", command=self.root.quit)
         self.menu.add_cascade(label="File", menu=file_menu)
@@ -96,7 +100,7 @@ class MiniGUI:
     def create_train_menu(self):
         pass
 
-    def open_file(self):
+    def open_file(self, event=None):
         file_path = filedialog.askopenfilename()
         if file_path:
             print(f"Selected file: {file_path}")
@@ -110,13 +114,47 @@ class MiniGUI:
             print("No file selected.")
         self.status_bar.config(text=f"File: {file_path}")
 
-    def save_file(self):
+    def save_as_file(self, event=None):
         file_path = filedialog.asksaveasfilename()
         if file_path:
-            print(f"Selected save location: {file_path}")
+            with open(file_path, "w") as file:
+                content = self.text_area.get(1.0, tk.END)
+                file.write(content)
+            self.file_path = file_path
+            self.status_bar.config(text=f"File: {file_path}")
+        else:
+            print("No file selected.")
+        self.status_bar.config(text=f"File: {file_path}")
 
-    def exit_app(self):
+    def save_file(self, event=None):
+        if self.file_path:
+            with open(self.file_path, "w") as file:
+                content = self.text_area.get(1.0, tk.END)
+                file.write(content)
+            self.status_bar.config(text=f"File: {self.file_path}")
+        else:
+            self.save_as_file()
+        self.status_bar.config(text=f"File: {self.file_path}")
+
+    def new_file(self, event=None):
+        self.text_area.delete(1.0, tk.END)
+        self.file_path = None
+        self.status_bar.config(text="File: None")
+
+    def exit_app(self, event=None):
         self.root.destroy()
+
+    def bind_text_events(self):
+        # Create a new empty file
+        self.text_area.bind("<Control-n>", self.new_file)
+        # Update a loaded file
+        self.text_area.bind("<Control-s>", self.save_file)
+        # Save as a new file
+        self.text_area.bind("<Control-Shift-s>", self.save_as_file)
+        # Open a file
+        self.text_area.bind("<Control-o>", self.open_file)
+        # Exit the application
+        self.text_area.bind("<Control-q>", self.exit_app)
 
     def run(self):
         self.root.mainloop()
