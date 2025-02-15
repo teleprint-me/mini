@@ -57,7 +57,7 @@ class Font:
 
     @classmethod
     def locate_font(cls, font_name: str) -> Optional[Path]:
-        """Locate the font file in system directories with improved matching."""
+        """Locate the best matching font file in system directories using fuzzy searching."""
         normalized_font = cls.normalize_font_name(font_name)
         potential_matches = []
 
@@ -67,13 +67,21 @@ class Font:
                     for file in files:
                         if file.lower().endswith((".ttf", ".otf")):
                             normalized_file = cls.normalize_font_name(file)
-                            if normalized_font in normalized_file:
-                                potential_matches.append(Path(root) / file)
+                            potential_matches.append(
+                                (normalized_file, Path(root) / file)
+                            )
 
-        # Return the closest match based on similarity
-        if potential_matches:
-            return potential_matches[0]  # Select first best match for now
-        return None
+        # Get the best fuzzy matches
+        match_names = [name for name, _ in potential_matches]
+        best_matches = get_close_matches(normalized_font, match_names, n=1, cutoff=0.6)
+
+        if best_matches:
+            # Find the actual file path corresponding to the best match
+            for name, path in potential_matches:
+                if name == best_matches[0]:
+                    return path
+
+        return None  # No good match found
 
     @classmethod
     def list_fonts(
