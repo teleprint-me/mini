@@ -8,25 +8,30 @@ import os
 import dearpygui.dearpygui as dpg
 from sentencepiece import SentencePieceProcessor
 
-DEFAULT_FONT_PATH = "/usr/share/fonts/noto/NotoSansMono-Regular.ttf"
+from mini.common.logger import get_logger
+from mini.gui.fonts.fuzzer import FontFuzzer
 
 
 class MiniGUI:
     def __init__(self):
         self.file_path = None
-        self.font_path = DEFAULT_FONT_PATH
+        self.font_path = FontFuzzer.locate_font("Noto Sans Mono")
         self.processor = None
         self.processor_path = None
+        self.current_font = None
+        self.logger = get_logger(__name__)
+        self.logger.info("Initializing MiniGUI")
         self.setup_ui()
 
     def setup_ui(self):
         """Creates the UI elements for the MiniGUI application."""
         dpg.create_context()
 
+        # Load and apply font
         with dpg.font_registry():
-            with dpg.font(self.font_path, 14) as default_font:
-                dpg.add_font_range_hint(dpg.mvFontRangeHint_Default)
-                dpg.bind_font(default_font)
+            self.logger.info(f"Loading font from {self.font_path}")
+            self.load_font(self.font_path)
+            self.logger.info(f"Font loaded: {self.current_font}")
 
         with dpg.window(label="Mini GUI", width=800, height=600):
             self.create_menu_bar()
@@ -39,6 +44,14 @@ class MiniGUI:
         dpg.show_viewport()
         dpg.start_dearpygui()
         dpg.destroy_context()
+
+    def load_font(self, font_path):
+        """Loads and applies a font dynamically."""
+        if font_path:
+            with dpg.font_registry():
+                new_font = dpg.add_font(font_path, 16)
+                dpg.bind_font(new_font)
+                self.current_font = new_font
 
     def create_menu_bar(self):
         """Creates the menu bar with File and Tokenizer options."""
