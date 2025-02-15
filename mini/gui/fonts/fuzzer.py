@@ -1,4 +1,5 @@
 """
+Copyright © 2023 Austin Berrio
 Module: mini.gui.fonts.fuzzer
 Description: Utility for fuzzing font files.
 """
