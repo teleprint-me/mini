@@ -116,13 +116,13 @@ class MiniGUI:
 
     def open_file_callback(self, sender, app_data):
         """Callback when a file is selected in the open dialog."""
-        file_path = app_data["file_path_name"]
-        print(app_data)
-        if file_path:
-            with open(file_path, "r") as file:
-                dpg.set_value("text_area", file.read())
-            self.file_path = file_path
-            self.set_status(f"Opened file: {self.file_path}")
+        if app_data["selections"]:
+            file_path = app_data["selections"][next(iter(app_data["selections"]))]
+            if file_path:
+                with open(file_path, "r") as file:
+                    dpg.set_value("text_area", file.read())
+                self.file_path = file_path
+                self.set_status(f"Opened file: {self.file_path}")
 
     def save_file(self):
         """Saves the current file."""
@@ -135,12 +135,13 @@ class MiniGUI:
 
     def save_as_file_callback(self, sender, app_data):
         """Callback when a file path is selected in the save dialog."""
-        file_path = app_data["file_path_name"]
-        if file_path:
-            with open(file_path, "w") as file:
-                file.write(dpg.get_value("text_area"))
-            self.file_path = file_path
-            self.set_status(f"Saved as: {self.file_path}")
+        if app_data["selections"]:
+            file_path = app_data["selections"][next(iter(app_data["selections"]))]
+            if file_path:
+                with open(file_path, "w") as file:
+                    file.write(dpg.get_value("text_area"))
+                self.file_path = file_path
+                self.set_status(f"Saved as: {self.file_path}")
 
     def select_model_callback(self, sender, app_data):
         """Callback when a SentencePiece model is selected."""
