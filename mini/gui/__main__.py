@@ -92,6 +92,8 @@ class MiniGUI:
             show=False,
             callback=self.save_as_file_callback,
             tag="save_file_dialog",
+            width=480,
+            height=320,
         ):
             dpg.add_file_extension(".*")
 
@@ -101,6 +103,8 @@ class MiniGUI:
             show=False,
             callback=self.select_model_callback,
             tag="open_model_dialog",
+            width=480,
+            height=320,
         ):
             dpg.add_file_extension(".model")
 
