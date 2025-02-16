@@ -1,7 +1,7 @@
 """
 Copyright © 2023 Austin Berrio
 Module: mini.gui.settings.ui
-Description: Settings window for the MiniGUI application.
+Description: UI tab settings for the settings window.
 """
 
 import logging
@@ -14,7 +14,7 @@ from mini.gui.fonts.fuzzer import FontFuzzer
 
 
 class UISettingsTab:
-    """Settings window for the MiniGUI application."""
+    """UI settings tab for the MiniGUI application."""
 
     def __init__(self, gui):
         """Creates the settings window and registers itself with MiniGUI."""
