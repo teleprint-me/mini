@@ -1,19 +1,22 @@
 """
+Copyright © 2023 Austin Berrio
 Module: mini.gui.__main__
 Description: Main entry point for the Mini GUI application.
 """
 
 import dearpygui.dearpygui as dpg
 
+from mini.gui.fonts.fuzzer import FontFuzzer
 from mini.gui.main_menu import MainMenu
+from mini.gui.settings_window import SettingsWindow  # Import Settings
 
 
 class MiniGUI:
     def __init__(self):
         self.last_width = None
-        self.registered_windows = {}  # Store registered windows
-        self.render_callbacks = []  # Store functions to call every frame
-
+        self.registered_windows = {}
+        self.render_callbacks = []
+        self.current_font = FontFuzzer.locate_font("Noto Sans Mono")  # Default Font
         self.setup_ui()
 
     def setup_ui(self):
@@ -21,10 +24,11 @@ class MiniGUI:
         dpg.create_context()
         dpg.create_viewport(title="Mini GUI App", width=640, height=480)
 
-        # Initialize Main Menu
+        # Initialize Components
         self.main_menu = MainMenu(self)
+        self.settings_window = SettingsWindow(self)
 
-        # Create all windows dynamically
+        # Register Windows
         for tag in [
             "editor",
             "tokenizer",
@@ -40,13 +44,20 @@ class MiniGUI:
         dpg.setup_dearpygui()
         dpg.show_viewport()
 
-        # Manual render loop (polling for updates)
+        # Manual Render Loop
         while dpg.is_dearpygui_running():
             for callback in self.render_callbacks:
-                callback()  # Run registered UI updates
+                callback()
             dpg.render_dearpygui_frame()
 
         dpg.destroy_context()
+
+    def set_font(self, font_path):
+        """Applies a new font dynamically."""
+        with dpg.font_registry():
+            new_font = dpg.add_font(font_path, 16)
+            dpg.bind_font(new_font)
+            self.current_font = font_path  # Update state
 
     def register_window(self, tag):
         """Creates and registers a window with a given tag."""
