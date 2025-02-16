@@ -34,26 +34,21 @@ class UISettingsWindow:
             default_value=Path(self.font_path).stem,
         )
 
+        # NOTE: min_value and max_value are not respected.
         dpg.add_text("Font Size:")
         dpg.add_input_int(
-            min_value=8,
-            max_value=72,
             callback=self.set_font_size,
             default_value=self.font_size,
         )
 
         dpg.add_text("Font Size Multiplier:")
         dpg.add_input_int(
-            min_value=1,
-            max_value=5,
             callback=self.set_font_size_multiplier,
             default_value=self.font_size_multiplier,
         )
 
         dpg.add_text("Global Font Scale Factor:")
         dpg.add_input_float(
-            min_value=0.1,
-            max_value=1.0,  # Clamp to 1.0 to prevent excessive scaling
             step=0.1,
             format="%.1f",
             callback=self.set_font_scale_factor,
@@ -68,15 +63,18 @@ class UISettingsWindow:
 
     def set_font_size(self, sender, app_data):
         """Updates the UI font size."""
-        self.set_font(font_size=app_data)
+        clamped_size = max(8, min(app_data, 72))  # Clamp between 8 and 72
+        self.set_font(font_size=clamped_size)
 
     def set_font_size_multiplier(self, sender, app_data):
         """Updates the UI font size multiplier."""
-        self.set_font(font_size_multiplier=app_data)
+        clamped_multiplier = max(0, min(app_data, 5))  # Clamp between 0 and 5
+        self.set_font(font_size_multiplier=clamped_multiplier)
 
     def set_font_scale_factor(self, sender, app_data):
         """Updates the UI font scale."""
-        self.set_font(font_scale_factor=app_data)
+        clamped_scale = max(0.1, min(app_data, 1.0))  # Clamp between 0.1 and 1.0
+        self.set_font(font_scale_factor=clamped_scale)
 
     def set_font(
         self,
