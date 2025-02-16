@@ -7,7 +7,7 @@ Description: Main entry point for the Mini GUI application.
 import dearpygui.dearpygui as dpg
 
 from mini.gui.main_menu import MainMenu
-from mini.gui.settings import SettingsWindow  # Import Settings
+from mini.gui.settings.window import SettingsWindow  # Import Settings
 
 
 class MiniGUI:

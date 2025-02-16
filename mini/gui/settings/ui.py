@@ -4,10 +4,12 @@ Module: mini.gui.settings.ui
 Description: Settings window for the MiniGUI application.
 """
 
+import logging
 from pathlib import Path
 
 import dearpygui.dearpygui as dpg
 
+from mini.common.logger import get_logger
 from mini.gui.fonts.fuzzer import FontFuzzer
 
 
@@ -22,6 +24,7 @@ class UISettingsTab:
         self.font_size_multiplier = 2
         self.font_scale_factor = 0.5
         self.font_options = []  # Store available fonts
+        self.logger = get_logger(self.__class__.__name__, logging.DEBUG)
 
     def create_ui_settings(self):
         """Creates the UI settings tab, including font selection."""
@@ -120,7 +123,7 @@ class UISettingsTab:
             dpg.set_global_font_scale(scale_factor)  # Avoid scaling artifacts
 
         # Log the change
-        print(
+        self.logger.debug(
             f"Font changed to: {Path(self.font_path).stem}, "
             f"Size: {self.font_size} x {self.font_size_multiplier} = {adjusted_font_size}, "
             f"Scale: {self.font_scale_factor:.2f}"
