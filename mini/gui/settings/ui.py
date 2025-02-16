@@ -1,6 +1,6 @@
 """
 Copyright © 2023 Austin Berrio
-Module: mini.gui.settings
+Module: mini.gui.settings.ui
 Description: Settings window for the MiniGUI application.
 """
 
