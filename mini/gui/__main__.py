@@ -25,7 +25,7 @@ class MiniGUI:
     def setup_ui(self):
         """Sets up the GUI layout and initializes windows."""
         dpg.create_context()
-        dpg.create_viewport(title="Mini GUI App", width=640, height=480)
+        dpg.create_viewport(title="Mini GUI App", width=720, height=480)
 
         # Initialize Components
         self.main_menu = MainMenu(self)
@@ -55,20 +55,33 @@ class MiniGUI:
         dpg.destroy_context()
 
     def set_font(self, font_path=None, font_size=None):
-        """Applies a new font dynamically."""
+        """Applies a new font dynamically and prevents blurriness."""
         # Default to current values if not provided
         font_path = font_path or self.font_path
         font_size = font_size or self.font_size
+
+        # Avoid redundant updates
+        if font_path == self.font_path and font_size == self.font_size:
+            return  # No need to reapply the same font
+
         # Store updated values
         self.font_path = font_path
         self.font_size = font_size
-        # Clear and recreate the font registry
+
+        # 🔥 Fix: Preserve DearPyGui's default scaling method
+        scaled_size = font_size * 2  # Double the font size for sharper rendering
+        scale_factor = 0.5  # Scale down to avoid blurriness
+
+        # Remove existing fonts
         if dpg.does_item_exist("font_registry"):
             dpg.delete_item("font_registry")
-        # Apply the new font to DearPyGUI
+
+        # Apply new font
         with dpg.font_registry(tag="font_registry"):
-            dpg.add_font(self.font_path, self.font_size, tag="active_font")
+            dpg.add_font(self.font_path, scaled_size, tag="active_font")
             dpg.bind_font("active_font")
+            dpg.set_global_font_scale(scale_factor)  # Avoid scaling artifacts
+
         # Log the change
         print(f"Font changed to: {Path(self.font_path).stem}, Size: {self.font_size}")
 
