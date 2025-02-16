@@ -1,10 +1,10 @@
 ---
-title: "Blurry Font Rendering in Dear PyGui (DPG)"
-type: "issue"
+title: 'Blurry Font Rendering in Dear PyGui (DPG)'
+type: 'issue'
 version: 1
-date: "2025-02-16"
-modified: "2025-02-16"
-license: "cc-by-nc-sa-4.0"
+date: '2025-02-16'
+modified: '2025-02-16'
+license: 'cc-by-nc-sa-4.0'
 ---
 
 # **Blurry Font Rendering in Dear PyGui (DPG)**
@@ -41,6 +41,10 @@ def set_font(font_path, font_size):
         dpg.set_global_font_scale(0.5)  # Prevents scaling artifacts
 ```
 
+See the full discussion and limitations:
+
+- [GitHub Issue #1380](https://github.com/hoffstadt/DearPyGui/issues/1380)
+
 ### **2. Rebuilding DearPyGui from Source (Advanced)**
 
 If you require a more permanent fix, modifying and recompiling DPG is an option.
@@ -64,7 +68,7 @@ not be feasible for all users.
 
 See the full discussion and instructions:
 
-- [GitHub Issue #773 (Comment)](https://github.com/hoffstadt/DearPyGui/issues/773#issuecomment-1625496528)
+- [GitHub Issue #773](https://github.com/hoffstadt/DearPyGui/issues/773)
 
 ## **Limitations**
 
