@@ -9,7 +9,7 @@ import dearpygui.dearpygui as dpg
 class MiniGUI:
     def __init__(self):
         self.last_width = None  # Track last window width
-        self.menu_buttons_group = None  # Store the button group ID
+        self.menu_buttons_group = None  # Store button group ID
         self.setup_ui()
 
     def setup_ui(self):
@@ -44,12 +44,14 @@ class MiniGUI:
             with dpg.window(label=tag.capitalize(), tag=tag, show=False, pos=(260, 10)):
                 dpg.add_text(f"{tag.capitalize()} UI")
 
-        # Register a frame callback for width adjustment
-        dpg.set_frame_callback(1, self.update_button_width)
-
         dpg.setup_dearpygui()
         dpg.show_viewport()
-        dpg.start_dearpygui()
+
+        # Start Manual Render Loop
+        while dpg.is_dearpygui_running():
+            self.update_button_width()  # Check for window width changes
+            dpg.render_dearpygui_frame()  # Render new frame
+
         dpg.destroy_context()
 
     def toggle_window(self, sender, app_data, user_data):
@@ -57,13 +59,12 @@ class MiniGUI:
         is_visible = dpg.get_item_configuration(user_data)["show"]
         dpg.configure_item(user_data, show=not is_visible)
 
-    def update_button_width(self, sender):
+    def update_button_width(self):
         """Detects window width changes and rebuilds buttons dynamically."""
         window_width = dpg.get_item_width("main_menu")
         if window_width != self.last_width:  # Only update if width actually changes
             self.last_width = window_width  # Store new width
             self.rebuild_buttons()  # Rebuild buttons with new width
-        dpg.set_frame_callback(1, self.update_button_width)  # Keep polling
 
     def rebuild_buttons(self):
         """Rebuilds the menu buttons dynamically when resizing."""
