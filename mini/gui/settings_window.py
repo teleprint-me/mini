@@ -13,9 +13,7 @@ class SettingsWindow:
         self.selected_font = None
 
         self.setup_ui()
-        self.gui.register_window(
-            "settings", existing_window=True
-        )  # Tell MiniGUI to use this window!
+        self.gui.register_window("settings", existing_window=True)
 
     def setup_ui(self):
         """Creates the settings window layout with tabbed categories."""
@@ -44,16 +42,29 @@ class SettingsWindow:
     def create_ui_settings(self):
         """Creates the UI settings tab, including font selection."""
         dpg.add_text("Select Font:")
+
         self.font_options = FontFuzzer.list_fonts(filter_common=True)
-        self.selected_font = dpg.add_combo(
-            [Path(f).stem for f in self.font_options],  # Just show font names
-            callback=self.set_font,
-            default_value=Path(self.gui.current_font).stem,
+        dpg.add_combo(
+            [Path(f).stem for f in self.font_options],
+            callback=self.set_font_type,
+            default_value=Path(self.gui.font_path).stem,
         )
 
-    def set_font(self, sender, app_data):
+        dpg.add_text("Font Size:")
+        dpg.add_input_int(
+            min_value=8,
+            max_value=72,
+            step=2,
+            callback=self.set_font_size,
+            default_value=self.gui.font_size,
+        )
+
+    def set_font_type(self, sender, app_data):
         """Updates the UI font."""
         selected_font = FontFuzzer.locate_font(app_data)
         if selected_font:
-            self.gui.set_font(selected_font)
-            print(f"Font changed to: {selected_font}")
+            self.gui.set_font(font_path=selected_font)  # Use the fixed function!
+
+    def set_font_size(self, sender, app_data):
+        """Updates the UI font size."""
+        self.gui.set_font(font_size=app_data)  # Dynamically update font size

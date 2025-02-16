@@ -4,6 +4,8 @@ Module: mini.gui.__main__
 Description: Main entry point for the Mini GUI application.
 """
 
+from pathlib import Path
+
 import dearpygui.dearpygui as dpg
 
 from mini.gui.fonts.fuzzer import FontFuzzer
@@ -16,7 +18,8 @@ class MiniGUI:
         self.last_width = None
         self.registered_windows = {}
         self.render_callbacks = []
-        self.current_font = FontFuzzer.locate_font("Noto Sans Mono")  # Default Font
+        self.font_path = FontFuzzer.locate_font("Noto Sans Mono")
+        self.font_size = 16
         self.setup_ui()
 
     def setup_ui(self):
@@ -51,12 +54,23 @@ class MiniGUI:
 
         dpg.destroy_context()
 
-    def set_font(self, font_path):
+    def set_font(self, font_path=None, font_size=None):
         """Applies a new font dynamically."""
-        with dpg.font_registry():
-            new_font = dpg.add_font(font_path, 16)
-            dpg.bind_font(new_font)
-            self.current_font = font_path  # Update state
+        # Default to current values if not provided
+        font_path = font_path or self.font_path
+        font_size = font_size or self.font_size
+        # Store updated values
+        self.font_path = font_path
+        self.font_size = font_size
+        # Clear and recreate the font registry
+        if dpg.does_item_exist("font_registry"):
+            dpg.delete_item("font_registry")
+        # Apply the new font to DearPyGUI
+        with dpg.font_registry(tag="font_registry"):
+            dpg.add_font(self.font_path, self.font_size, tag="active_font")
+            dpg.bind_font("active_font")
+        # Log the change
+        print(f"Font changed to: {Path(self.font_path).stem}, Size: {self.font_size}")
 
     def register_window(self, tag, existing_window=None):
         """Creates and registers a new window, unless it already exists."""
