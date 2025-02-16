@@ -6,14 +6,14 @@ Description: Settings window for the MiniGUI application.
 
 import dearpygui.dearpygui as dpg
 
-from mini.gui.settings.ui import UISettingsWindow
+from mini.gui.settings.ui import UISettingsTab
 
 
 class SettingsWindow:
     def __init__(self, gui):
         """Creates the settings window and registers itself with MiniGUI."""
         self.gui = gui
-        self.ui_settings = UISettingsWindow(gui)  # Instantiate font settings
+        self.ui_settings = UISettingsTab(gui)  # Instantiate font settings
         self.setup_ui()
         self.gui.register_window("settings", existing_window=True)
 

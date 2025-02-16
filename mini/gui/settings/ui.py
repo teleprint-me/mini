@@ -11,7 +11,7 @@ import dearpygui.dearpygui as dpg
 from mini.gui.fonts.fuzzer import FontFuzzer
 
 
-class UISettingsWindow:
+class UISettingsTab:
     """Settings window for the MiniGUI application."""
 
     def __init__(self, gui):
