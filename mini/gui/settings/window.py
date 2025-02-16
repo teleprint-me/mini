@@ -6,6 +6,7 @@ Description: Settings window for the MiniGUI application.
 
 import dearpygui.dearpygui as dpg
 
+from mini.gui.settings.editor import EditorSettingsTab
 from mini.gui.settings.ui import UISettingsTab
 
 
@@ -14,6 +15,7 @@ class SettingsWindow:
         """Creates the settings window and registers itself with MiniGUI."""
         self.gui = gui
         self.ui_settings = UISettingsTab(gui)  # Instantiate font settings
+        self.editor_settings = EditorSettingsTab(gui)
         self.setup_ui()
         self.gui.register_window("settings", existing_window=True)
 
@@ -29,9 +31,9 @@ class SettingsWindow:
         ):
             with dpg.tab_bar():
                 with dpg.tab(label="UI"):
-                    self.ui_settings.create_ui_settings()  # Register font settings
+                    self.ui_settings.create_ui_settings()
                 with dpg.tab(label="Editor"):
-                    dpg.add_text("Editor Settings Placeholder")
+                    self.editor_settings.create_editor_settings()
                 with dpg.tab(label="Tokenizer"):
                     dpg.add_text("Tokenizer Settings Placeholder")
                 with dpg.tab(label="Trainer"):
