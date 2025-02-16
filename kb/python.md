@@ -1,6 +1,6 @@
 ---
 title: "Python Versioning and Compatibility Challenges"
-type: "technical"
+type: "issue"
 version: 1
 date: "2024-12-24"
 modified: "2024-12-30"

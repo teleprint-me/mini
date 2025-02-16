@@ -1,6 +1,6 @@
 ---
 title: "ROCm + PyTorch Setup on Arch Linux"
-type: "technical"
+type: "issue"
 version: 1
 date: "2025-01-30"
 modified: "2025-02-13"
