@@ -1,8 +1,12 @@
+# Dev dependencies
 bpython
+flake8
+black
+pytest
+# Dependencies
 jsonschema
 sentencepiece
 numpy
 tqdm
 regex
-pytest
 dearpygui
