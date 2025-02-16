@@ -5,11 +5,15 @@ Description: Main entry point for the Mini GUI application.
 
 import dearpygui.dearpygui as dpg
 
+from mini.gui.main_menu import MainMenu
+
 
 class MiniGUI:
     def __init__(self):
-        self.last_width = None  # Track last window width
-        self.menu_buttons_group = None  # Store button group ID
+        self.last_width = None
+        self.registered_windows = {}  # Store registered windows
+        self.render_callbacks = []  # Store functions to call every frame
+
         self.setup_ui()
 
     def setup_ui(self):
@@ -17,20 +21,10 @@ class MiniGUI:
         dpg.create_context()
         dpg.create_viewport(title="Mini GUI App", width=640, height=480)
 
-        # Main Menu Window
-        with dpg.window(
-            label="Main Menu",
-            tag="main_menu",
-            width=240,
-            height=380,
-            pos=(10, 10),
-        ):
-            dpg.add_text("Navigation:")
-            dpg.add_separator()
-            self.menu_buttons_group = dpg.add_group()  # Store button group ID
-            self.rebuild_buttons()  # Initialize buttons
+        # Initialize Main Menu
+        self.main_menu = MainMenu(self)
 
-        # Example UI Windows
+        # Create all windows dynamically
         for tag in [
             "editor",
             "tokenizer",
@@ -41,56 +35,33 @@ class MiniGUI:
             "model",
             "settings",
         ]:
-            with dpg.window(label=tag.capitalize(), tag=tag, show=False, pos=(260, 10)):
-                dpg.add_text(f"{tag.capitalize()} UI")
+            self.register_window(tag)
 
         dpg.setup_dearpygui()
         dpg.show_viewport()
 
-        # Start Manual Render Loop
+        # Manual render loop (polling for updates)
         while dpg.is_dearpygui_running():
-            self.update_button_width()  # Check for window width changes
-            dpg.render_dearpygui_frame()  # Render new frame
+            for callback in self.render_callbacks:
+                callback()  # Run registered UI updates
+            dpg.render_dearpygui_frame()
 
         dpg.destroy_context()
 
-    def toggle_window(self, sender, app_data, user_data):
-        """Toggles the visibility of a window."""
-        is_visible = dpg.get_item_configuration(user_data)["show"]
-        dpg.configure_item(user_data, show=not is_visible)
+    def register_window(self, tag):
+        """Creates and registers a window with a given tag."""
+        with dpg.window(label=tag.capitalize(), tag=tag, show=False, pos=(260, 10)):
+            dpg.add_text(f"{tag.capitalize()} UI")
+        self.registered_windows[tag] = False  # Store visibility state
 
-    def update_button_width(self):
-        """Detects window width changes and rebuilds buttons dynamically."""
-        window_width = dpg.get_item_width("main_menu")
-        if window_width != self.last_width:  # Only update if width actually changes
-            self.last_width = window_width  # Store new width
-            self.rebuild_buttons()  # Rebuild buttons with new width
+    def toggle_window(self, tag):
+        """Toggles visibility of a window."""
+        is_visible = dpg.get_item_configuration(tag)["show"]
+        dpg.configure_item(tag, show=not is_visible)
 
-    def rebuild_buttons(self):
-        """Rebuilds the menu buttons dynamically when resizing."""
-        dpg.delete_item(
-            self.menu_buttons_group, children_only=True
-        )  # Clear old buttons
-        button_width = max(80, dpg.get_item_width("main_menu") - 20)
-
-        for tag in [
-            "editor",
-            "tokenizer",
-            "trainer",
-            "generator",
-            "graph",
-            "evaluator",
-            "model",
-            "settings",
-        ]:
-            dpg.add_button(
-                label=tag.capitalize(),
-                width=button_width,
-                height=30,
-                callback=self.toggle_window,
-                user_data=tag,
-                parent=self.menu_buttons_group,  # Attach to button group
-            )
+    def add_render_callback(self, callback):
+        """Adds a function to be executed in the render loop."""
+        self.render_callbacks.append(callback)
 
 
 if __name__ == "__main__":
