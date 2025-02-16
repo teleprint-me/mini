@@ -1,4 +1,5 @@
 """
+Copyright © 2023 Austin Berrio
 Module: mini.gui.settings
 Description: Settings window for the MiniGUI application.
 """
@@ -52,7 +53,7 @@ class UISettingsWindow:
         dpg.add_text("Global Font Scale Factor:")
         dpg.add_input_float(
             min_value=0.1,
-            max_value=2.0,
+            max_value=1.0,  # Clamp to 1.0 to prevent excessive scaling
             step=0.1,
             format="%.1f",
             callback=self.set_font_scale_factor,
@@ -124,7 +125,7 @@ class UISettingsWindow:
         print(
             f"Font changed to: {Path(self.font_path).stem}, "
             f"Size: {self.font_size} x {self.font_size_multiplier} = {adjusted_font_size}, "
-            f"Scale: {self.font_scale_factor}"
+            f"Scale: {self.font_scale_factor:.2f}"
         )
 
 
