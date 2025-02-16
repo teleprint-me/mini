@@ -9,6 +9,7 @@ import dearpygui.dearpygui as dpg
 class MiniGUI:
     def __init__(self):
         self.last_width = None  # Track last window width
+        self.menu_buttons_group = None  # Store the button group ID
         self.setup_ui()
 
     def setup_ui(self):
@@ -16,35 +17,18 @@ class MiniGUI:
         dpg.create_context()
         dpg.create_viewport(title="Mini GUI App", width=640, height=480)
 
+        # Main Menu Window
         with dpg.window(
             label="Main Menu",
-            tag="main_menu",  # Assigning a tag for easy reference
+            tag="main_menu",
             width=240,
             height=380,
             pos=(10, 10),
         ):
             dpg.add_text("Navigation:")
             dpg.add_separator()
-
-            self.menu_buttons = []  # Store button tags for later updates
-            for tag in [
-                "editor",
-                "tokenizer",
-                "trainer",
-                "generator",
-                "graph",
-                "evaluator",
-                "model",
-                "settings",
-            ]:
-                button = dpg.add_button(
-                    label=tag.capitalize(),
-                    width=220,  # Default button width
-                    height=30,
-                    callback=self.toggle_window,
-                    user_data=tag,
-                )
-                self.menu_buttons.append(button)
+            self.menu_buttons_group = dpg.add_group()  # Store button group ID
+            self.rebuild_buttons()  # Initialize buttons
 
         # Example UI Windows
         for tag in [
@@ -60,7 +44,7 @@ class MiniGUI:
             with dpg.window(label=tag.capitalize(), tag=tag, show=False, pos=(260, 10)):
                 dpg.add_text(f"{tag.capitalize()} UI")
 
-        # Register a frame callback for dynamic width adjustment
+        # Register a frame callback for width adjustment
         dpg.set_frame_callback(1, self.update_button_width)
 
         dpg.setup_dearpygui()
@@ -74,17 +58,38 @@ class MiniGUI:
         dpg.configure_item(user_data, show=not is_visible)
 
     def update_button_width(self, sender):
-        """Polls for window width changes and updates button sizes."""
+        """Detects window width changes and rebuilds buttons dynamically."""
         window_width = dpg.get_item_width("main_menu")
         if window_width != self.last_width:  # Only update if width actually changes
             self.last_width = window_width  # Store new width
-            button_width = max(80, window_width - 20)
+            self.rebuild_buttons()  # Rebuild buttons with new width
+        dpg.set_frame_callback(1, self.update_button_width)  # Keep polling
 
-            for button in self.menu_buttons:
-                dpg.configure_item(button, width=button_width)
+    def rebuild_buttons(self):
+        """Rebuilds the menu buttons dynamically when resizing."""
+        dpg.delete_item(
+            self.menu_buttons_group, children_only=True
+        )  # Clear old buttons
+        button_width = max(80, dpg.get_item_width("main_menu") - 20)
 
-        # Keep polling every frame
-        dpg.set_frame_callback(1, self.update_button_width)
+        for tag in [
+            "editor",
+            "tokenizer",
+            "trainer",
+            "generator",
+            "graph",
+            "evaluator",
+            "model",
+            "settings",
+        ]:
+            dpg.add_button(
+                label=tag.capitalize(),
+                width=button_width,
+                height=30,
+                callback=self.toggle_window,
+                user_data=tag,
+                parent=self.menu_buttons_group,  # Attach to button group
+            )
 
 
 if __name__ == "__main__":
