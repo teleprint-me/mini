@@ -71,18 +71,9 @@ class TokenizerWindow:
 
         try:
             self.log_training_output("INFO", "Starting tokenizer training...")
-            spm.SentencePieceTrainer.train(
-                input=self.input_path,
-                model_prefix=self.output_path,
-                vocab_size=self.vocab_size,
-                model_type=self.model_type,
-                character_coverage=1.0,
-                user_defined_symbols=[],
-                max_sentence_length=4096,
-                shuffle_input_sentence=True,
-                enable_sampling=False,
-                num_threads=4,
-                write_utf8=True,
+            self.train(**self.config.as_dict())
+            self.log_training_output(
+                "INFO", f"Tokenizer model saved to {self.config.model_path}"
             )
         except Exception as e:
             self.log_training_output("ERROR", f"Error during tokenizer training: {e}")
