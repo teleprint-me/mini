@@ -5,13 +5,13 @@ Description: Mini GUI window for training, encoding, and decoding text using sen
 
 import io
 import logging
-from datetime import datetime
 from pathlib import Path
 
 import dearpygui.dearpygui as dpg
 import sentencepiece as spm
 
 from mini.common.logger import get_logger
+from mini.config.tokenizer import ConfigTokenizer
 
 
 class TokenizerWindow:
@@ -19,38 +19,12 @@ class TokenizerWindow:
         # MiniGUI object reference
         self.gui = gui
 
+        # Load configuration or use defaults
+        self.config = ConfigTokenizer()
+
         # tokenizer model and trainer objects
         self.sp = io.BytesIO()
-        self.train = spm.SentencePieceTrainer.Train
-
-        # trained model path
-        self.model_path = Path("models/tokenizer.model")
-
-        # Basic training parameters
-        self.input = Path("data/mini-owl-fairy.md")  # Training data file
-        self.model_prefix = f"tokenizer-{self.get_timestamp()}"  # Prefix with timestamp
-        self.model_type = "bpe"  # Model type: 'bpe', 'unigram', 'char', 'word'
-        self.vocab_size = 1_000  # Vocabulary size
-        self.character_coverage = 1.0  # Percentage of characters covered in training
-        # Data processing parameters
-        self.input_sentence_size = None  # Max number of sequences for training
-        self.max_sentence_length = 4192  # Max sequence length
-        self.shuffle_input_sentence = False  # Whether to shuffle input sequences
-        self.split_by_whitespace = False  # Force split by whitespace
-
-        # Special tokens
-        self.user_defined_symbols = []  # Custom symbols like ['<sep>', '<cls>']
-        self.control_symbols = []  # Control symbols like ['[START]', '[END]']
-
-        # Padding configuration
-        self.enable_padding = False  # Toggle padding (if True, sets a pad_id)
-        self.pad_id = 3  # Default pad_id (set only if enable_padding=True)
-
-        # Subword and tokenization parameters
-        self.byte_fallback = False
-        self.allow_whitespace_only_pieces = False
-        self.remove_extra_whitespaces = False
-        self.split_digits = False
+        self.train = spm.SentencePieceTrainer.train
 
         # Training log
         self.training_log = []
@@ -59,14 +33,6 @@ class TokenizerWindow:
         self.setup_ui()
         self.gui.register_window("tokenizer", existing_window=True)
         self.logger = get_logger(self.__class__.__name__, level=logging.DEBUG)
-
-    def get_timestamp(self) -> str:
-        """Get the current timestamp as a formatted string."""
-        return datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
-
-    def list_model_types(self) -> tuple[str]:
-        """Return an immutable tuple of available tokenizer model types."""
-        return ("unigram", "bpe", "char", "word")
 
     def set_input_path(self, sender, app_data):
         """Handles input file path selection."""
