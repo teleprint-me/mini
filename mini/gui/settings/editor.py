@@ -32,22 +32,47 @@ class EditorSettingsTab:
                 return exe
         return ""  # Return empty if none are found
 
+    def set_linter_path(self, sender, app_data):
+        """Sets the linter path."""
+        if shutil.which(app_data):  # Check if the path is valid
+            self.linter = app_data
+            self.logger.info(f"Linter path set to: {self.linter}")
+
+    def set_formatter_path(self, sender, app_data):
+        """Sets the formatter path."""
+        if shutil.which(app_data):  # Check if the path is valid
+            self.formatter = app_data
+            self.logger.info(f"Formatter path set to: {self.formatter}")
+
+    def set_compiler_path(self, sender, app_data):
+        """Sets the compiler / interpreter path."""
+        if shutil.which(app_data):  # Check if the path is valid
+            self.compiler = app_data
+            self.logger.info(f"Compiler / Interpreter path set to: {self.compiler}")
+
     def create_editor_settings(self):
         """Creates the Editor settings tab."""
         dpg.add_text("Set Linter Path:")
         dpg.add_input_text(
-            label="Linter Path", default_value=self.linter, tag="editor_linter"
+            label="Linter Path",
+            default_value=self.linter,
+            callback=self.set_linter_path,
+            tag="editor_linter",
         )
 
         dpg.add_text("Set Formatter Path:")
         dpg.add_input_text(
-            label="Formatter Path", default_value=self.formatter, tag="editor_formatter"
+            label="Formatter Path",
+            default_value=self.formatter,
+            callback=self.set_formatter_path,
+            tag="editor_formatter",
         )
 
         dpg.add_text("Set Compiler / Interpreter:")
         dpg.add_input_text(
             label="Compiler / Interpreter",
             default_value=self.compiler,
+            callback=self.set_compiler_path,
             tag="editor_compiler",
         )
 
