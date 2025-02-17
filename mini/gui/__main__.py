@@ -8,6 +8,7 @@ import dearpygui.dearpygui as dpg
 
 from mini.gui.main_menu import MainMenu
 from mini.gui.settings.window import SettingsWindow  # Import Settings
+from mini.gui.tokenizer import TokenizerWindow
 
 
 class MiniGUI:
@@ -25,11 +26,11 @@ class MiniGUI:
         # Initialize Components
         self.main_menu = MainMenu(self)
         self.settings_window = SettingsWindow(self)
+        self.tokenizer_window = TokenizerWindow(self)
 
         # Register Windows
         for tag in [
             "editor",
-            "tokenizer",
             "trainer",
             "generator",
             "graph",
