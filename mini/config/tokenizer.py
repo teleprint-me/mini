@@ -8,9 +8,11 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
+from mini.config.base import ConfigBase
+
 
 @dataclass
-class ConfigTokenizer:
+class ConfigTokenizer(ConfigBase):
     """Configuration for SentencePiece tokenizer training."""
 
     # Paths
