@@ -94,22 +94,22 @@ class TokenizerWindow:
                     dpg.add_input_text(
                         label="Set Input Path",
                         default_value="",
-                        callback=self.set_input_path,
+                        callback=self.config.model_path,
                     )
                     dpg.add_combo(
-                        items=self.list_model_types(),
+                        items=self.config.list_model_types(),
                         label="tokenizer_model_type",
-                        default_value=self.model_type,
+                        default_value=self.config.model_type,
                     )
                     dpg.add_input_text(
-                        label="Output Path",
+                        label="Model Prefix",
                         default_value="",
-                        callback=self.set_output_path,
+                        callback=self.config.model_prefix,
                     )
                     dpg.add_input_int(
                         label="Vocab Size",
                         default_value=8000,
-                        callback=self.set_vocab_size,
+                        callback=self.config.vocab_size,
                     )
                     dpg.add_button(label="Train", callback=self.train_tokenizer)
                 # with dpg.tab(label="Encode"):
