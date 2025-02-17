@@ -7,7 +7,7 @@ Description: Configuration settings for training a SentencePiece tokenizer.
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from mini.config.base import ConfigBase
 
@@ -17,8 +17,8 @@ class ConfigTokenizer(ConfigBase):
     """Configuration for SentencePiece tokenizer training."""
 
     # Paths
-    model_path: Path = Path("models/tokenizer.model")
-    input: Path = Path("data/mini-owl-fairy.md")
+    model_path: Path = "models/tokenizer.model"
+    input: Path = "data/mini-owl-fairy.md"
 
     # Basic training parameters
     model_prefix: str = "tokenizer"
@@ -27,7 +27,7 @@ class ConfigTokenizer(ConfigBase):
     character_coverage: float = 1.0
 
     # Data processing parameters
-    input_sentence_size: int | None = None  # Limit training sentences
+    input_sentence_size: Optional[int] = None  # Limit training sentences
     max_sentence_length: int = 4192
     shuffle_input_sentence: bool = False
     split_by_whitespace: bool = False
@@ -49,10 +49,6 @@ class ConfigTokenizer(ConfigBase):
     def as_dict(self) -> Dict[str, Any]:
         """Returns a dictionary of valid training parameters for SentencePieceTrainer."""
         config = super().as_dict()
-
-        # Ensure input paths are converted to strings
-        config["input"] = str(self.input)
-        config["model_path"] = str(self.model_path)
 
         # Remove `enable_padding`, handle `pad_id` dynamically
         config.pop("enable_padding", None)
