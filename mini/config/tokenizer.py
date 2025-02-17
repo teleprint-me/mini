@@ -50,6 +50,9 @@ class ConfigTokenizer(ConfigBase):
         """Returns a dictionary of valid training parameters for SentencePieceTrainer."""
         config = super().as_dict()
 
+        # Remove model_path because trainer does not use it
+        config.pop("model_path", None)
+
         # Remove `enable_padding`, handle `pad_id` dynamically
         config.pop("enable_padding", None)
         if not self.enable_padding:
