@@ -26,8 +26,8 @@ class SettingsWindow:
             tag="settings",
             show=False,
             pos=(260, 10),
-            width=400,
-            height=300,
+            width=450,
+            height=380,
         ):
             with dpg.tab_bar():
                 with dpg.tab(label="UI"):
