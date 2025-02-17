@@ -7,6 +7,7 @@ Description: Configuration settings for training a SentencePiece tokenizer.
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
+from typing import Any, Dict
 
 from mini.config.base import ConfigBase
 
@@ -44,6 +45,21 @@ class ConfigTokenizer(ConfigBase):
     allow_whitespace_only_pieces: bool = False
     remove_extra_whitespaces: bool = False
     split_digits: bool = False
+
+    def as_dict(self) -> Dict[str, Any]:
+        """Returns a dictionary of valid training parameters for SentencePieceTrainer."""
+        config = super().as_dict()
+
+        # Ensure input paths are converted to strings
+        config["input"] = str(self.input)
+        config["model_path"] = str(self.model_path)
+
+        # Remove `enable_padding`, handle `pad_id` dynamically
+        config.pop("enable_padding", None)
+        if not self.enable_padding:
+            config["pad_id"] = -1  # Disable padding
+
+        return config
 
     def list_model_types(self) -> tuple[str, ...]:
         """Return available tokenizer model types."""
