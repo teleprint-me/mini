@@ -24,7 +24,7 @@ class TokenizerWindow:
 
         # tokenizer model and trainer objects
         self.sp = io.BytesIO()
-        self.train = spm.SentencePieceTrainer.train
+        self.train = spm.SentencePieceTrainer.Train
 
         # Training log
         self.training_log = []
@@ -34,23 +34,49 @@ class TokenizerWindow:
         self.gui.register_window("tokenizer", existing_window=True)
         self.logger = get_logger(self.__class__.__name__, level=logging.DEBUG)
 
-    def set_input_path(self, sender, app_data):
-        """Handles input file path selection."""
-        self.input_path = app_data
-        dpg.set_value("tokenizer_input_path", self.input_path)
-        self.logger.info(f"Input path set to {self.input_path}")
+    def set_model_path(self, sender, app_data):
+        """Handles model file path selection."""
+        self.config.model_path = app_data
+        dpg.set_value(sender, self.config.model_path)
+        self.logger.info(f"Model path set to {self.config.model_path}")
 
-    def set_output_path(self, sender, app_data):
+    def set_input(self, sender, app_data):
+        """Handles input file path selection."""
+        self.config.input = app_data
+        dpg.set_value(sender, self.config.input)
+        self.logger.info(f"Input path set to {self.config.input}")
+
+    def set_model_prefix(self, sender, app_data):
         """Handles output file path selection."""
-        self.output_path = app_data
-        dpg.set_value("tokenizer_output_path", self.output_path)
-        self.logger.info(f"Output path set to {self.output_path}")
+        self.config.model_prefix = app_data
+        dpg.set_value(sender, self.config.model_prefix)
+        self.logger.info(f"Output path set to {self.config.model_prefix}")
+
+    def set_model_type(self, sender, app_data):
+        """Handles model type selection."""
+        self.config.model_type = app_data
+        dpg.set_value(sender, self.config.model_type)
+        self.logger.info(f"Model type set to {self.config.model_type}")
 
     def set_vocab_size(self, sender, app_data):
         """Handles vocabulary size input."""
         self.vocab_size = max(256, min(app_data, 65536))
-        dpg.set_value("tokenizer_vocab_size", self.vocab_size)
+        dpg.set_value(sender, self.vocab_size)
         self.logger.info(f"Vocabulary size set to {self.vocab_size}")
+
+    def set_character_coverage(self, sender, app_data):
+        """Handles character coverage input."""
+        self.config.character_coverage = max(0.1, min(app_data, 1.0))
+        dpg.set_value(sender, self.config.character_coverage)
+        self.logger.info(f"Character coverage set to {self.config.character_coverage}")
+
+    def set_max_sentence_length(self, sender, app_data):
+        """Handles maximum sequence length input."""
+        self.config.max_sentence_length = max(1, min(app_data, 1024))
+        dpg.set_value(sender, self.config.max_sentence_length)
+        self.logger.info(
+            f"Maximum sequence length set to {self.config.max_sentence_length}"
+        )
 
     def log_training_output(self, level: str, message: str):
         """Logs training output to the UI."""
@@ -91,25 +117,36 @@ class TokenizerWindow:
         ):
             with dpg.tab_bar(label="Tokenizer"):
                 with dpg.tab(label="Train"):
+                    dpg.add_text("Dataset Input Path:")
                     dpg.add_input_text(
-                        label="Set Input Path",
-                        default_value="",
-                        callback=self.config.model_path,
+                        default_value=self.config.input,
+                        callback=self.set_input,
+                        tag="tokenizer_input",
                     )
+                    dpg.add_text("Model Prefix:")
+                    dpg.add_input_text(
+                        default_value=self.config.model_prefix,
+                        callback=self.set_model_prefix,
+                        tag="tokenizer_model_prefix",
+                    )
+                    dpg.add_text("Model Type:")
                     dpg.add_combo(
                         items=self.config.list_model_types(),
-                        label="tokenizer_model_type",
                         default_value=self.config.model_type,
+                        callback=self.set_model_type,
+                        tag="tokenizer_model_type",
                     )
-                    dpg.add_input_text(
-                        label="Model Prefix",
-                        default_value="",
-                        callback=self.config.model_prefix,
-                    )
+                    dpg.add_text("Vocab Size:")
                     dpg.add_input_int(
-                        label="Vocab Size",
-                        default_value=8000,
-                        callback=self.config.vocab_size,
+                        default_value=self.config.vocab_size,
+                        callback=self.set_vocab_size,
+                        tag="tokenizer_vocab_size",
+                    )
+                    dpg.add_text("Character Coverage:")
+                    dpg.add_input_float(
+                        default_value=self.config.character_coverage,
+                        callback=self.set_character_coverage,
+                        tag="tokenizer_character_coverage",
                     )
                     dpg.add_button(label="Train", callback=self.train_tokenizer)
                 # with dpg.tab(label="Encode"):
