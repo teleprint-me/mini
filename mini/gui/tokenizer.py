@@ -3,7 +3,6 @@ Module: mini.gui.tokenizer
 Description: Mini GUI window for training, encoding, and decoding text using sentencepiece tokenizer.
 """
 
-import io
 import logging
 import os
 from pathlib import Path
