@@ -115,31 +115,32 @@ class TokenizerWindow:
 
     def encode_text(self, sender, app_data):
         """Encodes input text using the trained tokenizer."""
-        text = dpg.get_value("encode_input")
+        text = dpg.get_value("tokenizer_text_area")
         if not text:
             return
 
-        if not Path(self.model_path).exists():
-            dpg.set_value("encode_output", "[ERROR] Model not found.")
+        if not Path(self.config.model_path).exists():
+            dpg.set_value("tokenizer_text_area", "[ERROR] Model not found.")
             return
 
-        self.tokenizer.load(self.model_path)
-        encoded = self.tokenizer.encode_as_pieces(text)
-        dpg.set_value("encode_output", " ".join(encoded))
+        self.sp.load(self.config.model_path)
+        encoded = self.sp.encode(text)
+        encoded_text = ", ".join(map(str, encoded))
+        dpg.set_value("tokenizer_text_area", encoded_text)
 
     def decode_text(self, sender, app_data):
         """Decodes tokenized text."""
-        encoded_text = dpg.get_value("decode_input")
+        encoded_text = dpg.get_value("tokenizer_text_area")
         if not encoded_text:
             return
 
-        if not Path(self.model_path).exists():
-            dpg.set_value("decode_output", "[ERROR] Model not found.")
+        if not Path(self.config.model_path).exists():
+            dpg.set_value("tokenizer_text_area", "[ERROR] Model not found.")
             return
 
-        self.tokenizer.load(self.model_path)
-        decoded = self.tokenizer.decode_pieces(encoded_text.split())
-        dpg.set_value("decode_output", decoded)
+        self.sp.load(self.config.model_path)
+        decoded = self.sp.decode(encoded_text.split())
+        dpg.set_value("tokenizer_text_area", decoded)
 
     def setup_ui(self):
         with dpg.window(
@@ -186,7 +187,7 @@ class TokenizerWindow:
                     dpg.add_button(label="Train", callback=self.train_tokenizer)
 
                 with dpg.tab(label="Model"):
-                    dpg.add_text("Select Model Directory:")
+                    dpg.add_text("Model Path:")
                     with dpg.file_dialog(
                         show=False,
                         width=480,
@@ -198,27 +199,25 @@ class TokenizerWindow:
                     ):
                         dpg.add_file_extension(".model", color=(0, 255, 0))
                         dpg.add_file_extension(".vocab", color=(0, 255, 0))
-                    dpg.add_button(
-                        label="Load Model",
-                        callback=lambda: dpg.show_item("tokenizer_model_path_dialog"),
-                    )
                     dpg.add_input_text(
                         default_value=self.config.model_path,
                         callback=self.set_model_path,
+                        width=-1,
                         hint="models/tokenizer.model",
                         tag="tokenizer_model_path",
                     )
-
-                with dpg.tab(label="Encoder"):
-                    dpg.add_input_text(label="Text", tag="encode_input")
-                    dpg.add_button(label="Encode", callback=self.encode_text)
+                    with dpg.group(horizontal=True):
+                        dpg.add_button(
+                            label="Load",
+                            callback=lambda: dpg.show_item(
+                                "tokenizer_model_path_dialog"
+                            ),
+                        )
+                        dpg.add_button(label="Encode", callback=self.encode_text)
+                        dpg.add_button(label="Decode", callback=self.decode_text)
                     dpg.add_input_text(
-                        tag="encode_output", readonly=True, multiline=True
-                    )
-
-                with dpg.tab(label="Decoder"):
-                    dpg.add_input_text(label="Encoded Text", tag="decode_input")
-                    dpg.add_button(label="Decode", callback=self.decode_text)
-                    dpg.add_input_text(
-                        tag="decode_output", readonly=True, multiline=True
+                        multiline=True,
+                        height=-1,
+                        width=-1,
+                        tag="tokenizer_text_area",
                     )
