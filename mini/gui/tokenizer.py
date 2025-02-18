@@ -5,6 +5,7 @@ Description: Mini GUI window for training, encoding, and decoding text using sen
 
 import io
 import logging
+import os
 from pathlib import Path
 
 import dearpygui.dearpygui as dpg
@@ -23,8 +24,8 @@ class TokenizerWindow:
         self.config = ConfigTokenizer()
 
         # tokenizer model and trainer objects
-        self.sp = io.BytesIO()
-        self.train = spm.SentencePieceTrainer.Train
+        self.sp = spm.SentencePieceProcessor(model_file=self.config.model_path)
+        self.train = spm.SentencePieceTrainer.Train  # reference static method
 
         # Training log
         self.training_log = []
@@ -33,12 +34,6 @@ class TokenizerWindow:
         self.setup_ui()
         self.gui.register_window("tokenizer", existing_window=True)
         self.logger = get_logger(self.__class__.__name__, level=logging.DEBUG)
-
-    def set_model_path(self, sender, app_data):
-        """Handles model file path selection."""
-        self.config.model_path = app_data
-        dpg.set_value(sender, self.config.model_path)
-        self.logger.info(f"Model path set to {self.config.model_path}")
 
     def set_input(self, sender, app_data):
         """Handles input file path selection."""
@@ -106,6 +101,47 @@ class TokenizerWindow:
             return
         self.log_training_output("INFO", "Tokenizer training completed successfully.")
 
+    def set_model_path(self, sender, app_data):
+        """Handles model file path selection."""
+        if isinstance(app_data, str) and not os.path.isfile(app_data):
+            return  # Do not update partial paths
+        # Assume a string
+        self.config.model_path = app_data
+        # Override if not a string
+        if isinstance(app_data, dict) and "selections" in app_data:
+            self.config.model_path = list(app_data["selections"].values())[0]
+        dpg.set_value("tokenizer_model_path", self.config.model_path)  # Update the path
+        self.sp.load(self.config.model_path)
+        self.logger.info(f"Model path set to {self.config.model_path}")
+
+    def encode_text(self, sender, app_data):
+        """Encodes input text using the trained tokenizer."""
+        text = dpg.get_value("encode_input")
+        if not text:
+            return
+
+        if not Path(self.model_path).exists():
+            dpg.set_value("encode_output", "[ERROR] Model not found.")
+            return
+
+        self.tokenizer.load(self.model_path)
+        encoded = self.tokenizer.encode_as_pieces(text)
+        dpg.set_value("encode_output", " ".join(encoded))
+
+    def decode_text(self, sender, app_data):
+        """Decodes tokenized text."""
+        encoded_text = dpg.get_value("decode_input")
+        if not encoded_text:
+            return
+
+        if not Path(self.model_path).exists():
+            dpg.set_value("decode_output", "[ERROR] Model not found.")
+            return
+
+        self.tokenizer.load(self.model_path)
+        decoded = self.tokenizer.decode_pieces(encoded_text.split())
+        dpg.set_value("decode_output", decoded)
+
     def setup_ui(self):
         with dpg.window(
             label="Tokenizer",
@@ -116,7 +152,7 @@ class TokenizerWindow:
             height=380,
         ):
             with dpg.tab_bar(label="Tokenizer"):
-                with dpg.tab(label="Train"):
+                with dpg.tab(label="Trainer"):
                     dpg.add_text("Dataset Input Path:")
                     dpg.add_input_text(
                         default_value=self.config.input,
@@ -149,15 +185,41 @@ class TokenizerWindow:
                         tag="tokenizer_character_coverage",
                     )
                     dpg.add_button(label="Train", callback=self.train_tokenizer)
-                # with dpg.tab(label="Encode"):
-                #     dpg.add_input_text(
-                #         label="Text", default_value="", callback=self.encode_text
-                #     )
-                #     dpg.add_button(label="Encode", callback=self.encode_text)
-                # with dpg.tab(label="Decode"):
-                #     dpg.add_input_text(
-                #         label="Encoded Text",
-                #         default_value="",
-                #         callback=self.decode_text,
-                #     )
-                #     dpg.add_button(label="Decode", callback=self.decode_text)
+
+                with dpg.tab(label="Model"):
+                    dpg.add_text("Select Model Directory:")
+                    with dpg.file_dialog(
+                        show=False,
+                        width=480,
+                        height=320,
+                        default_path=Path(self.config.model_path).parent.name,
+                        default_filename=Path(self.config.model_path).name,
+                        callback=self.set_model_path,
+                        tag="tokenizer_model_path_dialog",
+                    ):
+                        dpg.add_file_extension(".model", color=(0, 255, 0))
+                        dpg.add_file_extension(".vocab", color=(0, 255, 0))
+                    dpg.add_button(
+                        label="Load Model",
+                        callback=lambda: dpg.show_item("tokenizer_model_path_dialog"),
+                    )
+                    dpg.add_input_text(
+                        default_value=self.config.model_path,
+                        callback=self.set_model_path,
+                        hint="models/tokenizer.model",
+                        tag="tokenizer_model_path",
+                    )
+
+                with dpg.tab(label="Encoder"):
+                    dpg.add_input_text(label="Text", tag="encode_input")
+                    dpg.add_button(label="Encode", callback=self.encode_text)
+                    dpg.add_input_text(
+                        tag="encode_output", readonly=True, multiline=True
+                    )
+
+                with dpg.tab(label="Decoder"):
+                    dpg.add_input_text(label="Encoded Text", tag="decode_input")
+                    dpg.add_button(label="Decode", callback=self.decode_text)
+                    dpg.add_input_text(
+                        tag="decode_output", readonly=True, multiline=True
+                    )
