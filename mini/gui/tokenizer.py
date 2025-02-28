@@ -6,6 +6,7 @@ Description: Mini GUI window for training, encoding, and decoding text using sen
 import logging
 import os
 from pathlib import Path
+from textwrap import TextWrapper
 
 import dearpygui.dearpygui as dpg
 import sentencepiece as spm
@@ -25,6 +26,7 @@ class TokenizerWindow:
         # tokenizer model and trainer objects
         self.sp = spm.SentencePieceProcessor(model_file=self.config.model_path)
         self.train = spm.SentencePieceTrainer.Train  # reference static method
+        self.textwrapper = TextWrapper(width=80)
 
         # Training log
         self.training_log = []
@@ -120,27 +122,24 @@ class TokenizerWindow:
             return
 
         if not Path(self.config.model_path).exists():
-            dpg.set_value("tokenizer_text_area", "[ERROR] Model not found.")
+            dpg.set_value("tokenizer_text_piece", "[ERROR] Model not found.")
             return
 
+        width = dpg.get_item_width("tokenizer")
+        print("width:", width)
         self.sp.load(self.config.model_path)
-        encoded = self.sp.encode(text)
-        encoded_text = ", ".join(map(str, encoded))
-        dpg.set_value("tokenizer_text_area", encoded_text)
-
-    def decode_text(self, sender, app_data):
-        """Decodes tokenized text."""
-        encoded_text = dpg.get_value("tokenizer_text_area")
-        if not encoded_text:
-            return
-
-        if not Path(self.config.model_path).exists():
-            dpg.set_value("tokenizer_text_area", "[ERROR] Model not found.")
-            return
-
-        self.sp.load(self.config.model_path)
-        decoded = self.sp.decode(encoded_text.split())
-        dpg.set_value("tokenizer_text_area", decoded)
+        ids = self.sp.encode(text, out_type=int)
+        pieces = self.sp.encode(text, out_type=str)
+        meta = "\u2581"
+        pieced = []
+        for p in pieces:
+            if meta in p:
+                p = p.replace(meta, " ")  # fix mojibake
+            pieced.append(f"'{p}'")  # wrap piece in quotes
+        encoded_text = ", ".join(map(str, ids))
+        pieced_text = ", ".join(map(str, pieced))
+        dpg.set_value("tokenizer_text_piece", pieced_text)
+        dpg.set_value("tokenizer_text_encoding", encoded_text)
 
     def setup_ui(self):
         with dpg.window(
@@ -187,37 +186,55 @@ class TokenizerWindow:
                     dpg.add_button(label="Train", callback=self.train_tokenizer)
 
                 with dpg.tab(label="Model"):
-                    dpg.add_text("Model Path:")
-                    with dpg.file_dialog(
-                        show=False,
-                        width=480,
-                        height=320,
-                        default_path=Path(self.config.model_path).parent.name,
-                        default_filename=Path(self.config.model_path).name,
-                        callback=self.set_model_path,
-                        tag="tokenizer_model_path_dialog",
-                    ):
-                        dpg.add_file_extension(".model", color=(0, 255, 0))
-                        dpg.add_file_extension(".vocab", color=(0, 255, 0))
-                    dpg.add_input_text(
-                        default_value=self.config.model_path,
-                        callback=self.set_model_path,
-                        width=-1,
-                        hint="models/tokenizer.model",
-                        tag="tokenizer_model_path",
-                    )
                     with dpg.group(horizontal=True):
+                        dpg.add_text("Model Path:")
+                        with dpg.file_dialog(
+                            show=False,
+                            width=480,
+                            height=320,
+                            default_path=Path(self.config.model_path).parent.name,
+                            default_filename=Path(self.config.model_path).name,
+                            callback=self.set_model_path,
+                            tag="tokenizer_model_path_dialog",
+                        ):
+                            dpg.add_file_extension(".model", color=(0, 255, 0))
+                            dpg.add_file_extension(".vocab", color=(0, 255, 0))
                         dpg.add_button(
                             label="Load",
                             callback=lambda: dpg.show_item(
                                 "tokenizer_model_path_dialog"
                             ),
                         )
-                        dpg.add_button(label="Encode", callback=self.encode_text)
-                        dpg.add_button(label="Decode", callback=self.decode_text)
+                        dpg.add_input_text(
+                            default_value=self.config.model_path,
+                            callback=self.set_model_path,
+                            width=-1,
+                            hint="models/tokenizer.model",
+                            tag="tokenizer_model_path",
+                        )
+
                     dpg.add_input_text(
                         multiline=True,
-                        height=-1,
+                        height=80,
                         width=-1,
+                        tracked=True,
+                        tab_input=True,
+                        callback=self.encode_text,
                         tag="tokenizer_text_area",
+                    )
+                    dpg.add_input_text(
+                        readonly=True,
+                        multiline=True,
+                        height=80,
+                        width=-1,
+                        tracked=True,
+                        tag="tokenizer_text_piece",
+                    )
+                    dpg.add_input_text(
+                        readonly=True,
+                        multiline=True,
+                        height=80,
+                        width=-1,
+                        tracked=True,
+                        tag="tokenizer_text_encoding",
                     )
