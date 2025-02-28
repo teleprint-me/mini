@@ -53,7 +53,7 @@ def main():
     else:
         text = args.input
 
-    if args.encode:
+    if args.out_type == "str":
         tokens = processor.encode(text, out_type=str)
     else:
         tokens = processor.encode(text, out_type=None)
