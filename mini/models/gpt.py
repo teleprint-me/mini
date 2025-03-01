@@ -106,7 +106,7 @@ class TransformerBlock(nn.Module):
         return x
 
 
-class GPT(nn.Module):
+class GPTModel(nn.Module):
     """GPT Language Model"""
 
     def __init__(self, config: ConfigTransformer):

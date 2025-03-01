@@ -7,6 +7,7 @@ Description: Contains the Args class for parsing command-line arguments.
 from argparse import Namespace
 
 from mini.args.base import BaseArgs
+from mini.models.factory import MODEL_REGISTRY
 
 
 class TransformerArgs(BaseArgs):
@@ -102,7 +103,7 @@ class TransformerArgs(BaseArgs):
         self.parser.add_argument(
             "--architecture",
             type=str,
-            choices=["misty", "valerie"],
+            choices=list(MODEL_REGISTRY.keys()),
             default="misty",
             help="Model architecture (Default: misty).",
         )

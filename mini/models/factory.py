@@ -7,6 +7,7 @@ Description: Factory module for creating model instances.
 import torch.nn as nn
 
 from mini.config.transformer import ConfigTransformer
+from mini.models.gpt import GPTModel
 from mini.models.misty import MistyModel
 from mini.models.valerie import ValerieModel
 
@@ -14,6 +15,7 @@ from mini.models.valerie import ValerieModel
 MODEL_REGISTRY = {
     "misty": MistyModel,
     "valerie": ValerieModel,
+    "gpt": GPTModel,
 }
 
 
