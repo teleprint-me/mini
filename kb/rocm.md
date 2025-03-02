@@ -212,7 +212,7 @@ pip install -r requirements.txt
 To avoid **surprise breakage**, check for ROCm-related updates:
 
 - **[PyTorch Release Notes](https://github.com/pytorch/pytorch/releases)**
-- **[ROCm Release Notes](https://rocm.docs.amd.com/en/latest/release/index.html)**
+- **[ROCm Release Notes](https://rocm.docs.amd.com/en/latest/about/release-notes.html)**
 
 ### **Backup Your Environment Variables**
 
