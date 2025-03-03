@@ -34,7 +34,7 @@ class TokenizerArgs(BaseArgs):
         self.parser.add_argument("--output", help="Path to the tokenized output file.")
         self.parser.add_argument(
             "--out-type",
-            choices=["int", "str", "bytes"],
+            choices=["int", "str", "raw"],
             default="int",
             help="Output type of the encoded tokens (Default: int).",
         )
@@ -56,5 +56,5 @@ class TokenizerArgs(BaseArgs):
         self.parser.add_argument(
             "--preprocess",
             action="store_true",
-            help="Strips newlines from input line by line (Default: False).",
+            help="Strips newlines from multiline input line by line (Default: False).",
         )

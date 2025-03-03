@@ -1,7 +1,7 @@
 """
 Copyright © 2023 Austin Berrio
 Script: mini.cli.tokenizer
-Description: This script provides utilities for encoding, decoding, and saving tokenized text data.
+Description: CLI for encoding, decoding, and saving tokenized text data.
 """
 
 import json
@@ -13,6 +13,7 @@ from mini.args.tokenizer import TokenizerArgs
 
 
 def open_file(path: str) -> str:
+    """Reads text from a file or returns an empty string if the file is missing."""
     try:
         with open(path, "r", encoding="utf-8") as file:
             return file.read()
@@ -20,25 +21,30 @@ def open_file(path: str) -> str:
         return ""
 
 
-def save_file(path: str, token_ids: list[int]):
+def save_file(path: str, tokens: list, format: str = "json"):
+    """Saves tokenized output in the specified format."""
     with open(path, "w", encoding="utf-8") as file:
-        file.write(json.dumps(token_ids, indent=4))
+        if format == "json":
+            json.dump(tokens, file, indent=4)
+        elif format == "newline":
+            file.write("\n".join(map(str, tokens)))
+        else:  # Default: space-separated tokens
+            file.write(" ".join(map(str, tokens)))
 
 
 def preprocess(text: str) -> str:
-    body = ""
-    for line in text.splitlines():
-        body += " " + line if body else line
-    return body
+    """Joins lines into a single string with spaces to preserve structure."""
+    return " ".join(text.splitlines())
 
 
-def process(args, processor, text: str) -> any:
-    if args.out_type == "bytes":  # raw text
-        return text
-    elif args.out_type == "str":  # raw token
-        return processor.encode(text, out_type=str)
-    else:  # token id is int
-        return processor.encode(text, out_type=None)
+def process(args, processor, text: str):
+    """Processes text into tokenized form based on the specified output type."""
+    if args.out_type == "raw":
+        return text  # No processing, return raw text
+    elif args.out_type == "str":
+        return processor.encode(text, out_type=str)  # Returns token strings
+    else:
+        return processor.encode(text, out_type=None)  # Default: token IDs
 
 
 def main():
@@ -47,15 +53,18 @@ def main():
     assert os.path.exists(args.model), "Model file does not exist!"
     assert args.input, "Input text or file must be provided!"
     assert args.input != args.output, "Input and output files must be different!"
+    assert not (
+        args.preprocess and args.splitlines
+    ), "preprocess and splitlines are mutually exclusive"
 
     processor = SentencePieceProcessor(model_file=args.model)
+
     if args.vocab_size:
-        print("Vocab size:", processor.vocab_size())
+        print(f"Vocab size: {processor.vocab_size()}")
         exit(0)
 
-    text = open_file(args.input)
-    if not text:
-        text = args.input
+    # Read input from a file or use the raw text input
+    text = open_file(args.input) or args.input
 
     if args.preprocess:
         text = preprocess(text)
@@ -65,15 +74,18 @@ def main():
         exit(0)
 
     if args.splitlines:
-        for line in text.splitlines():
-            print(process(args, processor, line))
+        results = [process(args, processor, line) for line in text.splitlines()]
+        for line_tokens in results:
+            print(line_tokens)
+        if args.output:
+            save_file(args.output, results, args.format)
         exit(0)
 
     tokens = process(args, processor, text)
     print(tokens)
 
     if args.output:
-        save_file(args.output_file, tokens)
+        save_file(args.output, tokens, args.format)
 
 
 if __name__ == "__main__":
