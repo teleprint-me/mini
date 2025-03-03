@@ -4,111 +4,76 @@ Script: mini.cli.tokenizer
 Description: This script provides utilities for encoding, decoding, and saving tokenized text data.
 """
 
+import json
 import os
 
 from sentencepiece import SentencePieceProcessor
 
 from mini.args.tokenizer import TokenizerArgs
-from mini.data.loader import TextDatasetLoader
 
 
-def open_text(file_path) -> str:
-    print("Reading plaintext file for processing.")
-    with open(file_path, "r", encoding="utf-8") as file:
-        return file.read()
+def open_file(path: str) -> str:
+    try:
+        with open(path, "r", encoding="utf-8") as file:
+            return file.read()
+    except FileNotFoundError:
+        return ""
 
 
-def save_tokens(tokens, output_file):
-    print("Writing encoded plaintext file for observation.")
-    with open(output_file, "w", encoding="utf-8") as f:
-        f.write(" ".join(tokens))  # Save as space-separated tokens
+def save_file(path: str, token_ids: list[int]):
+    with open(path, "w", encoding="utf-8") as file:
+        file.write(json.dumps(token_ids, indent=4))
 
 
-def clean_text(text: str) -> str:
-    # Keep only meaningful, non-empty lines
-    return "\n".join([line.strip() for line in text.splitlines() if line.strip()])
+def preprocess(text: str) -> str:
+    body = ""
+    for line in text.splitlines():
+        body += " " + line if body else line
+    return body
+
+
+def process(args, processor, text: str) -> any:
+    if args.out_type == "bytes":  # raw text
+        return text
+    elif args.out_type == "str":  # raw token
+        return processor.encode(text, out_type=str)
+    else:  # token id is int
+        return processor.encode(text, out_type=None)
 
 
 def main():
     args = TokenizerArgs("Mini Tokenizer CLI").parse_args()
 
     assert os.path.exists(args.model), "Model file does not exist!"
-    assert args.clip >= 0, "Clip must be 0 or greater."
+    assert args.input, "Input text or file must be provided!"
+    assert args.input != args.output, "Input and output files must be different!"
 
     processor = SentencePieceProcessor(model_file=args.model)
     if args.vocab_size:
         print("Vocab size:", processor.vocab_size())
         exit(0)
 
-    # Ensure input text or file is provided.
-    assert args.input, "Input text or file must be provided!"
-    # Ensure input and output files are different.
-    assert args.input != args.output, "Input and output files must be different!"
-
-    # NOTE: This introduces a from time-of-check to time-of-use race condition.
-    # This is just a quick and isolated hack to enable testing and should not be used in production.
-    input_is_file = os.path.isfile(args.input)
-    if input_is_file:
-        text = clean_text(open_text(args.input))
-    else:
+    text = open_file(args.input)
+    if not text:
         text = args.input
 
-    if args.out_type == "str":
-        tokens = processor.encode(text, out_type=str)
-    else:
-        tokens = processor.encode(text, out_type=None)
+    if args.preprocess:
+        text = preprocess(text)
 
-    if args.seq_length:
-        print("Sequence Length:", len(tokens))
+    if args.seq_len:
+        print(f"Sequence Length: {len(processor.encode(text))}")
         exit(0)
 
-    if args.loader and not input_is_file:
-        raise ValueError("Loader can only be used with file input.")
-
-    if args.loader and input_is_file:
-        loader = TextDatasetLoader(
-            file_path=args.input,
-            processor=processor,
-            max_seq_len=args.max_seq_len,
-            batch_size=args.batch_size,
-            batch_stride=args.batch_stride,
-            verbose=args.verbose,
-        )
-
-        if args.verbose:
-            print("\nEncoded Sequences (Verbose Mode):\n")
-            clip = len(loader.encoded[0]["input"]) if args.clip == 0 else args.clip
-
-            for batch_idx, token_seq in enumerate(loader.encoded, start=1):
-                print(f"Batch {batch_idx}:")
-                print(
-                    f"  Input  | seq_len={len(token_seq['input'])} | {token_seq['input'][: clip]}"
-                )
-                print(
-                    f"  Target | seq_len={len(token_seq['target'])} | {token_seq['target'][: clip]}\n"
-                )
-
-        # Summarize the results.
-        print(f"Total Sequences Generated: {len(loader.encoded)}")
-        print(f"Max Sequence Length: {args.max_seq_len}")
-        print(f"Batch Stride Used: {args.batch_stride}")
-
+    if args.splitlines:
+        for line in text.splitlines():
+            print(process(args, processor, line))
         exit(0)
 
-    if args.clip > 0:
-        print("Encoded:", tokens[: args.clip])
-    else:
-        print("Encoded:", tokens)
-
-    if args.decode:
-        decoded = processor.decode(tokens)
-        if args.clip > 0:
-            print("Decoded:", decoded[: args.clip])
-        else:
-            print("Decoded:", decoded)
+    tokens = process(args, processor, text)
+    print(tokens)
 
     if args.output:
-        save_tokens(tokens, args.output_file)
+        save_file(args.output_file, tokens)
 
 
 if __name__ == "__main__":

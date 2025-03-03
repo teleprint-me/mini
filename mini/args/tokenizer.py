@@ -16,7 +16,6 @@ class TokenizerArgs(BaseArgs):
     def parse_args(self) -> Namespace:
         self.add_required_args()
         self.add_tokenizer_args()
-        self.add_loader_args()
         return self.parser.parse_args()
 
     def add_required_args(self) -> None:
@@ -34,14 +33,8 @@ class TokenizerArgs(BaseArgs):
         )
         self.parser.add_argument("--output", help="Path to the tokenized output file.")
         self.parser.add_argument(
-            "--decode",
-            type=str,
-            default=None,
-            help="Output decoded tokens (Default: None).",
-        )
-        self.parser.add_argument(
             "--out-type",
-            choices=["int", "str"],
+            choices=["int", "str", "bytes"],
             default="int",
             help="Output type of the encoded tokens (Default: int).",
         )
@@ -51,38 +44,17 @@ class TokenizerArgs(BaseArgs):
             help="Output the vocab size (Default: False)",
         )
         self.parser.add_argument(
-            "--seq-length",
+            "--seq-len",
             action="store_true",
             help="Output the sequence length of the tokenized text (Default: False).",
         )
         self.parser.add_argument(
-            "--clip",
-            type=int,
-            default=0,
-            help="Clip output size (Default: 0).",
-        )
-
-    def add_loader_args(self) -> None:
-        self.parser.add_argument(
-            "--loader",
+            "--splitlines",
             action="store_true",
-            help="Use a custom dataset loader (Default: False).",
+            help="Process multiline input line by line (Default: False).",
         )
         self.parser.add_argument(
-            "--max-seq-len",
-            type=int,
-            default=128,
-            help="Maximum sequence length (Default: 128).",
-        )
-        self.parser.add_argument(
-            "--batch-size",
-            type=int,
-            default=8,
-            help="Number of batches to process at once (Default: 8).",
-        )
-        self.parser.add_argument(
-            "--batch-stride",
-            type=int,
-            default=32,
-            help="The sequence window step size for batching (Default: 32).",
+            "--preprocess",
+            action="store_true",
+            help="Strips newlines from input line by line (Default: False).",
         )
