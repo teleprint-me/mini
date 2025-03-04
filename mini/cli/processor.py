@@ -92,6 +92,7 @@ def generate_progressive_sequences(
     Returns:
         list[dict]: List of {"input": ..., "target": ...} dictionaries.
     """
+    # NOTE: There's a bug where tokens at the tail end may be unintentionally clipped.
     if supervised:
         return generate_next_token_supervision(tokens, pad_token, max_seq_len)
     else:
@@ -143,6 +144,7 @@ def main():
 
     out_type = str if args.out_type == "str" else int
     tokens = processor.encode(text, out_type=out_type)
+    # assert args.max_seq_len > len(tokens), "input must be less than max_seq_len"
 
     dataset = generate_training_data(
         tokens, pad_token=0, max_seq_len=args.max_seq_len, supervised=args.supervised
