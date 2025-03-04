@@ -20,7 +20,14 @@ def open_file(path: str) -> str:
         return ""
 
 
-def generate_progressive_sequences(tokens, pad_token=0, max_seq_len=128) -> list[dict]:
+def pad_sequence(tokens, pad_token, max_seq_len, offset):
+    assert max_seq_len > offset, "Seq len must be greater than offset"
+    return tokens + [pad_token] * (max_seq_len - offset)
+
+
+def generate_progressive_sequences(
+    tokens, pad_token=0, max_seq_len=128, next_token_only=False
+) -> list[dict]:
     """
     Generates progressively unmasked training sequences.
 
@@ -28,6 +35,8 @@ def generate_progressive_sequences(tokens, pad_token=0, max_seq_len=128) -> list
         tokens (list[int]): Full tokenized sequence.
         pad_token (int): Placeholder token for masked values.
         max_seq_len (int): Maximum sequence length.
+        next_token_only (bool): If True, the target is only the next token;
+                                otherwise, it's the full expected sequence.
 
     Returns:
         list[dict]: List of {"input": ..., "target": ...} dictionaries.
@@ -35,16 +44,23 @@ def generate_progressive_sequences(tokens, pad_token=0, max_seq_len=128) -> list
     sequences = []
     length = len(tokens)
 
-    for i in range(1, length):
-        input_seq = tokens[:i] + [pad_token] * (max_seq_len - i)  # Progressive input
-        # NOTE: This can be tokens[i] for next token prediction, but requires padding as a result.
-        # e.g. target_seq = tokens[i] + [pad_token] * (max_seq_len - i)
-        # Could make this optional? Not sure sure yet. It'd be nice to toggle this on or off?
-        target_seq = tokens + [pad_token] * (max_seq_len - i)
+    for i in range(1, max_seq_len):  # Ensure exactly max_seq_len sequences per batch
+        input_seq = tokens[:i] + [pad_token] * (max_seq_len - i)
+
+        if next_token_only:
+            target_seq = [tokens[i] if i < length else pad_token] + [pad_token] * (
+                max_seq_len - 1
+            )
+        else:
+            target_seq = tokens + [pad_token] * (max_seq_len - length)
+
         sequences.append({"input": input_seq, "target": target_seq})
 
-    # append the full input and target as the final sequence
-    sequences.append({"input": tokens, "target": tokens})
+    # Ensure the final sequence is fully filled (avoid mismatches)
+    final_input = tokens + [pad_token] * (max_seq_len - len(tokens))
+    final_target = tokens if not next_token_only else tokens[1:] + [pad_token]
+
+    sequences.append({"input": final_input, "target": final_target})
 
     return sequences
 
