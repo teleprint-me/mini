@@ -21,7 +21,20 @@ def open_file(path: str) -> str:
 
 
 def pad_sequence(tokens, pad_token, max_seq_len, offset):
-    assert max_seq_len > offset, "Seq len must be greater than offset"
+    """
+    Pads a sequence to max_seq_len with a given pad_token.
+
+    Args:
+        tokens (list[int]): Sequence to pad.
+        pad_token (int): Padding token.
+        max_seq_len (int): Maximum sequence length.
+        offset (int): Current sequence length (pre-padding).
+
+    Returns:
+        list[int]: Padded sequence.
+    """
+    assert max_seq_len > 0, "max_seq_len must be greater than 0"
+    assert max_seq_len > offset, "max_seq_len must be greater than offset"
     return tokens + [pad_token] * (max_seq_len - offset)
 
 
@@ -45,20 +58,25 @@ def generate_progressive_sequences(
     length = len(tokens)
 
     for i in range(1, max_seq_len):  # Ensure exactly max_seq_len sequences per batch
-        input_seq = tokens[:i] + [pad_token] * (max_seq_len - i)
+        input_seq = pad_sequence(tokens[:i], pad_token, max_seq_len, i)
 
         if next_token_only:
-            target_seq = [tokens[i] if i < length else pad_token] + [pad_token] * (
-                max_seq_len - 1
+            target_seq = pad_sequence(
+                [tokens[i] if i < length else pad_token], pad_token, max_seq_len, 1
             )
         else:
-            target_seq = tokens + [pad_token] * (max_seq_len - length)
+            target_seq = pad_sequence(tokens, pad_token, max_seq_len, length)
 
         sequences.append({"input": input_seq, "target": target_seq})
 
     # Ensure the final sequence is fully filled (avoid mismatches)
-    final_input = tokens + [pad_token] * (max_seq_len - len(tokens))
-    final_target = tokens if not next_token_only else tokens[1:] + [pad_token]
+    final_input = pad_sequence(tokens, pad_token, max_seq_len, len(tokens))
+    final_target = pad_sequence(
+        tokens if not next_token_only else tokens[1:],
+        pad_token,
+        max_seq_len,
+        len(tokens) - 1,
+    )
 
     sequences.append({"input": final_input, "target": final_target})
 
