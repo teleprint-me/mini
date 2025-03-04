@@ -1,7 +1,7 @@
 """
 Copyright © 2023 Austin Berrio
 Script: mini.cli.process
-Description: 
+Description: Script for experimenting with next-token and full-target supervision.
 """
 
 import os
@@ -21,35 +21,20 @@ def open_file(path: str) -> str:
 
 
 def pad_sequence(tokens, pad_token, max_seq_len, offset):
-    """
-    Pads a sequence to max_seq_len with a given pad_token.
-
-    Args:
-        tokens (list[int]): Sequence to pad.
-        pad_token (int): Padding token.
-        max_seq_len (int): Maximum sequence length.
-        offset (int): Current sequence length (pre-padding).
-
-    Returns:
-        list[int]: Padded sequence.
-    """
+    """Pads a sequence to max_seq_len with a given pad_token."""
     assert max_seq_len > 0, "max_seq_len must be greater than 0"
-    assert max_seq_len > offset, "max_seq_len must be greater than offset"
+    assert max_seq_len >= offset, "max_seq_len must be greater than or equal to offset"
     return tokens + [pad_token] * (max_seq_len - offset)
 
 
-def generate_progressive_sequences(
-    tokens, pad_token=0, max_seq_len=128, next_token_only=False
-) -> list[dict]:
+def generate_next_token_sequences(tokens, pad_token=0, max_seq_len=128):
     """
-    Generates progressively unmasked training sequences.
+    Generates training pairs for next-token prediction.
 
     Args:
         tokens (list[int]): Full tokenized sequence.
         pad_token (int): Placeholder token for masked values.
         max_seq_len (int): Maximum sequence length.
-        next_token_only (bool): If True, the target is only the next token;
-                                otherwise, it's the full expected sequence.
 
     Returns:
         list[dict]: List of {"input": ..., "target": ...} dictionaries.
@@ -57,30 +42,58 @@ def generate_progressive_sequences(
     sequences = []
     length = len(tokens)
 
-    for i in range(1, max_seq_len):  # Ensure exactly max_seq_len sequences per batch
+    for i in range(1, max_seq_len):
         input_seq = pad_sequence(tokens[:i], pad_token, max_seq_len, i)
-
-        if next_token_only:
-            target_seq = pad_sequence(
-                [tokens[i] if i < length else pad_token], pad_token, max_seq_len, 1
-            )
-        else:
-            target_seq = pad_sequence(tokens, pad_token, max_seq_len, length)
-
+        target_seq = pad_sequence(
+            [tokens[i] if i < length else pad_token], pad_token, max_seq_len, 1
+        )
         sequences.append({"input": input_seq, "target": target_seq})
 
-    # Ensure the final sequence is fully filled (avoid mismatches)
-    final_input = pad_sequence(tokens, pad_token, max_seq_len, len(tokens))
-    final_target = pad_sequence(
-        tokens if not next_token_only else tokens[1:],
-        pad_token,
-        max_seq_len,
-        len(tokens) - 1,
-    )
+    return sequences
 
-    sequences.append({"input": final_input, "target": final_target})
+
+def generate_full_sequence_supervision(tokens, pad_token=0, max_seq_len=128):
+    """
+    Generates training pairs where the target is the full sequence.
+
+    Args:
+        tokens (list[int]): Full tokenized sequence.
+        pad_token (int): Placeholder token for masked values.
+        max_seq_len (int): Maximum sequence length.
+
+    Returns:
+        list[dict]: List of {"input": ..., "target": ...} dictionaries.
+    """
+    sequences = []
+    length = len(tokens)
+
+    for i in range(1, max_seq_len):
+        input_seq = pad_sequence(tokens[:i], pad_token, max_seq_len, i)
+        target_seq = pad_sequence(tokens, pad_token, max_seq_len, length)
+        sequences.append({"input": input_seq, "target": target_seq})
 
     return sequences
+
+
+def generate_progressive_sequences(
+    tokens, pad_token=0, max_seq_len=128, next_token_only=False
+):
+    """
+    Wrapper function that calls the appropriate sequence generation function.
+
+    Args:
+        tokens (list[int]): Full tokenized sequence.
+        pad_token (int): Placeholder token for masked values.
+        max_seq_len (int): Maximum sequence length.
+        next_token_only (bool): Whether to use next-token prediction or full-sequence supervision.
+
+    Returns:
+        list[dict]: List of {"input": ..., "target": ...} dictionaries.
+    """
+    if next_token_only:
+        return generate_next_token_sequences(tokens, pad_token, max_seq_len)
+    else:
+        return generate_full_sequence_supervision(tokens, pad_token, max_seq_len)
 
 
 def generate_training_data(processor, text, pad_token=0, max_seq_len=128):
@@ -122,17 +135,12 @@ def main():
 
     # Read input from a file or use the raw text input
     text = open_file(args.input) or args.input
-    print("text:", text)
 
     dataset = generate_training_data(processor, text)
     for i, batch in enumerate(dataset):
         print(f"Batch {i + 1}")
         for j, sequence in enumerate(batch):
-            print(f"Sequence {j + 1}")
-            print("input:", sequence["input"])
-            print("target:", sequence["target"])
-            print()
-        print()
+            assert len(sequence["input"]) == len(sequence["target"])
     print(f"Generated {len(dataset)} batches each with {len(dataset[0])} sequences.")
 
 
