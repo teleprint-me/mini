@@ -42,11 +42,12 @@ def generate_next_token_sequences(tokens, pad_token=0, max_seq_len=128):
     sequences = []
     length = len(tokens)
 
-    for i in range(1, max_seq_len):
+    for i in range(1, length):
         input_seq = pad_sequence(tokens[:i], pad_token, max_seq_len, i)
         target_seq = pad_sequence(
             [tokens[i] if i < length else pad_token], pad_token, max_seq_len, 1
         )
+        assert len(input_seq) == len(target_seq), "Sequences must be the same shape"
         sequences.append({"input": input_seq, "target": target_seq})
 
     return sequences
@@ -67,9 +68,10 @@ def generate_full_sequence_supervision(tokens, pad_token=0, max_seq_len=128):
     sequences = []
     length = len(tokens)
 
-    for i in range(1, max_seq_len):
+    for i in range(1, length):
         input_seq = pad_sequence(tokens[:i], pad_token, max_seq_len, i)
         target_seq = pad_sequence(tokens, pad_token, max_seq_len, length)
+        assert len(input_seq) == len(target_seq), "Sequences must be the same shape"
         sequences.append({"input": input_seq, "target": target_seq})
 
     return sequences
@@ -138,10 +140,9 @@ def main():
 
     dataset = generate_training_data(processor, text)
     for i, batch in enumerate(dataset):
-        print(f"Batch {i + 1}")
+        print(f"Batch {i + 1} has {len(batch) + 1} sequences")
         for j, sequence in enumerate(batch):
-            assert len(sequence["input"]) == len(sequence["target"])
-    print(f"Generated {len(dataset)} batches each with {len(dataset[0])} sequences.")
+            assert len(sequence["input"]) == len(sequence["target"]), "Shape mismatch"
 
 
 if __name__ == "__main__":
