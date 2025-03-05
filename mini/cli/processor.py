@@ -54,7 +54,7 @@ def generate_next_token_sequences(tokens, pad_token=0, max_seq_len=128):
     return sequences
 
 
-def generate_next_token_supervision(tokens, pad_token=0, max_seq_len=128):
+def generate_supervised_next_token_sequences(tokens, pad_token=0, max_seq_len=128):
     """
     Generates training pairs where the target is the full sequence.
 
@@ -97,12 +97,12 @@ def generate_progressive_sequences(
     # This usually happens when the max seq len is less than the input len and
     # occassionally when max seq len is not evenly divisible by the input len.
     if supervised:
-        return generate_next_token_supervision(tokens, pad_token, max_seq_len)
+        return generate_supervised_next_token_sequences(tokens, pad_token, max_seq_len)
     else:
         return generate_next_token_sequences(tokens, pad_token, max_seq_len)
 
 
-def generate_training_data(tokens, pad_token=0, max_seq_len=128, supervised=False):
+def generate_sequences(tokens, pad_token=0, max_seq_len=128, supervised=False):
     """
     Generates progressive input-target pairs from text.
 
@@ -115,21 +115,35 @@ def generate_training_data(tokens, pad_token=0, max_seq_len=128, supervised=Fals
     Returns:
         list[dict]: List of {"input": ..., "target": ...} dictionaries.
     """
-    # Case 1: Text is short, use recursive unmasking
+    # Text is short, use recursive unmasking
     if len(tokens) <= max_seq_len:
-        return [
-            generate_progressive_sequences(tokens, pad_token, max_seq_len, supervised)
-        ]
+        return generate_progressive_sequences(
+            tokens, pad_token, max_seq_len, supervised
+        )
 
-    # Case 2: Text is long, chunk it into max_seq_len-sized pieces
-    batches = []
+    # Text is long, chunk it into max_seq_len-sized pieces
+    sequences = []
     for i in range(0, len(tokens), max_seq_len):
         window = tokens[i : i + max_seq_len]
-        batch = generate_progressive_sequences(
+        sequences = generate_progressive_sequences(
             window, pad_token, max_seq_len, supervised
         )
-        batches.append(batch)
+        sequences.extend(sequences)
 
+    return sequences
+
+
+def generate_batched_sequences(sequences, max_seq_len=128, batch_size=8):
+    batches = []
+    for i in range(0, len(sequences), batch_size):
+        batch = sequences[i : i + batch_size]
+        batch_len = len(batch)
+        batch_input = torch.zeros((batch_len, max_seq_len), dtype=torch.long)
+        batch_target = torch.zeros((batch_len, max_seq_len), dtype=torch.long)
+        for j, pair in enumerate(batch):
+            batch_input[j] = torch.tensor(pair["input"], dtype=torch.long)
+            batch_target[j] = torch.tensor(pair["target"], dtype=torch.long)
+        batches.append({"input": batch_input, "target": batch_target})
     return batches
 
 
@@ -147,18 +161,18 @@ def main():
 
     out_type = str if args.out_type == "str" else int
     tokens = processor.encode(text, out_type=out_type)
-    print(len(tokens), tokens)
 
-    dataset = generate_training_data(
-        tokens, pad_token=0, max_seq_len=args.max_seq_len, supervised=args.supervised
-    )
-    for i, block in enumerate(dataset):
-        print(f"Block {i + 1} has {len(block) + 1} sequences")
-        for j, sequence in enumerate(block):
-            assert len(sequence["input"]) == len(sequence["target"]), "Shape mismatch"
-            if args.verbose:
-                print(f"input: {sequence['input']}")
-                print(f"target: {sequence['target']}")
+    sequences = generate_sequences(tokens, 0, args.max_seq_len, args.supervised)
+    batches = generate_batched_sequences(sequences, args.max_seq_len, args.batch_size)
+    print(f"Generated {len(batches)} batches...")
+    for i, batch in enumerate(batches):
+        print(
+            f"batch={i + 1}, input={batch['input'].shape}, target={batch['target'].shape}"
+        )
+        if args.verbose:
+            print(f"input={batch['input']}")
+            print(f"target={batch['target']}")
+        assert len(batch["input"].shape) == len(batch["target"].shape), "Shape mismatch"
 
 
 if __name__ == "__main__":

@@ -48,6 +48,12 @@ class TextProcessorArgs(BaseArgs):
             help="Maximum sequence length (Default: 10).",
         )
         self.parser.add_argument(
+            "--batch-size",
+            type=int,
+            default=4,
+            help="Maximum number of sequences grouped together (Default: 4).",
+        )
+        self.parser.add_argument(
             "--supervised",
             action="store_true",
             help="Enable next token supervision (Default: False).",
