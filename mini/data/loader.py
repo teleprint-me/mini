@@ -25,18 +25,19 @@ class DatasetLoader(Dataset):
         processor: SentencePieceProcessor,
         max_seq_len: int = 128,
         batch_size: int = 8,
-        supervise: bool = False,
         add_bos: bool = True,
         add_eos: bool = True,
+        supervise: bool = False,
         verbose: bool = False,
     ):
         self.file_path = file_path
         self.processor = processor
         self.max_seq_len = max_seq_len
         self.batch_size = batch_size
-        self.supervise = supervise
         self.add_bos = add_bos
         self.add_eos = add_eos
+        self.supervise = supervise
+        self.verbose = verbose
 
         self.batches = []
 
@@ -76,30 +77,53 @@ class TextDatasetLoader(DatasetLoader):
         processor: SentencePieceProcessor,
         max_seq_len: int = 128,
         batch_size: int = 8,
+        add_bos: bool = True,
+        add_eos: bool = True,
         supervise: bool = False,
-        add_bos: bool = False,
-        add_eos: bool = False,
         verbose: bool = False,
     ):
-        super().__init__(file_path, processor, max_seq_len, batch_size, verbose)
+        super().__init__(
+            file_path,
+            processor,
+            max_seq_len,
+            batch_size,
+            add_bos,
+            add_eos,
+            supervise,
+            verbose,
+        )
+
+        self.text = TextDatasetProcessor(
+            self.processor,
+            self.max_seq_len,
+            self.batch_size,
+            self.add_bos,
+            self.add_eos,
+            self.supervise,
+            self.verbose,
+        )
+
         self.load_data()
-        assert len(self.batches) > 0, "Dataset is empty"
 
     def _read_file(self):
-        self.logger.info(f"Loading plaintext data from {self.file_path}")
-        with open(self.file_path, "r", encoding="utf-8") as f:
-            raw_text = f.read()
-        self.logger.info(f"Loaded plaintext data with {len(raw_text)} characters")
-        return raw_text
+        self.logger.info(f"Loading plaintext dataset from {self.file_path}")
 
-    def _process_batches(self, raw_text: str):
-        text_processor = TextDatasetProcessor(self.processor, self.max_seq_len)
-        sequences = text_processor.encode(
-            raw_text, self.supervise, self.add_bos, self.add_eos
-        )
+        with open(self.file_path, "r", encoding="utf-8") as file:
+            plaintext = file.read()
+
+        self.logger.info(f"Loaded plaintext dataset with {len(plaintext)} characters")
+        assert len(plaintext) > 0, "File is empty."
+
+        return plaintext
+
+    def _process_batches(self, plaintext: str):
+        sequences = self.text.encode(plaintext)
+        batches = self.text.batch(sequences)
+
         self.logger.info(f"Generated {len(sequences)} progressive sequences")
-        batches = text_processor.batch(sequences, self.batch_size)
         self.logger.info(f"Generated {len(batches)} training batches")
+        assert len(batches) > 0, "Failed to generate batches."
+
         return batches
 
     def _log_shapes(self):
@@ -109,8 +133,8 @@ class TextDatasetLoader(DatasetLoader):
 
     def load_data(self):
         """Load and process the text data into batches."""
-        raw_text = self._read_file()
-        self.batches = self._process_batches(raw_text)
+        plaintext = self._read_file()
+        self.batches = self._process_batches(plaintext)
         self._log_shapes()
 
 
