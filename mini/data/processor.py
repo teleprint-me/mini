@@ -15,46 +15,44 @@ from mini.common.logger import get_logger
 # Type Annotations
 JsonDataset = List[Dict[str, str]]
 EncodedDataset = List[Dict[str, List[int]]]
-TensorDataset = List[Dict[str, torch.Tensor]]
 
 
 class DatasetProcessor:
     """Base processor providing utility functions for text processing."""
 
-    def __init__(self, processor: SentencePieceProcessor, verbose: bool = False):
+    def __init__(
+        self,
+        processor: SentencePieceProcessor,
+        max_seq_len: int,
+        verbose: bool = False,
+    ):
         self.processor = processor
+        self.max_seq_len = max_seq_len
+        self.pad_id = max(0, processor.pad_id())
+
         log_level = logging.DEBUG if verbose else logging.INFO
         self.logger = get_logger(self.__class__.__name__, log_level)
 
-    def pad_or_truncate(
-        self, tokens: List[int], max_seq_len: int, pad_id: int
-    ) -> List[int]:
-        """Ensures all sequences are the same length by padding or truncating."""
-        return tokens[:max_seq_len] + [pad_id] * max(0, max_seq_len - len(tokens))
+    def pad(self, sequence: List[int], length: int) -> List[int]:
+        """Pads a sequence to max_seq_len with a given pad_token."""
+        return sequence + [self.pad_id] * (self.max_seq_len - length)
 
     def batch(
         self,
-        encoded_dataset: EncodedDataset,
+        sequences: List[Dict[str, List[int]]],
         batch_size: int = 8,
-        dtype: torch.dtype = torch.long,
-    ) -> TensorDataset:
+    ) -> List[Dict[str, torch.Tensor]]:
         """Efficiently batches tokenized data into PyTorch tensors."""
         batches = []
-        for i in range(0, len(encoded_dataset), batch_size):
-            batch = encoded_dataset[i : i + batch_size]
-            if not batch:
-                continue
-            batch_size_actual = len(batch)
-            max_seq_len = len(batch[0]["input"])
-
-            batch_input = torch.zeros((batch_size_actual, max_seq_len), dtype=dtype)
-            batch_target = torch.zeros((batch_size_actual, max_seq_len), dtype=dtype)
-
-            for idx, item in enumerate(batch):
-                batch_input[idx] = torch.tensor(item["input"], dtype=dtype)
-                batch_target[idx] = torch.tensor(item["target"], dtype=dtype)
-
-            batches.append({"input": batch_input, "target": batch_target})
+        for i in range(0, len(sequences), batch_size):
+            batch = sequences[i : i + batch_size]
+            _size = (len(batch), self.max_seq_len)
+            _input = torch.zeros(_size, dtype=torch.long)
+            _target = torch.zeros(_size, dtype=torch.long)
+            for j, pair in enumerate(batch):
+                _input[j] = torch.tensor(pair["input"], dtype=torch.long)
+                _target[j] = torch.tensor(pair["target"], dtype=torch.long)
+            batches.append({"input": _input, "target": _target})
         return batches
 
 
