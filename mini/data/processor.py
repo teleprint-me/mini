@@ -94,15 +94,15 @@ class TextDatasetProcessor(DatasetProcessor):
         return pairs
 
     def next_token(
-        self, sequence: List[int], supervised: bool = False
+        self, sequence: List[int], supervise: bool = False
     ) -> List[Dict[str, List[int]]]:
-        """Wrapper function that calls the appropriate sequence generation function."""
-        return self.supervised(sequence) if supervised else self.unsupervised(sequence)
+        """Wrapper for generating progressive training pairs for next-token prediction."""
+        return self.supervised(sequence) if supervise else self.unsupervised(sequence)
 
     def encode(
         self,
         dataset: str,
-        supervised: bool = False,
+        supervise: bool = False,
         add_bos: bool = True,
         add_eos: bool = True,
     ) -> List[Dict[str, List[int]]]:
@@ -112,13 +112,13 @@ class TextDatasetProcessor(DatasetProcessor):
 
         # Text is short, use progressive unmasking
         if len(tokens) <= self.max_seq_len:
-            return self.next_token(tokens, supervised)
+            return self.next_token(tokens, supervise)
 
         # Text is long, chunk it into max_seq_len-sized pieces
         pairs = []
         for i in range(0, len(tokens), self.max_seq_len):
             sequence = tokens[i : i + self.max_seq_len]
-            block = self.next_token(sequence, supervised)
+            block = self.next_token(sequence, supervise)
             pairs.extend(block)
 
         return pairs
@@ -130,6 +130,7 @@ class JsonDatasetProcessor(DatasetProcessor):
     def encode(
         self,
         dataset: List[Dict[str, str]],
+        supervise: bool = False,
         add_bos: bool = True,
         add_eos: bool = True,
     ) -> List[Dict[str, List[int]]]:
