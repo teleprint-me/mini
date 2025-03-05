@@ -28,26 +28,45 @@ def main():
     assert args.input, "Input text or file must be provided!"
 
     sp = SentencePieceProcessor(model_file=args.model)
-    tp = TextDatasetProcessor(sp, args.max_seq_len, args.verbose)
+    tp = TextDatasetProcessor(
+        sp,
+        args.max_seq_len,
+        args.batch_size,
+        args.add_bos,
+        args.add_eos,
+        args.supervise,
+        args.verbose,
+    )
     # Read input from a file or use the raw text input
     text = open_file(args.input) or args.input
 
-    encoded = sp.encode(text, out_type=int, add_bos=args.add_bos, add_eos=args.add_eos)
-    print(f"Encoded: {encoded}")
-    tokens = sp.encode(text, out_type=str, add_bos=args.add_bos, add_eos=args.add_eos)
-    print(f"Tokens: {tokens}")
-    print()
+    if args.verbose:
+        encoded = sp.encode(
+            text,
+            out_type=int,
+            add_bos=args.add_bos,
+            add_eos=args.add_eos,
+        )
+        tokens = sp.encode(
+            text,
+            out_type=str,
+            add_bos=args.add_bos,
+            add_eos=args.add_eos,
+        )
+        print(f"Encoded: {encoded}")
+        print(f"Tokens: {tokens}")
+        print()
 
-    sequences = tp.encode(text, args.supervise, args.add_bos, args.add_eos)
-    print(f"Generated {len(sequences)} sequences...")
-    batches = tp.batch(sequences, args.batch_size)
-    print(f"Generated {len(batches)} batches...")
+    sequences = tp.encode(text)
+    batches = tp.batch(sequences)
+    print(f"Generated \033[32;1;1m{len(sequences)}\033[0m sequences.")
+    print(f"Generated \033[35;1;1m{len(batches)}\033[0m batches.")
     print()
 
     for i, batch in enumerate(batches):
-        print(
-            f"\033[35;1;1mbatch\033[0m={i + 1}, input={batch['input'].shape}, target={batch['target'].shape}"
-        )
+        print(f"\033[35;1;1mbatch\033[0m={i + 1}", end=", ")
+        print(f"\033[32;1;1minput_shape\033[0m={batch['input'].shape}", end=", ")
+        print(f"\033[36;1;1mtarget_shape\033[0m={batch['target'].shape}")
         if args.verbose:
             print(f"\033[32;1;1minput\033[0m={batch['input']}")
             print(f"\033[36;1;1mtarget\033[0m={batch['target']}")
