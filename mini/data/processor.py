@@ -97,9 +97,6 @@ class TextDatasetProcessor(DatasetProcessor):
         self, sequence: List[int], supervised: bool = False
     ) -> List[Dict[str, List[int]]]:
         """Wrapper function that calls the appropriate sequence generation function."""
-        # NOTE: There's a bug where tokens at the tail end may be unintentionally clipped.
-        # This usually happens when the max seq len is less than the input len and
-        # occassionally when max seq len is not evenly divisible by the input len.
         return self.supervised(sequence) if supervised else self.unsupervised(sequence)
 
     def encode(
