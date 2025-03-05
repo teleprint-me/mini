@@ -23,8 +23,11 @@ class DatasetLoader(Dataset):
         self,
         file_path: str,
         processor: SentencePieceProcessor,
-        max_seq_len: int,
+        max_seq_len: int = 128,
         batch_size: int = 8,
+        supervise: bool = False,
+        add_bos: bool = True,
+        add_eos: bool = True,
         verbose: bool = False,
     ):
         self.file_path = file_path
@@ -66,34 +69,44 @@ class TextDatasetLoader(DatasetLoader):
         self,
         file_path: str,
         processor: SentencePieceProcessor,
-        max_seq_len: int,
+        max_seq_len: int = 128,
         batch_size: int = 8,
-        batch_stride: int = 32,
+        supervise: bool = False,
+        add_bos: bool = False,
+        add_eos: bool = False,
         verbose: bool = False,
     ):
         super().__init__(file_path, processor, max_seq_len, batch_size, verbose)
-        self.batch_stride = batch_stride
         self.load_data()
         assert len(self.batches) > 0, "Dataset is empty"
 
-    def load_data(self):
-        """Load and process the text data into batches."""
+    def _read_file(self):
         self.logger.info(f"Loading plaintext data from {self.file_path}")
         with open(self.file_path, "r", encoding="utf-8") as f:
             raw_text = f.read()
-        self.logger.debug(f"Raw text: {raw_text[:50]}...")
-        self.logger.debug(f"Loaded plaintext data with {len(raw_text)} characters")
+        self.logger.info(f"Loaded plaintext data with {len(raw_text)} characters")
+        return raw_text
 
-        # Use TextDatasetProcessor for tokenization and batching
-        self.text_processor = TextDatasetProcessor(self.processor, self.verbose)
-        self.encoded = self.text_processor.tokenize(
-            raw_text, self.max_seq_len, batch_stride=self.batch_stride
+    def _process_batches(self, raw_text: str):
+        text_processor = TextDatasetProcessor(self.processor, self.max_seq_len)
+        sequences = text_processor.encode(
+            raw_text, self.supervise, self.add_bos, self.add_eos
         )
-        self.batches = self.text_processor.batch(self.encoded, self.batch_size)
-        self.logger.info(f"Generated {len(self.batches)} training batches")
+        self.logger.info(f"Generated {len(sequences)} progressive sequences")
+        batches = text_processor.batch(sequences, self.batch_size)
+        self.logger.info(f"Generated {len(batches)} training batches")
+        return batches
+
+    def _log_shapes(self):
         x = self.batches[0]["input"].shape
         y = self.batches[0]["target"].shape
-        self.logger.debug(f"Input shape: {x}, Target shape: {y}")
+        self.logger.info(f"Input shape: {x}, Target shape: {y}")
+
+    def load_data(self):
+        """Load and process the text data into batches."""
+        raw_text = self._read_file()
+        self.batches = self._process_batches(raw_text)
+        self._log_shapes()
 
 
 class JsonDatasetLoader(DatasetLoader):
