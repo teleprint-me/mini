@@ -30,80 +30,102 @@ class DatasetProcessor:
         self.max_seq_len = max_seq_len
         self.pad_id = max(0, processor.pad_id())
 
-        log_level = logging.DEBUG if verbose else logging.INFO
-        self.logger = get_logger(self.__class__.__name__, log_level)
+        level = logging.DEBUG if verbose else logging.INFO
+        self.logger = get_logger(self.__class__.__name__, level=level)
 
-    def pad(self, sequence: List[int], length: int) -> List[int]:
+    def pad(self, sequence: List[int]) -> List[int]:
         """Pads a sequence to max_seq_len with a given pad_token."""
-        return sequence + [self.pad_id] * (self.max_seq_len - length)
+        return sequence + [self.pad_id] * (self.max_seq_len - len(sequence))
 
     def batch(
         self,
         sequences: List[Dict[str, List[int]]],
         batch_size: int = 8,
     ) -> List[Dict[str, torch.Tensor]]:
-        """Efficiently batches tokenized data into PyTorch tensors."""
+        """Batches tokenized data into PyTorch tensors."""
+
         batches = []
+
         for i in range(0, len(sequences), batch_size):
             batch = sequences[i : i + batch_size]
+
             _size = (len(batch), self.max_seq_len)
-            _input = torch.zeros(_size, dtype=torch.long)
-            _target = torch.zeros(_size, dtype=torch.long)
+            _input = torch.full(_size, self.pad_id, dtype=torch.long)
+            _target = torch.full(_size, self.pad_id, dtype=torch.long)
+
             for j, pair in enumerate(batch):
                 _input[j] = torch.tensor(pair["input"], dtype=torch.long)
                 _target[j] = torch.tensor(pair["target"], dtype=torch.long)
+
             batches.append({"input": _input, "target": _target})
+
         return batches
 
 
 class TextDatasetProcessor(DatasetProcessor):
     """Processor for tokenizing and batching free-form text data."""
 
-    def tokenize(
+    def unsupervised(self, sequence: List[int]) -> List[Dict[str, List[int]]]:
+        """Generates training pairs for unsupervised next-token prediction."""
+
+        pairs = []
+
+        for i in range(1, len(sequence)):
+            _input = self.pad(sequence[:i])
+            _target = self.pad(sequence[i : i + 1])
+
+            assert len(_input) == len(_target), "Sequences must be the same shape"
+
+            pairs.append({"input": _input, "target": _target})
+
+        return pairs
+
+    def supervised(self, sequence: List[int]) -> List[Dict[str, List[int]]]:
+        """Generates training pairs for supervised next-token prediction."""
+
+        pairs = []
+
+        for i in range(1, len(sequence)):
+            input_seq = self.pad(sequence[:i])
+            target_seq = self.pad(sequence[: i + 1])
+            assert len(input_seq) == len(target_seq), "Sequences must be the same shape"
+            pairs.append({"input": input_seq, "target": target_seq})
+
+        return pairs
+
+    def next_token(
+        self, sequence: List[int], supervised: bool = False
+    ) -> List[Dict[str, List[int]]]:
+        """Wrapper function that calls the appropriate sequence generation function."""
+        # NOTE: There's a bug where tokens at the tail end may be unintentionally clipped.
+        # This usually happens when the max seq len is less than the input len and
+        # occassionally when max seq len is not evenly divisible by the input len.
+        if supervised:
+            return self.supervised(sequence)
+        else:
+            return self.unsupervised(sequence)
+
+    def encode(
         self,
-        text: str,
-        max_seq_len: int,
+        raw_text: str,
+        supervised: bool = False,
         add_bos: bool = True,
         add_eos: bool = True,
-        batch_stride: int = 64,
-    ) -> EncodedDataset:
-        """Tokenizes and splits raw text into overlapping input-target pairs."""
-        assert max_seq_len > 0, "max_seq_len must be greater than 0"
-        assert batch_stride > 0, "batch_stride must be greater than 0"
-        assert (
-            batch_stride <= max_seq_len
-        ), "batch_stride must be less than or equal to max_seq_len"
+    ) -> List[Dict[str, List[int]]]:
+        """Generates progressive input-target pairs from text."""
 
-        pad_id = self.processor.pad_id()
-        if pad_id < 0:
-            pad_id = 0  # Ensure a valid pad token
+        tokens = self.processor.encode(raw_text, add_bos=add_bos, add_eos=add_eos)
 
-        tokens = self.processor.encode(text, add_bos=add_bos, add_eos=add_eos)
+        # Text is short, use recursive unmasking
+        if len(tokens) <= self.max_seq_len:
+            return self.next_token(tokens, supervised)
+
+        # Text is long, chunk it into max_seq_len-sized pieces
         sequences = []
-
-        if len(tokens) < max_seq_len:
-            sequences.append(
-                {
-                    "input": self.pad_or_truncate(tokens, max_seq_len, pad_id),
-                    "target": self.pad_or_truncate(tokens[1:], max_seq_len, pad_id),
-                }
-            )
-        else:
-            # num_sequences = (len(tokens) - max_seq_len) // batch_stride + 1
-            for i in range(0, len(tokens) - max_seq_len, batch_stride):
-                input_tokens = tokens[i : i + max_seq_len]
-                target_tokens = tokens[i + 1 : i + max_seq_len + 1]  # Shifted right
-
-                sequences.append(
-                    {
-                        "input": self.pad_or_truncate(
-                            input_tokens, max_seq_len, pad_id
-                        ),
-                        "target": self.pad_or_truncate(
-                            target_tokens, max_seq_len, pad_id
-                        ),
-                    }
-                )
+        for i in range(0, len(tokens), self.max_seq_len):
+            window = tokens[i : i + self.max_seq_len]
+            sequences = self.next_token(window, supervised)
+            sequences.extend(sequences)
 
         return sequences
 
