@@ -12,10 +12,6 @@ from sentencepiece import SentencePieceProcessor
 
 from mini.common.logger import get_logger
 
-# Type Annotations
-JsonDataset = List[Dict[str, str]]
-EncodedDataset = List[Dict[str, List[int]]]
-
 
 class DatasetProcessor:
     """Base processor providing utility functions for text processing."""
@@ -74,7 +70,8 @@ class TextDatasetProcessor(DatasetProcessor):
             _input = self.pad(sequence[:i])
             _target = self.pad(sequence[i : i + 1])
 
-            assert len(_input) == len(_target), "Sequences must be the same shape"
+            if len(_input) != len(_target):
+                raise ValueError(f"Sequence mismatch: {len(_input)} != {len(_target)}")
 
             pairs.append({"input": _input, "target": _target})
 
@@ -86,10 +83,13 @@ class TextDatasetProcessor(DatasetProcessor):
         pairs = []
 
         for i in range(1, len(sequence)):
-            input_seq = self.pad(sequence[:i])
-            target_seq = self.pad(sequence[: i + 1])
-            assert len(input_seq) == len(target_seq), "Sequences must be the same shape"
-            pairs.append({"input": input_seq, "target": target_seq})
+            _input = self.pad(sequence[:i])
+            _target = self.pad(sequence[: i + 1])
+
+            if len(_input) != len(_target):
+                raise ValueError(f"Sequence mismatch: {len(_input)} != {len(_target)}")
+
+            pairs.append({"input": _input, "target": _target})
 
         return pairs
 
@@ -100,71 +100,55 @@ class TextDatasetProcessor(DatasetProcessor):
         # NOTE: There's a bug where tokens at the tail end may be unintentionally clipped.
         # This usually happens when the max seq len is less than the input len and
         # occassionally when max seq len is not evenly divisible by the input len.
-        if supervised:
-            return self.supervised(sequence)
-        else:
-            return self.unsupervised(sequence)
+        return self.supervised(sequence) if supervised else self.unsupervised(sequence)
 
     def encode(
         self,
-        raw_text: str,
+        dataset: str,
         supervised: bool = False,
         add_bos: bool = True,
         add_eos: bool = True,
     ) -> List[Dict[str, List[int]]]:
         """Generates progressive input-target pairs from text."""
 
-        tokens = self.processor.encode(raw_text, add_bos=add_bos, add_eos=add_eos)
+        tokens = self.processor.encode(dataset, add_bos=add_bos, add_eos=add_eos)
 
-        # Text is short, use recursive unmasking
+        # Text is short, use progressive unmasking
         if len(tokens) <= self.max_seq_len:
             return self.next_token(tokens, supervised)
 
         # Text is long, chunk it into max_seq_len-sized pieces
-        sequences = []
+        pairs = []
         for i in range(0, len(tokens), self.max_seq_len):
-            window = tokens[i : i + self.max_seq_len]
-            sequences = self.next_token(window, supervised)
-            sequences.extend(sequences)
+            sequence = tokens[i : i + self.max_seq_len]
+            block = self.next_token(sequence, supervised)
+            pairs.extend(block)
 
-        return sequences
+        return pairs
 
 
 class JsonDatasetProcessor(DatasetProcessor):
     """Processor for tokenizing structured instruction-response JSON datasets."""
 
-    def tokenize(
+    def encode(
         self,
-        json_dataset: JsonDataset,
-        max_seq_len: int,
+        dataset: List[Dict[str, str]],
         add_bos: bool = True,
         add_eos: bool = True,
-    ) -> EncodedDataset:
+    ) -> List[Dict[str, List[int]]]:
         """Tokenizes structured instruction-response pairs."""
-        pad_id = self.processor.pad_id()
-        if pad_id < 0:
-            pad_id = 0  # Ensure a valid pad token
-
         sequences = []
-        for entry in json_dataset:
-            instruction = entry.get("instruction", "").strip()
-            response = entry.get("response", "").strip()
+        for entry in dataset:
+            user = entry.get("user", "").strip()
+            assistant = entry.get("assistant", "").strip()
 
-            if not instruction or not response:
-                self.logger.warning(f"Skipping entry with missing data: {entry}")
-                continue
+            if not user:
+                raise ValueError(f"Missing user data: {entry}")
+            if not assistant:
+                raise ValueError(f"Missing assistant data: {entry}")
 
-            input_tokens = self.processor.encode(
-                instruction, add_bos=add_bos, add_eos=False
-            )
-            target_tokens = self.processor.encode(
-                response, add_bos=False, add_eos=add_eos
-            )
+            _input = self.processor.encode(user, add_bos=add_bos, add_eos=False)
+            _target = self.processor.encode(assistant, add_bos=False, add_eos=add_eos)
 
-            sequences.append(
-                {
-                    "input": self.pad_or_truncate(input_tokens, max_seq_len, pad_id),
-                    "target": self.pad_or_truncate(target_tokens, max_seq_len, pad_id),
-                }
-            )
+            sequences.append({"input": self.pad(_input), "target": self.pad(_target)})
         return sequences
