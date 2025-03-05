@@ -26,29 +26,32 @@ def main():
 
     assert os.path.exists(args.model), "Model file does not exist!"
     assert args.input, "Input text or file must be provided!"
-    assert args.max_seq_len % 2 == 0, "max_seq_len must be evenly divisible."
 
     sp = SentencePieceProcessor(model_file=args.model)
     tp = TextDatasetProcessor(sp, args.max_seq_len, args.verbose)
     # Read input from a file or use the raw text input
     text = open_file(args.input) or args.input
 
-    encodings = sp.encode(text, out_type=int)
-    tokens = sp.encode(text, out_type=str)
-    print(f"Encodings: {encodings}")
+    encoded = sp.encode(text, out_type=int, add_bos=args.add_bos, add_eos=args.add_eos)
+    print(f"Encoded: {encoded}")
+    tokens = sp.encode(text, out_type=str, add_bos=args.add_bos, add_eos=args.add_eos)
     print(f"Tokens: {tokens}")
+    print()
 
-    sequences = tp.encode(text, args.supervised)
+    sequences = tp.encode(text, args.supervise, args.add_bos, args.add_eos)
     print(f"Generated {len(sequences)} sequences...")
     batches = tp.batch(sequences, args.batch_size)
     print(f"Generated {len(batches)} batches...")
+    print()
+
     for i, batch in enumerate(batches):
         print(
-            f"batch={i + 1}, input={batch['input'].shape}, target={batch['target'].shape}"
+            f"\033[35;1;1mbatch\033[0m={i + 1}, input={batch['input'].shape}, target={batch['target'].shape}"
         )
         if args.verbose:
-            print(f"input={batch['input']}")
-            print(f"target={batch['target']}")
+            print(f"\033[32;1;1minput\033[0m={batch['input']}")
+            print(f"\033[36;1;1mtarget\033[0m={batch['target']}")
+            print()
         assert len(batch["input"].shape) == len(batch["target"].shape), "Shape mismatch"
 
 

@@ -54,7 +54,17 @@ class TextProcessorArgs(BaseArgs):
             help="Maximum number of sequences grouped together (Default: 4).",
         )
         self.parser.add_argument(
-            "--supervised",
+            "--supervise",
             action="store_true",
             help="Enable next token supervision (Default: False).",
+        )
+        self.parser.add_argument(
+            "--add-bos",
+            action="store_true",
+            help="Add begin of sequence token (Default: False).",
+        )
+        self.parser.add_argument(
+            "--add-eos",
+            action="store_true",
+            help="Add end of sequence token (Default: False).",
         )
