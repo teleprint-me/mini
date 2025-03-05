@@ -6,6 +6,7 @@ Description: Script for experimenting with next-token and full-target supervisio
 
 import os
 
+import torch
 from sentencepiece import SentencePieceProcessor
 
 from mini.args.processor import TextProcessorArgs
@@ -20,7 +21,9 @@ def open_file(path: str) -> str:
         return ""
 
 
-def pad_sequence(tokens, pad_token, max_seq_len, offset):
+def pad_sequence(
+    tokens: list[int], pad_token: int, max_seq_len: int, offset: int
+) -> list[int]:
     """Pads a sequence to max_seq_len with a given pad_token."""
     assert max_seq_len > 0, "max_seq_len must be greater than 0"
     assert max_seq_len >= offset, "max_seq_len must be greater than or equal to offset"
@@ -44,9 +47,7 @@ def generate_next_token_sequences(tokens, pad_token=0, max_seq_len=128):
 
     for i in range(1, length):
         input_seq = pad_sequence(tokens[:i], pad_token, max_seq_len, i)
-        target_seq = pad_sequence(
-            [tokens[i] if i < length else pad_token], pad_token, max_seq_len, 1
-        )
+        target_seq = pad_sequence(tokens[i : i + 1], pad_token, max_seq_len, 1)
         assert len(input_seq) == len(target_seq), "Sequences must be the same shape"
         sequences.append({"input": input_seq, "target": target_seq})
 
@@ -93,6 +94,8 @@ def generate_progressive_sequences(
         list[dict]: List of {"input": ..., "target": ...} dictionaries.
     """
     # NOTE: There's a bug where tokens at the tail end may be unintentionally clipped.
+    # This usually happens when the max seq len is less than the input len and
+    # occassionally when max seq len is not evenly divisible by the input len.
     if supervised:
         return generate_next_token_supervision(tokens, pad_token, max_seq_len)
     else:
@@ -144,14 +147,14 @@ def main():
 
     out_type = str if args.out_type == "str" else int
     tokens = processor.encode(text, out_type=out_type)
-    # assert args.max_seq_len > len(tokens), "input must be less than max_seq_len"
+    print(len(tokens), tokens)
 
     dataset = generate_training_data(
         tokens, pad_token=0, max_seq_len=args.max_seq_len, supervised=args.supervised
     )
-    for i, batch in enumerate(dataset):
-        print(f"Batch {i + 1} has {len(batch) + 1} sequences")
-        for j, sequence in enumerate(batch):
+    for i, block in enumerate(dataset):
+        print(f"Block {i + 1} has {len(block) + 1} sequences")
+        for j, sequence in enumerate(block):
             assert len(sequence["input"]) == len(sequence["target"]), "Shape mismatch"
             if args.verbose:
                 print(f"input: {sequence['input']}")
