@@ -34,19 +34,24 @@ class DatasetLoader(Dataset):
         self.processor = processor
         self.max_seq_len = max_seq_len
         self.batch_size = batch_size
-        self.verbose = verbose
+        self.supervise = supervise
+        self.add_bos = add_bos
+        self.add_eos = add_eos
+
         self.batches = []
 
-        self.logger = get_logger(
-            name=self.__class__.__name__,
-            level=logging.DEBUG if self.verbose else logging.INFO,
-        )
+        level = logging.DEBUG if self.verbose else logging.INFO
+        self.logger = get_logger(self.__class__.__name__, level=level)
         self.logger.info(f"Initializing dataset from {self.file_path}")
 
     def __getitem__(self, idx) -> tuple[torch.Tensor, torch.Tensor]:
         """Return a tokenized input-target pair as torch tensors."""
-        batch = self.batches[idx]
-        return batch["input"], batch["target"]
+        # Each sequence represents an individually sampled sequence pair, e.g.
+        # idx: 2, input: ['The', 'quick', 0, ...], target: ['The', 'quick', 'brown', ...]
+        batch_idx = idx // self.batch_size
+        sample_idx = idx % self.batch_size
+        batch = self.batches[batch_idx]
+        return batch["input"][sample_idx], batch["target"][sample_idx]
 
     def __len__(self) -> int:
         """Return the number of batches in the dataset."""
