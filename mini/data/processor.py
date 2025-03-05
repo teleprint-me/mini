@@ -5,7 +5,7 @@ Description: Handles text and JSON data processing for NLP tasks.
 """
 
 import logging
-from typing import Dict, List
+from typing import Any, Dict, List
 
 import torch
 from sentencepiece import SentencePieceProcessor
@@ -30,7 +30,7 @@ class DatasetProcessor:
         self.logger = get_logger(self.__class__.__name__, level=level)
 
     def pad(self, sequence: List[int]) -> List[int]:
-        """Pads a sequence to max_seq_len with a given pad_token."""
+        """Pad a sequence to max_seq_len with a given pad_id."""
         return sequence + [self.pad_id] * (self.max_seq_len - len(sequence))
 
     def batch(
@@ -38,7 +38,7 @@ class DatasetProcessor:
         sequences: List[Dict[str, List[int]]],
         batch_size: int = 8,
     ) -> List[Dict[str, torch.Tensor]]:
-        """Batches tokenized data into PyTorch tensors."""
+        """Batch tokenized data into PyTorch tensors."""
 
         batches = []
 
@@ -56,6 +56,16 @@ class DatasetProcessor:
             batches.append({"input": _input, "target": _target})
 
         return batches
+
+    def encode(
+        self,
+        dataset: Any,
+        supervise: bool = False,
+        add_bos: bool = True,
+        add_eos: bool = True,
+    ) -> List[Dict[str, List[int]]]:
+        """Generate progressive input-target pairs from structured or unstructured text."""
+        raise NotImplementedError("This method must be implemented by subclasses.")
 
 
 class TextDatasetProcessor(DatasetProcessor):
