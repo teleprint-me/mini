@@ -41,20 +41,24 @@ def main():
     text = open_file(args.input) or args.input
 
     if args.verbose:
-        encoded = sp.encode(
+        _input = sp.encode(
             text,
             out_type=int,
             add_bos=args.add_bos,
             add_eos=args.add_eos,
         )
-        tokens = sp.encode(
+        _tokens = sp.encode(
             text,
             out_type=str,
             add_bos=args.add_bos,
             add_eos=args.add_eos,
         )
-        print(f"Encoded: {encoded}")
-        print(f"Tokens: {tokens}")
+        print(
+            f"Input: [{', '.join(f'\033[32;1;1m{repr(token)}\033[0m' for token in _input)}]"
+        )
+        print(
+            f"Tokens: [{', '.join(f'\033[33;1;1m{repr(token)}\033[0m' for token in _tokens)}]"
+        )
         print()
 
     sequences = tp.encode(text)
