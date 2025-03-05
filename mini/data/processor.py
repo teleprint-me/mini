@@ -1,7 +1,9 @@
 """
 Copyright © 2023 Austin Berrio
 Module: mini.data.processor
-Description: Handles text and JSON data processing for NLP tasks.
+Description: Handles text, JSON, and Parquet dataset preprocessing for NLP tasks.
+This module accepts a given unstructured or structured format and converts it into
+input-target pairs for training and fine-tuning language models.
 """
 
 import logging
@@ -69,6 +71,7 @@ class DatasetProcessor:
         raise NotImplementedError("This method must be implemented by subclasses.")
 
 
+# NOTE: This is probably best applied to pre-training.
 class TextDatasetProcessor(DatasetProcessor):
     """Processor for tokenizing and batching free-form text data."""
 
@@ -133,11 +136,12 @@ class TextDatasetProcessor(DatasetProcessor):
         return pairs
 
 
+# NOTE: This is probably best applied to supervised fine-tuning.
 class JsonDatasetProcessor(DatasetProcessor):
     """Processor for tokenizing and batching structured JSON data."""
 
     def encode(self, dataset: List[Dict[str, str]]) -> List[Dict[str, List[int]]]:
-        """Tokenizes structured instruction-response pairs."""
+        """Tokenizes structured user-assistant pairs."""
         sequences = []
         for entry in dataset:
             user = entry.get("user", "").strip()
@@ -155,3 +159,12 @@ class JsonDatasetProcessor(DatasetProcessor):
 
             sequences.append({"input": self._pad(_input), "target": self._pad(_target)})
         return sequences
+
+
+# TODO: Add parquet support
+class ParquetDatasetProcessor(DatasetProcessor):
+    # NOTE: Pretraining and fine-tuning must be completed and validated before
+    # this implementation can be supported. It will reduce the work required to refactor
+    # if refactoring is needed to improve model predictions.
+    def __init__(self):
+        raise NotImplementedError("This subclass is currently unsupported.")
