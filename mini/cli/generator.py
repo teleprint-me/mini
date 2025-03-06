@@ -44,7 +44,6 @@ if __name__ == "__main__":
         dropout=args.dropout,
         bias=args.bias,
     )
-    config.set_seed()
 
     # Load optimization manager
     manager = EngineOptimizerManager(
