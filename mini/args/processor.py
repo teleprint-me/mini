@@ -23,21 +23,26 @@ class TextProcessorArgs(BaseArgs):
         self.parser.add_argument(
             "--model",
             required=True,
+            type=str,
             help="Path to the SentencePiece model file.",
+        )
+        self.parser.add_argument(
+            "--input",
+            required=True,
+            type=str,
+            help="Path to the input text or file.",
         )
 
     def add_tokenizer_args(self) -> None:
         self.parser.add_argument(
-            "--input",
-            type=str,
-            help="Path to the input text or file.",
+            "--add-bos",
+            action="store_true",
+            help="Add begin of sequence token (Default: False).",
         )
-        self.parser.add_argument("--output", help="Path to the tokenized output file.")
         self.parser.add_argument(
-            "--out-type",
-            choices=["int", "str"],
-            default="bytes",
-            help="Output type of the encoded tokens (Default: int).",
+            "--add-eos",
+            action="store_true",
+            help="Add end of sequence token (Default: False).",
         )
 
     def add_processor_args(self) -> None:
@@ -57,14 +62,4 @@ class TextProcessorArgs(BaseArgs):
             "--supervise",
             action="store_true",
             help="Enable next token supervision (Default: False).",
-        )
-        self.parser.add_argument(
-            "--add-bos",
-            action="store_true",
-            help="Add begin of sequence token (Default: False).",
-        )
-        self.parser.add_argument(
-            "--add-eos",
-            action="store_true",
-            help="Add end of sequence token (Default: False).",
         )
