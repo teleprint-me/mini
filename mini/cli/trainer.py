@@ -79,7 +79,6 @@ if __name__ == "__main__":
         dropout=args.dropout,
         bias=args.bias,
     )
-    config.set_seed()
 
     # Load optimizer config
     config_optimizer = ConfigOptimizer(
