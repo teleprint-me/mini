@@ -149,6 +149,7 @@ python -m mini.cli.trainer \
     --dataset data/mini-owl.md \
     --add-bos \
     --add-eos \
+    --supervise \
     --architecture misty \
     --max-seq-len 128 \
     --num-layers 4 \
@@ -162,7 +163,6 @@ python -m mini.cli.trainer \
     --optimizer adamw \
     --scheduler none \
     --criterion cross_entropy \
-    --supervise \
     --verbose
 ```
 
@@ -177,7 +177,7 @@ Run inference on a trained model:
 ```sh
 python -m mini.cli.generator \
     --processor models/tokenizer.model \
-    --model models/misty-owl.pth \
+    --model models/misty.pth \
     --temperature 0.5 \
     --prompt "The young bird listened"
 ```
