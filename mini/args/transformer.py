@@ -144,6 +144,8 @@ class TransformerArgs(BaseArgs):
             default="misty",
             help="Model architecture (Default: misty).",
         )
+
+        # Encoder and Embedding
         self.parser.add_argument(
             "--max-seq-len",
             type=int,
@@ -162,6 +164,8 @@ class TransformerArgs(BaseArgs):
             default=10000.0,
             help="Scale factor for RoPE encoding (Default: 10000.0).",
         )
+
+        # Transformer Blocks
         self.parser.add_argument(
             "--num-mlp-layers",
             type=int,
@@ -199,6 +203,8 @@ class TransformerArgs(BaseArgs):
             choices=["causal", "bidirectional"],
             help="Mask type for transformer (Default: causal).",
         )
+
+        # Shared Layer Normalization
         self.parser.add_argument(
             "--eps",
             type=float,
