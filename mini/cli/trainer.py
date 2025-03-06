@@ -23,10 +23,11 @@ from mini.engine.trainer import EngineTrainer
 
 if __name__ == "__main__":
     # Parse arguments
-    args = TransformerArgs("Mini Training Tool").parse_args("train")
+    args = TransformerArgs("Mini Training Tool").parse_args("trainer")
 
     # Initialize logging
-    logger = get_logger(__name__, level=logging.DEBUG if args.verbose else logging.INFO)
+    level = logging.DEBUG if args.verbose else logging.INFO
+    logger = get_logger(__file__, level=level)
 
     # Load model tokenizer
     processor = SentencePieceProcessor(model_file=args.processor)
@@ -49,7 +50,7 @@ if __name__ == "__main__":
             schema_path=args.schema,
         )
     elif args.dataset.endswith(".jsonl"):
-        raise NotImplementedError("JSON Lines file formats must be converted to JSON.")
+        raise NotImplementedError("JSON Lines support is not available yet.")
     elif args.dataset.endswith(".parquet"):
         raise NotImplementedError("Parquet dataset support is not available yet.")
     else:
