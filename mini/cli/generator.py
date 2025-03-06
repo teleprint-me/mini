@@ -1,6 +1,6 @@
 """
 Copyright © 2023 Austin Berrio
-Script: mini.cli.infer
+Script: mini.cli.generator
 Description: Simple completion for text-to-text generation with streaming output.
 """
 
