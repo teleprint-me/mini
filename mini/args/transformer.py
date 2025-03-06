@@ -77,12 +77,12 @@ class TransformerArgs(BaseArgs):
         self.parser.add_argument(
             "--add-bos",
             action="store_true",
-            help="Include beginning-of-sequence token.",
+            help="Include beginning-of-sequence token (Default: False).",
         )
         self.parser.add_argument(
             "--add-eos",
             action="store_true",
-            help="Include end-of-sequence token.",
+            help="Include end-of-sequence token (Default: False).",
         )
         self.parser.add_argument(
             "--supervise",
