@@ -22,11 +22,14 @@ if __name__ == "__main__":
     # Load model tokenizer
     processor = SentencePieceProcessor(model_file=args.processor)
 
+    # Define shared pad_id
+    pad_id = max(0, processor.pad_id())
+
     # Load Transformer Config
     config = ConfigTransformer(
         seed=args.seed,
         architecture=args.architecture,
-        pad_id=max(processor.pad_id(), 0),
+        pad_id=pad_id,
         vocab_size=processor.vocab_size(),
         max_seq_len=args.max_seq_len,
         embed_dim=args.embed_dim,
@@ -62,7 +65,7 @@ if __name__ == "__main__":
     # Load sampler config
     config_sampler = ConfigSampler(
         seed=args.seed,
-        pad_id=max(processor.pad_id(), 0),
+        pad_id=pad_id,
         top_k=args.top_k,
         top_p=args.top_p,
         temperature=args.temperature,
