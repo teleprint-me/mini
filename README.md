@@ -147,6 +147,8 @@ python -m mini.cli.trainer \
     --processor models/tokenizer.model \
     --model models/misty.pth \
     --dataset data/mini-owl.md \
+    --add-bos \
+    --add-eos \
     --architecture misty \
     --max-seq-len 128 \
     --num-layers 4 \
@@ -164,19 +166,6 @@ python -m mini.cli.trainer \
     --verbose
 ```
 
-- **Parameters:**
-  - `--processor models/tokenizer.model`: Path to the tokenizer model.
-  - `--model models/misty-owl.pth`: Path to the model state.
-  - `--dataset data/mini-owl.md`: Path to the dataset.
-  - `--architecture misty`: Model architecture.
-  - `--num-epochs 10`: Number of training epochs.
-  - `--batch-size 4`: Batch size.
-  - `--lr 1e-4`: Learning rate.
-  - `--optimizer adamw`: Optimizer algorithm.
-  - `--scheduler none`: Learning rate scheduler.
-  - `--criterion cross_entropy`: Loss function.
-  - `--verbose`: Enable verbosity for debugging.
-
 **NOTE:** Any plaintext file will work. `mini-owl.md` is used for isolated and
 controlled experimentation. See [training.md](docs/training.md) for more
 information.
@@ -192,13 +181,6 @@ python -m mini.cli.generator \
     --temperature 0.5 \
     --prompt "The young bird listened"
 ```
-
-- **Parameters:**
-  - `--processor models/tokenizer.model`: Path to the tokenizer model.
-  - `--model models/misty-owl.pth`: Path to the model state.
-  - `--temperature 0.5`: Temperature for sampling. Lower values make the output
-    more deterministic, and higher values make it more diverse.
-  - `--prompt "The young bird listened"`: Input sequence for inference.
 
 ### **Fine-tuning** _(coming soon)_
 
