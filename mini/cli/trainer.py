@@ -32,7 +32,7 @@ if __name__ == "__main__":
     processor = SentencePieceProcessor(model_file=args.processor)
 
     # Define shared pad_id
-    pad_id = max(processor.pad_id(), 0)
+    pad_id = max(0, processor.pad_id())
 
     # Dynamically load Dataset & DataLoader
     dataset = None
@@ -48,6 +48,10 @@ if __name__ == "__main__":
             verbose=args.verbose,
             schema_path=args.schema,
         )
+    elif args.dataset.endswith(".jsonl"):
+        raise NotImplementedError("JSON Lines file formats must be converted to JSON.")
+    elif args.dataset.endswith(".parquet"):
+        raise NotImplementedError("Parquet dataset support is not available yet.")
     else:
         dataset = TextDatasetLoader(
             file_path=args.dataset,
