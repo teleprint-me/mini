@@ -17,7 +17,7 @@ from mini.engine.sampler import EngineSampler
 from mini.engine.state import EngineState
 
 if __name__ == "__main__":
-    args = TransformerArgs("Mini Inference Tool").parse_args("infer")
+    args = TransformerArgs("Mini Inference Tool").parse_args("generator")
 
     # Load model tokenizer
     processor = SentencePieceProcessor(model_file=args.processor)
