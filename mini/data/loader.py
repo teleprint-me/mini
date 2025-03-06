@@ -6,6 +6,7 @@ Description: Automate loading datasets for text-to-text sequencing.
 
 import logging
 import random
+from typing import Any, Dict, List
 
 import torch
 from sentencepiece import SentencePieceProcessor
@@ -105,7 +106,7 @@ class TextDatasetLoader(DatasetLoader):
 
         self.load_data()
 
-    def _read_file(self):
+    def _read_file(self) -> str:
         self.logger.info(f"Loading plaintext dataset from {self.file_path}")
 
         with open(self.file_path, "r", encoding="utf-8") as file:
@@ -116,7 +117,7 @@ class TextDatasetLoader(DatasetLoader):
 
         return plaintext
 
-    def _process_batches(self, plaintext: str):
+    def _process_batches(self, plaintext: str) -> List[Dict[str, torch.Tensor]]:
         sequences = self.text.encode(plaintext)
         batches = self.text.batch(sequences)
 
@@ -145,36 +146,81 @@ class JsonDatasetLoader(DatasetLoader):
         self,
         file_path: str,
         processor: SentencePieceProcessor,
-        max_seq_len: int,
+        max_seq_len: int = 128,
         batch_size: int = 8,
-        schema_path: str = None,
+        add_bos: bool = True,
+        add_eos: bool = True,
+        supervise: bool = False,
         verbose: bool = False,
+        schema_path: str = None,
     ):
-        super().__init__(file_path, processor, max_seq_len, batch_size, verbose)
+        super().__init__(
+            file_path,
+            processor,
+            max_seq_len,
+            batch_size,
+            add_bos,
+            add_eos,
+            supervise,
+            verbose,
+        )
+
         self.schema_path = schema_path
+
+        self.json = JsonDatasetProcessor(
+            self.processor,
+            self.max_seq_len,
+            self.batch_size,
+            self.add_bos,
+            self.add_eos,
+            self.supervise,
+            self.verbose,
+        )
+
+        self.utils = JsonUtils(self.verbose)
+
         self.load_data()
+
         assert len(self.batches) > 0, "Dataset is empty"
+
+    def _read_file(self) -> List[Dict[str, Any]]:
+        self.logger.info(f"Loading JSON data from {self.file_path}")
+        data = self.utils.load_json(self.file_path)
+        self.logger.debug(f"Loaded JSON dataset with {len(data)} records")
+        return data
+
+    def _validate_schema(self, data: List[Dict[str, Any]]):
+        if self.schema_path:
+            self.logger.info(f"Validating JSON data against schema {self.schema_path}")
+            schema = self.utils.load_json(self.schema_path)
+            self.utils.validate_json(data, schema)
+            self.logger.debug("Dataset successfully validated against schema")
+
+    def _process_batches(
+        self, data: List[Dict[str, Any]]
+    ) -> List[Dict[str, torch.Tensor]]:
+        sequences = self.json.encode(data)
+        batches = self.json.batch(sequences)
+
+        self.logger.info(f"Generated {len(sequences)} progressive sequences")
+        self.logger.info(f"Generated {len(batches)} training batches")
+        assert len(batches) > 0, "Failed to generate batches."
+
+        return batches
+
+    def _log_shapes(self):
+        x = self.batches[0]["input"].shape
+        y = self.batches[0]["target"].shape
+        self.logger.info(f"Input shape: {x}, Target shape: {y}")
 
     def load_data(self):
         """Load and preprocess JSON data."""
-        self.logger.info(f"Loading JSON data from {self.file_path}")
-        self.json_utils = JsonUtils(self.verbose)
-        raw_dataset = self.json_utils.load_json(self.file_path)
-        self.logger.debug(f"Loaded JSON dataset with {len(raw_dataset)} records")
 
-        # Validate dataset
-        if self.schema_path:
-            self.logger.info(f"Validating JSON data against schema {self.schema_path}")
-            raw_schema = self.json_utils.load_json(self.schema_path)
-            self.json_utils.validate_json(raw_dataset, raw_schema)
-            self.logger.debug("Dataset successfully validated against schema")
+        data = self._read_file()
+        self._validate_schema(data)
 
-        # Shuffle dataset
-        random.shuffle(raw_dataset)
+        random.shuffle(data)
         self.logger.debug("Shuffled dataset for training")
 
-        # Use JsonDatasetProcessor for tokenization and batching
-        self.json_processor = JsonDatasetProcessor(self.processor, self.verbose)
-        self.encoded = self.json_processor.tokenize(raw_dataset, self.max_seq_len)
-        self.batches = self.json_processor.batch(self.encoded, self.batch_size)
-        self.logger.debug(f"Generated {len(self.batches)} training batches")
+        self.batches = self._process_batches(data)
+        self._log_shapes()
