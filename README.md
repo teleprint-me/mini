@@ -1,5 +1,7 @@
 # **Mini**
 
+[![Status](https://img.shields.io/badge/Status-Under_Construction-red)](https://github.com/teleprint-me/mini)
+
 _A lightweight modular framework for language modeling in PyTorch._
 
 Mini is a lightweight modular framework for pre-training, fine-tuning, and
@@ -7,7 +9,7 @@ evaluating transformer-based language models. It is designed to support
 sequence-to-sequence learning tasks such as **next-word prediction**,
 **instruction tuning**, and **text generation**.
 
-_NOTE: This project is still under construction and inference produces incoherent results. I'm currently looking into it, but it will take time._
+_NOTE: Inference currently produces incoherent results. I'm currently looking into it, but it will take time._
 
 ## **Key Features**
 
