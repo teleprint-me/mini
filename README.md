@@ -7,9 +7,11 @@ evaluating transformer-based language models. It is designed to support
 sequence-to-sequence learning tasks such as **next-word prediction**,
 **instruction tuning**, and **text generation**.
 
+_NOTE: This project is still under construction and inference produces incoherent results. I'm currently looking into it, but it will take time._
+
 ## **Key Features**
 
-- **Pre-training on structured & unstructured text**
+- **Pre-training on structured & unstructured text** _(debugging)_
 - **Fine-tuning for instruction-based tasks** _(coming soon)_
 - **Evaluation with perplexity and future metric support** _(BLEU, ROUGE, etc.)_
 - **Easy CLI interface for training, inference, and evaluation**
@@ -141,18 +143,24 @@ Expected output:
 Train a model from scratch on a dataset:
 
 ```sh
-python -m mini.cli.train \
+python -m mini.cli.trainer \
     --processor models/tokenizer.model \
-    --model models/misty-owl.pth \
+    --model models/misty.pth \
     --dataset data/mini-owl.md \
     --architecture misty \
+    --max-seq-len 128 \
+    --num-layers 4 \
+    --num-heads 16 \
+    --embed-dim 256 \
+    --ff-dim 128 \
+    --ff-mult 4 \
     --num-epochs 10 \
-    --batch-size 2 \
-    --batch-stride 8 \
+    --batch-size 4 \
     --lr 1e-4 \
     --optimizer adamw \
     --scheduler none \
     --criterion cross_entropy \
+    --supervise \
     --verbose
 ```
 
@@ -162,8 +170,7 @@ python -m mini.cli.train \
   - `--dataset data/mini-owl.md`: Path to the dataset.
   - `--architecture misty`: Model architecture.
   - `--num-epochs 10`: Number of training epochs.
-  - `--batch-size 2`: Batch size.
-  - `--batch-stride 8`: Sequence length per sub-batch.
+  - `--batch-size 4`: Batch size.
   - `--lr 1e-4`: Learning rate.
   - `--optimizer adamw`: Optimizer algorithm.
   - `--scheduler none`: Learning rate scheduler.
@@ -179,7 +186,7 @@ information.
 Run inference on a trained model:
 
 ```sh
-python -m mini.cli.infer \
+python -m mini.cli.generator \
     --processor models/tokenizer.model \
     --model models/misty-owl.pth \
     --temperature 0.5 \
@@ -211,8 +218,8 @@ Evaluate model performance with perplexity, BLEU, and other metrics.
 
 ## **Development Roadmap**
 
-- [x] **Pre-training on custom datasets**
-- [x] **Inference support for text generation**
+- [x] **Pre-training on custom datasets** _(debugging)_
+- [x] **Inference support for text generation** _(debugging)_
 - [ ] **Fine-tuning for instruction-based tasks** _(up next! 🚀)_
 - [ ] **Evaluation with additional NLP metrics**
 - [ ] **Distributed training & performance optimizations**
