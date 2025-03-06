@@ -29,7 +29,6 @@ def main():
         args.supervise,
         args.verbose,
     )
-    dataset.load_data()
 
     for i, (x, y) in enumerate(dataset):
         print(f"\033[35;1;1mbatch\033[0m={i + 1}", end=", ")
