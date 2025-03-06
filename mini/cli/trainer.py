@@ -42,8 +42,11 @@ if __name__ == "__main__":
             processor=processor,
             max_seq_len=args.max_seq_len,
             batch_size=args.batch_size,
-            schema_path=args.schema,
+            add_bos=args.add_bos,
+            add_eos=args.add_eos,
+            supervise=args.supervise,
             verbose=args.verbose,
+            schema_path=args.schema,
         )
     else:
         dataset = TextDatasetLoader(
@@ -51,7 +54,9 @@ if __name__ == "__main__":
             processor=processor,
             max_seq_len=args.max_seq_len,
             batch_size=args.batch_size,
-            batch_stride=args.batch_stride,
+            add_bos=args.add_bos,
+            add_eos=args.add_eos,
+            supervise=args.supervise,
             verbose=args.verbose,
         )
 
